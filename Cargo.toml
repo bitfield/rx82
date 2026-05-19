@@ -1,0 +1,30 @@
+[package]
+name = "r8cpu"
+version = "0.1.0"
+edition = "2024"
+authors = ["John Arundel <john@bitfieldconsulting.com>"]
+description = """An emulator for the R8 teaching CPU."""
+keywords = []
+categories = []
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/r8cpu"
+homepage = "https://github.com/bitfield/r8cpu"
+repository = "https://github.com/bitfield/r8cpu"
+exclude = ["/.github/"]
+
+[badges]
+github = { repository = "bitfield/r8cpu", workflow = "CI" }
+maintenance = { status = "actively-developed" }
+
+[profile.release]
+
+[dependencies]
+anyhow = "1.0.102"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = 1 }
+# restriction = { level = "warn", priority = 1 }
+blanket_clippy_restriction_lints = "allow"
+print_stdout = "allow"
+pub_use = "allow"

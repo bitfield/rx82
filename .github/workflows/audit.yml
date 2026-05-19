@@ -1,0 +1,15 @@
+name: Security audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+  push:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+jobs:
+  security_audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
