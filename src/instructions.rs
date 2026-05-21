@@ -11,7 +11,6 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, &Instruction>> = LazyLock::new(|| 
                 cpu.regs.set8(A, mem.get(cpu.pc));
                 cpu.pc = cpu.pc.wrapping_add(1);
             },
-            test: |_, _| {},
         },
     )])
 });
@@ -21,5 +20,4 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, &Instruction>> = LazyLock::new(|| 
 pub struct Instruction {
     pub execute: fn(&mut Cpu, &mut Memory),
     pub name: &'static str,
-    pub test: fn(&mut Cpu, &mut Memory),
 }

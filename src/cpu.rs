@@ -12,7 +12,6 @@ impl Device for Cpu {
     fn step(&mut self, mem: &mut Memory) {
         let opcode = mem.get(self.pc);
         self.pc = self.pc.wrapping_add(1);
-        println!("opcode {opcode}");
         if let Some(ins) = INSTRUCTIONS.get(&opcode) {
             (ins.execute)(self, mem);
         }

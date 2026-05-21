@@ -1,6 +1,6 @@
 use rand::RngExt as _;
 
-#[expect(clippy::min_ident_chars, reason = "single-letter register names")]
+#[expect(clippy::min_ident_chars, reason = "R8 uses single-letter register names")]
 #[non_exhaustive]
 #[derive(Copy, Clone)]
 pub enum Reg8 {
@@ -23,9 +23,9 @@ impl Default for Regs {
 impl Regs {
     #[inline]
     #[must_use]
-    pub fn get8(&self, reg: &Reg8) -> u8 {
+    pub fn get8(&self, reg: Reg8) -> u8 {
         match reg {
-            &Reg8::A => self.ra,
+            Reg8::A => self.ra,
         }
     }
 
