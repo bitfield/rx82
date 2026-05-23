@@ -1,3 +1,5 @@
+use crate::{bus::Bus, device::Device};
+
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct Memory(Vec<u8>);
@@ -6,6 +8,16 @@ impl Default for Memory {
     #[inline]
     fn default() -> Self {
         Self(vec![0; 0xFFFF]) // 64KiB
+    }
+}
+
+impl Device for Memory {
+    #[inline]
+    fn tick(&mut self, bus: &mut Bus) {
+        if bus.mem && !bus.dirty {
+            bus.data = self.get(bus.addr);
+            bus.dirty = true;
+        }
     }
 }
 

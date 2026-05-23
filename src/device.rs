@@ -1,5 +1,5 @@
-use crate::memory::Memory;
+use crate::bus::Bus;
 
 pub trait Device {
-    fn step(&mut self, mem: &mut Memory);
+    fn tick(&mut self, bus: &mut Bus);
 }
