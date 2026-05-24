@@ -5,3 +5,6 @@ pub mod device;
 pub mod instructions;
 pub mod memory;
 pub mod regs;
+
+#[cfg(test)]
+mod tests;

@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub enum Phase {
     Execute,
     #[default]
