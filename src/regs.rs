@@ -1,6 +1,9 @@
 use rand::RngExt as _;
 
-#[expect(clippy::min_ident_chars, reason = "R8 uses single-letter register names")]
+#[expect(
+    clippy::min_ident_chars,
+    reason = "R8 uses single-letter register names"
+)]
 #[non_exhaustive]
 #[derive(Copy, Clone)]
 pub enum Reg8 {

@@ -1,5 +1,5 @@
 use crate::{
-    bus::Bus,
+    bus::{Bus, State},
     device::Device,
     instructions::INSTRUCTIONS,
     regs::{Reg8::A, Regs},
@@ -28,15 +28,12 @@ impl Device for Cpu {
     fn tick(&mut self, bus: &mut Bus) {
         self.phase = match self.phase {
             Phase::FetchOp => {
-                bus.addr = self.pc;
-                bus.mem = true;
-                bus.dirty = true;
+                bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
                 Phase::MemWait
             }
             Phase::Execute => {
                 self.opcode = bus.data;
-                bus.mem = false;
-                bus.dirty = true;
+                bus.defer_write(vec![State::Mem(false)]);
                 self.pc = self.pc.wrapping_add(1);
                 println!(
                     "PC {:04X} A {:02X} OP {:02X}",

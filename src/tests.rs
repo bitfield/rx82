@@ -1,31 +1,42 @@
-use crate::{bus::Bus, cpu::Cpu, device::Device as _, memory::Memory};
+use crate::{bus::State, system::System};
 
 #[test]
 fn bus_has_correct_states() {
-    let mut cpu = Cpu::default();
-    let mut mem = Memory::default();
-    let mut bus = Bus::default();
-    mem.set(0x0000, 0xFF); // junk
-    cpu.tick(&mut bus); // fetch opcode
-    assert_eq!(bus.addr, 0x0000, "wrong addr after cpu fetch cycle");
-    assert_eq!(bus.data, 0x00, "wrong data after cpu fetch cycle");
-    assert!(bus.dirty, "bus not dirty after cpu fetch cycle");
-    bus.dirty = false; // next system cycle
-    cpu.tick(&mut bus); // memwait
-    assert_eq!(bus.data, 0x00, "wrong data after cpu memwait");
-    mem.tick(&mut bus);
-    assert_eq!(bus.addr, 0x0000, "wrong addr after mem cycle");
-    assert_eq!(bus.data, 0xFF, "wrong data after mem cycle");
-    assert!(bus.dirty, "bus not dirty after mem cycle");
-    bus.dirty = false; // next system cycle
-    cpu.tick(&mut bus); // execute unknown opcode (= noop)
-    assert_eq!(bus.addr, 0x0000, "fetching too early");
-    assert_eq!(bus.data, 0xFF, "bus data changed");
-    mem.tick(&mut bus);
-    assert_eq!(bus.data, 0xFF, "memory wrote to bus");
-    bus.dirty = false; // next system cycle
-    cpu.tick(&mut bus); // fetch opcode
-    assert!(bus.dirty, "bus not written on fetch cycle");
-    assert_eq!(bus.addr, 0x0001, "not fetching next address after execute");
-    assert_eq!(bus.data, 0xFF, "bus data changed");
+    let mut sys = System::default();
+    sys.mem.set(0x0000, 0xFF); // junk
+
+    // Tick 0: CPU issues fetch with PC=0000
+    sys.tick();
+    sys.bus.assert(
+        &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
+        "after fetch 0x0000",
+    );
+
+    // Tick 1: mem reads 0xFF, writes to bus
+    sys.tick();
+    sys.bus.assert(
+        &[State::Addr(0x0000), State::Data(0xFF), State::Mem(true)],
+        "after memread 0x0000",
+    );
+
+    // Tick 2: CPU executes junk opcode (ignored)
+    sys.tick();
+    sys.bus.assert(
+        &[State::Addr(0x0000), State::Data(0xFF), State::Mem(false)],
+        "after execute noop",
+    );
+
+    // Tick 3: CPU issues fetch with PC=0001
+    sys.tick();
+    sys.bus.assert(
+        &[State::Addr(0x0001), State::Data(0xFF), State::Mem(true)],
+        "after fetch 0x0001",
+    );
+
+    // Tick 4: mem reads 0x00, writes to bus
+    sys.tick();
+    sys.bus.assert(
+        &[State::Addr(0x0001), State::Data(0x00), State::Mem(true)],
+        "after memread 0x0001",
+    );
 }

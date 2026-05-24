@@ -1,4 +1,7 @@
-use crate::{bus::Bus, device::Device};
+use crate::{
+    bus::{Bus, State},
+    device::Device,
+};
 
 #[non_exhaustive]
 #[derive(Debug)]
@@ -14,9 +17,9 @@ impl Default for Memory {
 impl Device for Memory {
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
-        if bus.mem && !bus.dirty {
-            bus.data = self.get(bus.addr);
-            bus.dirty = true;
+        if bus.mem {
+            let data = self.get(bus.addr);
+            bus.defer_write(vec![State::Data(data)]);
         }
     }
 }
