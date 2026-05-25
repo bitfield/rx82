@@ -12,7 +12,7 @@ pub struct Memory(Vec<u8>);
 impl Default for Memory {
     #[inline]
     fn default() -> Self {
-        Self(vec![0; 0xFFFF]) // 64KiB
+        Self(vec![0; 0x10_000]) // 64KiB
     }
 }
 
@@ -41,11 +41,9 @@ impl Memory {
     #[inline]
     pub fn load(&mut self, addr: u16, data: &[u8]) -> Result<()> {
         let start = usize::from(addr);
-        let end = data.len();
-        self.0
-            .get_mut(start..end)
-            .context("out of bounds")?
-            .copy_from_slice(data);
+        let end = start.checked_add(data.len()).context("data too long")?;
+        let slice = self.0.get_mut(start..end).context("out of bounds")?;
+        slice.copy_from_slice(data);
         Ok(())
     }
 
@@ -54,5 +52,19 @@ impl Memory {
         if let Some(loc) = self.0.get_mut(usize::from(addr)) {
             *loc = val;
         }
+    }
+}
+
+#[cfg(test)]
+#[expect(clippy::expect_used, reason = "test")]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_checks_bounds_correctly() {
+        let mut mem = Memory::default();
+        mem.load(0xFFFF, &[0x00]).expect("valid load failed");
+        mem.load(0xFFFF, &[0x00, 0x00])
+            .expect_err("invalid load succeeded");
     }
 }
