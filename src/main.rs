@@ -2,16 +2,13 @@ use anyhow::Result;
 
 use r8cpu::system::System;
 
-#[expect(clippy::expect_used, reason = "temporary")]
 fn main() -> Result<()> {
     let mut sys = System::default();
     // write some interesting junk to memory,
     // just so we can see it being fetched
-    sys.mem
-        .load(0x0000, &[0xFF, 0xFE, 0xFD, 0xFC])
-        .expect("load failed");
+    sys.mem.load(0x0000, &[0xFF, 0xFE, 0xFD, 0xFC])?;
+    sys.bus.debug = true;
     loop {
-        sys.debug_print()?;
-        sys.tick();
+        sys.tick()?;
     }
 }

@@ -1,3 +1,5 @@
+use anyhow::{Context as _, Result};
+
 use crate::{
     bus::{Bus, State},
     device::Device,
@@ -31,12 +33,20 @@ impl Memory {
         self.0.get(usize::from(addr)).copied().unwrap_or_default()
     }
 
+    /// Load `data` into memory at address `addr`.
+    ///
+    /// # Errors
+    ///
+    /// If the load exceeds bounds.
     #[inline]
-    pub fn load(&mut self, addr: u16, data: &[u8]) -> Option<()> {
+    pub fn load(&mut self, addr: u16, data: &[u8]) -> Result<()> {
         let start = usize::from(addr);
         let end = data.len();
-        self.0.get_mut(start..end)?.copy_from_slice(data);
-        Some(())
+        self.0
+            .get_mut(start..end)
+            .context("out of bounds")?
+            .copy_from_slice(data);
+        Ok(())
     }
 
     #[inline]

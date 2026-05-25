@@ -1,12 +1,12 @@
 #[non_exhaustive]
 #[derive(Debug, Default)]
-#[expect(clippy::partial_pub_fields, reason = "dirty is internal")]
+#[expect(clippy::partial_pub_fields, reason = "pending_write is internal")]
 pub struct Bus {
     pub addr: u16,
     pub data: u8,
-    dirty: bool,
+    pub debug: bool,
     pub mem: bool,
-    pending_write: Vec<State>,
+    pending_write: Option<Vec<State>>,
 }
 
 impl Bus {
@@ -41,22 +41,22 @@ impl Bus {
 
     #[inline]
     pub fn defer_write(&mut self, states: Vec<State>) {
-        if !self.dirty {
-            self.pending_write = states;
-            self.dirty = true;
+        if self.pending_write.is_none() {
+            self.pending_write = Some(states);
         }
     }
 
     #[inline]
     pub fn reconcile(&mut self) {
-        for state in &self.pending_write {
-            match *state {
-                State::Addr(addr) => self.addr = addr,
-                State::Data(data) => self.data = data,
-                State::Mem(mem) => self.mem = mem,
+        if let Some(states) = self.pending_write.take() {
+            for state in states {
+                match state {
+                    State::Addr(addr) => self.addr = addr,
+                    State::Data(data) => self.data = data,
+                    State::Mem(mem) => self.mem = mem,
+                }
             }
         }
-        self.dirty = false;
     }
 }
 

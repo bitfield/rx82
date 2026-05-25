@@ -27,25 +27,22 @@ impl Default for System {
 }
 
 impl System {
-    /// Print the current system state.
+    /// Advance the system by one clock cycle.
     ///
     /// # Errors
     ///
-    /// If flushing stdout or reading stdin fails.
+    /// If flushing stdout or reading stdin fails in debug mode.
     #[inline]
-    pub fn debug_print(&self) -> Result<()> {
-        let mut input = String::new();
-        println!(
-            "Tick {:04X} Addr {:04X} Data {:02X} Mem {}",
-            self.ticks, self.bus.addr, self.bus.data, self.bus.mem
-        );
-        stdout().flush()?;
-        _ = stdin().read_line(&mut input)?;
-        Ok(())
-    }
-
-    #[inline]
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self) -> Result<()> {
+        if self.bus.debug {
+            let mut input = String::new();
+            println!(
+                "Tick {:04X} Addr {:04X} Data {:02X} Mem {}",
+                self.ticks, self.bus.addr, self.bus.data, self.bus.mem
+            );
+            stdout().flush()?;
+            _ = stdin().read_line(&mut input)?;
+        }
         self.cpu.tick(&mut self.bus);
         self.mem.tick(&mut self.bus);
         for device in &mut self.devices {
@@ -53,5 +50,6 @@ impl System {
         }
         self.bus.reconcile();
         self.ticks = self.ticks.wrapping_add(1);
+        Ok(())
     }
 }
