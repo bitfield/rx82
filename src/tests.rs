@@ -1,9 +1,10 @@
 use crate::{bus::State, system::System};
 
 #[test]
+#[expect(clippy::expect_used, reason = "test")]
 fn bus_has_correct_states() {
     let mut sys = System::default();
-    sys.mem.set(0x0000, 0xFF); // junk
+    sys.mem.load(0x0000, &[0xFF]).expect("load failed"); // junk
 
     // Tick 0: CPU issues fetch with PC=0000
     sys.tick();

@@ -19,13 +19,12 @@ impl System {
     /// # Errors
     ///
     /// If flushing stdout or reading stdin fails.
-    #[expect(clippy::use_debug, reason = "temporary")]
     #[inline]
     pub fn debug_print(&self) -> Result<()> {
         let mut input = String::new();
         println!(
-            "Tick {:04X} Phase: {:?} Addr {:04X} Data {:02X} Mem {}",
-            self.ticks, self.cpu.phase, self.bus.addr, self.bus.data, self.bus.mem
+            "Tick {:04X} Addr {:04X} Data {:02X} Mem {}",
+            self.ticks, self.bus.addr, self.bus.data, self.bus.mem
         );
         stdout().flush()?;
         _ = stdin().read_line(&mut input)?;

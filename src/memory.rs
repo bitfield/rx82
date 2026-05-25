@@ -32,6 +32,14 @@ impl Memory {
     }
 
     #[inline]
+    pub fn load(&mut self, addr: u16, data: &[u8]) -> Option<()> {
+        let start = usize::from(addr);
+        let end = data.len();
+        self.0.get_mut(start..end)?.copy_from_slice(data);
+        Some(())
+    }
+
+    #[inline]
     pub fn set(&mut self, addr: u16, val: u8) {
         if let Some(loc) = self.0.get_mut(usize::from(addr)) {
             *loc = val;
