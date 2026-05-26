@@ -27,6 +27,14 @@ impl Default for System {
 }
 
 impl System {
+    #[inline]
+    pub fn debug_print(&self) {
+        println!(
+            "Tick {:04X} Addr {:04X} Data {:02X} Mem {}",
+            self.ticks, self.bus.addr, self.bus.data, self.bus.mem
+        );
+    }
+
     /// Advance the system by one clock cycle.
     ///
     /// # Errors
@@ -36,10 +44,7 @@ impl System {
     pub fn tick(&mut self) -> Result<()> {
         if self.bus.debug {
             let mut input = String::new();
-            println!(
-                "Tick {:04X} Addr {:04X} Data {:02X} Mem {}",
-                self.ticks, self.bus.addr, self.bus.data, self.bus.mem
-            );
+            self.debug_print();
             stdout().flush()?;
             _ = stdin().read_line(&mut input)?;
         }

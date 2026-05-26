@@ -77,41 +77,62 @@ mod tests {
     #[test]
     fn bus_has_correct_states() -> Result<()> {
         let mut sys = System::default();
-        sys.mem.load(0x0000, &[0xFF])?; // junk
+        sys.mem.load(0x0000, &[0x00, 0x01, 0xFF])?; // nop; ld a, 0xFF
 
-        // Tick 0: CPU issues fetch with PC=0000
+        // cpu issues fetch with PC=0000
         sys.tick()?;
         sys.bus.assert(
             &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
             "after fetch 0x0000",
         );
 
-        // Tick 1: mem reads 0xFF, writes to bus
+        // mem reads opcode, writes to bus
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(0xFF), State::Mem(true)],
+            &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
             "after memread 0x0000",
         );
 
-        // Tick 2: CPU executes junk opcode (ignored)
+        // cpu decodes 'nop' opcode (no operands)
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(0xFF), State::Mem(false)],
-            "after execute noop",
+            &[State::Addr(0x0000), State::Data(0x00), State::Mem(false)],
+            "after decode nop",
         );
 
-        // Tick 3: CPU issues fetch with PC=0001
+        // cpu executes nop
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0001), State::Data(0xFF), State::Mem(true)],
-            "after fetch 0x0001",
+            &[State::Addr(0x0000), State::Data(0x00), State::Mem(false)],
+            "after execute nop",
         );
 
-        // Tick 4: mem reads 0x00, writes to bus
+        // cpu issues fetch with PC=0001
         sys.tick()?;
         sys.bus.assert(
             &[State::Addr(0x0001), State::Data(0x00), State::Mem(true)],
+            "after fetch 0x0001",
+        );
+
+        // mem reads opcode, writes to bus
+        sys.tick()?;
+        sys.bus.assert(
+            &[State::Addr(0x0001), State::Data(0x01), State::Mem(true)],
             "after memread 0x0001",
+        );
+
+        // cpu decodes 'ld a' opcode (1 operand)
+        sys.tick()?;
+        sys.bus.assert(
+            &[State::Addr(0x0001), State::Data(0x01), State::Mem(false)],
+            "after decode ld a",
+        );
+
+        // cpu issues fetch with PC=0002
+        sys.tick()?;
+        sys.bus.assert(
+            &[State::Addr(0x0002), State::Data(0x01), State::Mem(true)],
+            "after fetch operand",
         );
         Ok(())
     }
