@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use r8cpu::system::System;
+use rx82::system::System;
 
 fn main() -> Result<()> {
     let mut sys = System::default();
