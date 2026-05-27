@@ -101,7 +101,9 @@ impl Cpu {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::instructions::LDA_N;
+
+use super::*;
 
     #[test]
     fn cpu_phases_are_correct_for_zero_operand_instruction() {
@@ -124,7 +126,7 @@ mod tests {
         assert_eq!(cpu.phase, Phase::FetchOpcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::MemWait);
-        bus.data = 0x01; // ld a, N
+        bus.data = LDA_N; // ld a, N
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);

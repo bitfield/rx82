@@ -72,12 +72,16 @@ pub enum State {
 mod tests {
     use anyhow::Result;
 
-    use crate::{bus::State, system::System};
+    use crate::{
+        bus::State,
+        instructions::{LDA_N, NOP},
+        system::System,
+    };
 
     #[test]
     fn bus_has_correct_states() -> Result<()> {
         let mut sys = System::default();
-        sys.mem.load(0x0000, &[0x00, 0x01, 0xFF])?; // nop; ld a, 0xFF
+        sys.mem.load(0x0000, &[NOP, LDA_N, 0xFF])?; // nop; ld a, 0xFF
 
         // cpu issues fetch with PC=0000
         sys.tick()?;
@@ -89,49 +93,49 @@ mod tests {
         // mem reads opcode, writes to bus
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
+            &[State::Addr(0x0000), State::Data(NOP), State::Mem(true)],
             "after memread 0x0000",
         );
 
         // cpu decodes 'nop' opcode (no operands)
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(0x00), State::Mem(false)],
+            &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
             "after decode nop",
         );
 
         // cpu executes nop
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(0x00), State::Mem(false)],
+            &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
             "after execute nop",
         );
 
         // cpu issues fetch with PC=0001
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0001), State::Data(0x00), State::Mem(true)],
+            &[State::Addr(0x0001), State::Data(NOP), State::Mem(true)],
             "after fetch 0x0001",
         );
 
         // mem reads opcode, writes to bus
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0001), State::Data(0x01), State::Mem(true)],
+            &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(true)],
             "after memread 0x0001",
         );
 
         // cpu decodes 'ld a' opcode (1 operand)
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0001), State::Data(0x01), State::Mem(false)],
+            &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(false)],
             "after decode ld a",
         );
 
         // cpu issues fetch with PC=0002
         sys.tick()?;
         sys.bus.assert(
-            &[State::Addr(0x0002), State::Data(0x01), State::Mem(true)],
+            &[State::Addr(0x0002), State::Data(LDA_N), State::Mem(true)],
             "after fetch operand",
         );
         Ok(())

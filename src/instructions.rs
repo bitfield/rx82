@@ -4,10 +4,13 @@ use std::{collections::HashMap, sync::LazyLock};
 
 use crate::{cpu::Cpu, regs::Reg8, system::System};
 
+pub(crate) const NOP: u8 = 0x00;
+pub(crate) const LDA_N: u8 = 0x01;
+
 pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
     HashMap::from([
         (
-            0x00,
+            NOP,
             Instruction {
                 name: "nop",
                 bytes: 1,
@@ -16,14 +19,14 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             },
         ),
         (
-            0x01,
+            LDA_N,
             Instruction {
                 name: "ld a, N",
                 bytes: 2,
                 execute: |cpu: &mut Cpu| cpu.regs.set8(Reg8::A, cpu.operand),
                 test: |sys: &mut System| -> Result<()> {
                     sys.cpu.regs.set8(Reg8::A, 0x00);
-                    sys.mem.load(0x0000, &[0x01, 0xFF])?;
+                    sys.mem.load(0x0000, &[LDA_N, 0xFF])?;
                     sys.cpu.pc = 0x0000;
                     sys.tick()?; // fetch
                     sys.debug_print();
