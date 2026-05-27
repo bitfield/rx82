@@ -3,13 +3,17 @@ use std::{thread::sleep, time::Instant};
 
 use crate::{bus::Bus, device::Device};
 
+/// The system clock.
 #[non_exhaustive]
 pub struct Clock {
+    /// Time the next tick is due.
     pub next_tick: Instant,
+    /// Target duration for each tick.
     pub tick_duration: Duration,
 }
 
 impl Default for Clock {
+    /// Creates a default [`Clock`] with a nominal frequency of 4MHz.
     #[inline]
     fn default() -> Self {
         Self {
@@ -20,6 +24,10 @@ impl Default for Clock {
 }
 
 impl Device for Clock {
+    /// Waits until the next tick is due.
+    ///
+    /// If the projected next tick time overflows `usize`, or we are already past the
+    /// next tick time, returns immediately.
     #[inline]
     fn tick(&mut self, _bus: &mut Bus) {
         let now = Instant::now();

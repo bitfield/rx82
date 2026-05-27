@@ -10,12 +10,15 @@ pub enum Reg8 {
     A,
 }
 
+/// The CPU registers.
 #[derive(Debug)]
 pub struct Regs {
+    /// Accumulator 1.
     ra: u8,
 }
 
 impl Default for Regs {
+    /// Registers are randomised.
     #[inline]
     fn default() -> Self {
         let mut rng = rand::rng();
@@ -24,6 +27,7 @@ impl Default for Regs {
 }
 
 impl Regs {
+    /// Returns the byte in register `reg`.
     #[inline]
     #[must_use]
     pub fn get8(&self, reg: Reg8) -> u8 {
@@ -32,6 +36,7 @@ impl Regs {
         }
     }
 
+    /// Sets register `reg` to the byte `val`.
     #[inline]
     pub fn set8(&mut self, reg: Reg8, val: u8) {
         match reg {

@@ -4,7 +4,7 @@
 ![Audit](https://github.com/bitfield/rx82/actions/workflows/audit.yml/badge.svg)
 ![Maintenance](https://img.shields.io/badge/maintenance-actively--developed-brightgreen.svg)
 
-An emulator for the RX82 retro computer system.
+An emulator for the RX82 retro computer system, including the R8 8-bit CPU.
 
 # Installation
 
@@ -17,4 +17,3 @@ cargo install rx82
 ```sh
 rx82
 ```
-

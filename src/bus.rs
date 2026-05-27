@@ -1,11 +1,17 @@
+/// The system bus.
 #[non_exhaustive]
 #[derive(Debug, Default)]
 #[expect(clippy::partial_pub_fields, reason = "pending_write is internal")]
 pub struct Bus {
+    /// The 16-bit address bus.
     pub addr: u16,
+    /// The 8-bit data bus.
     pub data: u8,
+    /// Enables verbose debugging.
     pub debug: bool,
+    /// The 'memory request' line.
     pub mem: bool,
+    /// A possible pending write to the bus state during the current cycle.
     pending_write: Option<Vec<State>>,
 }
 
@@ -39,6 +45,9 @@ impl Bus {
         }
     }
 
+    /// Tries to set `states` on the bus at the end of this cycle.
+    ///
+    /// If a write is already pending, this has no effect.
     #[inline]
     pub fn defer_write(&mut self, states: Vec<State>) {
         if self.pending_write.is_none() {
@@ -46,6 +55,7 @@ impl Bus {
         }
     }
 
+    /// Applies any pending write to the bus.
     #[inline]
     pub fn reconcile(&mut self) {
         if let Some(states) = self.pending_write.take() {
@@ -60,6 +70,7 @@ impl Bus {
     }
 }
 
+/// A desired or asserted bus state.
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum State {
@@ -81,7 +92,13 @@ mod tests {
     #[test]
     fn bus_has_correct_states() -> Result<()> {
         let mut sys = System::default();
-        sys.mem.load(0x0000, &[NOP, LDA_N, 0xFF])?; // nop; ld a, 0xFF
+        sys.mem.load(
+            0x0000,
+            &[
+                NOP, //          0000 nop
+                LDA_N, 0xFF, //  0001 ld a, 0xFF
+            ],
+        )?;
 
         // cpu issues fetch with PC=0000
         sys.tick()?;

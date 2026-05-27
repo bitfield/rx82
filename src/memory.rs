@@ -5,11 +5,13 @@ use crate::{
     device::Device,
 };
 
+/// The system memory.
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct Memory(Vec<u8>);
 
 impl Default for Memory {
+    /// The default [`Memory`] is 64KiB of zeroes.
     #[inline]
     fn default() -> Self {
         Self(vec![0; 0x10_000]) // 64KiB
@@ -17,6 +19,7 @@ impl Default for Memory {
 }
 
 impl Device for Memory {
+    /// Responds to a memory request if the [`Bus::mem`] line is active.
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         if bus.mem {
@@ -27,13 +30,16 @@ impl Device for Memory {
 }
 
 impl Memory {
+    /// Returns the byte at address `addr`.
+    ///
+    /// Returns zero if the address is out of range.
     #[inline]
     #[must_use]
     pub fn get(&self, addr: u16) -> u8 {
         self.0.get(usize::from(addr)).copied().unwrap_or_default()
     }
 
-    /// Load `data` into memory at address `addr`.
+    /// Loads `data` into memory at address `addr`.
     ///
     /// # Errors
     ///
@@ -47,6 +53,9 @@ impl Memory {
         Ok(())
     }
 
+    /// Sets the byte at address `addr` to `val`.
+    ///
+    /// If `addr` is out of range, this has no effect.
     #[inline]
     pub fn set(&mut self, addr: u16, val: u8) {
         if let Some(loc) = self.0.get_mut(usize::from(addr)) {

@@ -6,31 +6,47 @@ use crate::{
     regs::{Reg8::A, Regs},
 };
 
+/// The phase of the CPU.
 #[non_exhaustive]
 #[derive(Debug, Default, PartialEq)]
 pub enum Phase {
+    /// Decodes the opcode on the data bus.
     Decode,
+    /// Executes the current instruction.
     Execute,
+    /// Requests the next opcode from memory.
     #[default]
     FetchOpcode,
+    /// Requests an operand from memory.
     FetchOperand,
+    /// Waits for memory to respond.
     MemWait,
+    /// Reads an operand from the data bus.
     ReadOperand,
 }
 
+/// The system CPU.
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct Cpu {
+    /// The current instruction.
     pub ins: &'static Instruction,
+    /// Do we need to fetch an operand?
     pub need_operand: bool,
+    /// The current opcode.
     pub opcode: u8,
+    /// The current operand.
     pub operand: u8,
+    /// The program counter.
     pub pc: u16,
+    /// The current phase.
     pub phase: Phase,
+    /// The CPU's registers.
     pub regs: Regs,
 }
 
 impl Device for Cpu {
+    /// Performs the current phase, and set the next phase.
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         self.phase = match self.phase {
@@ -76,6 +92,7 @@ impl Device for Cpu {
 }
 
 impl Cpu {
+    /// Prints the CPU's state and registers.
     #[expect(clippy::use_debug, reason = "it's for debugging")]
     #[inline]
     pub fn debug_print(&self) {
@@ -89,6 +106,7 @@ impl Cpu {
         );
     }
 
+    /// Decodes the current opcode and decides whether an operand is needed.
     fn decode(&mut self) -> Phase {
         println!("decoding {:02X}", self.opcode);
         self.ins = INSTRUCTIONS.get(&self.opcode).unwrap_or_default();
@@ -103,7 +121,7 @@ impl Cpu {
 mod tests {
     use crate::instructions::LDA_N;
 
-use super::*;
+    use super::*;
 
     #[test]
     fn cpu_phases_are_correct_for_zero_operand_instruction() {

@@ -4,16 +4,23 @@ use std::io::{Write as _, stdin, stdout};
 
 use crate::{bus::Bus, clock::Clock, cpu::Cpu, device::Device, memory::Memory};
 
+/// The RX82 system as a whole.
 #[non_exhaustive]
 pub struct System {
+    /// The system bus.
     pub bus: Bus,
+    /// The system CPU.
     pub cpu: Cpu,
+    /// Any attached devices, such as the [`Clock`].
     pub devices: Vec<Box<dyn Device>>,
+    /// The system memory.
     pub mem: Memory,
+    /// Cycle counter.
     pub ticks: u16,
 }
 
 impl Default for System {
+    /// The default `System` has all-default devices, including a default [`Clock`].
     #[inline]
     fn default() -> Self {
         Self {
@@ -27,6 +34,7 @@ impl Default for System {
 }
 
 impl System {
+    /// Prints the current cycle count and bus state.
     #[inline]
     pub fn debug_print(&self) {
         println!(
@@ -35,7 +43,7 @@ impl System {
         );
     }
 
-    /// Advance the system by one clock cycle.
+    /// Advances the system by one clock cycle.
     ///
     /// # Errors
     ///
