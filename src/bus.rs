@@ -1,6 +1,8 @@
+use anyhow::{Result, ensure};
+
 /// The system bus.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 #[expect(clippy::partial_pub_fields, reason = "pending_write is internal")]
 pub struct Bus {
     /// The 16-bit address bus.
@@ -18,31 +20,33 @@ pub struct Bus {
 impl Bus {
     /// Asserts all the given bus states.
     ///
-    /// # Panics
+    /// # Errors
     ///
     /// On the first failed assertion.
     #[inline]
-    pub fn assert(&self, states: &[State], msg: &'static str) {
+    pub fn assert(&self, states: &[State], msg: &'static str) -> Result<()> {
         for state in states {
             match *state {
-                State::Addr(addr) => assert_eq!(
-                    self.addr, addr,
+                State::Addr(addr) => ensure!(
+                    self.addr == addr,
                     "want bus addr {:04X}, got {:04X} {msg}",
-                    addr, self.addr
+                    addr,
+                    self.addr
                 ),
-                State::Data(data) => assert_eq!(
-                    self.data, data,
+                State::Data(data) => ensure!(
+                    self.data == data,
                     "want bus data {:02X}, got {:02X} {msg}",
-                    data, self.data
+                    data,
+                    self.data
                 ),
-                State::Mem(mem) => assert_eq!(
-                    self.mem,
-                    mem,
+                State::Mem(mem) => ensure!(
+                    self.mem == mem,
                     "mem line {} {msg}",
                     if self.mem { "active" } else { "inactive" }
                 ),
             }
         }
+        Ok(())
     }
 
     /// Tries to set `states` on the bus at the end of this cycle.
@@ -72,7 +76,7 @@ impl Bus {
 
 /// A desired or asserted bus state.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum State {
     Addr(u16),
     Data(u8),
@@ -99,62 +103,101 @@ mod tests {
                 LDA_N, 0xFF, //  0001 ld a, 0xFF
             ],
         )?;
-
         // cpu issues fetch with PC=0000
         sys.tick()?;
-        sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
-            "after fetch 0x0000",
-        );
+        sys.bus
+            .assert(
+                &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
+                "after fetch 0x0000",
+            )
+            .or_else(|err| {
+                sys.trace()?;
+                Err(err)
+            })?;
 
         // mem reads opcode, writes to bus
         sys.tick()?;
-        sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(NOP), State::Mem(true)],
-            "after memread 0x0000",
-        );
+        sys.bus
+            .assert(
+                &[State::Addr(0x0000), State::Data(NOP), State::Mem(true)],
+                "after memread 0x0000",
+            )
+            .or_else(|err| {
+                sys.trace()?;
+                Err(err)
+            })?;
 
         // cpu decodes 'nop' opcode (no operands)
         sys.tick()?;
-        sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
-            "after decode nop",
-        );
+        sys.bus
+            .assert(
+                &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
+                "after decode nop",
+            )
+            .or_else(|err| {
+                sys.trace()?;
+                Err(err)
+            })?;
 
         // cpu executes nop
         sys.tick()?;
-        sys.bus.assert(
-            &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
-            "after execute nop",
-        );
+        sys.bus
+            .assert(
+                &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
+                "after execute nop",
+            )
+            .or_else(|err| {
+                sys.trace()?;
+                Err(err)
+            })?;
 
         // cpu issues fetch with PC=0001
         sys.tick()?;
-        sys.bus.assert(
-            &[State::Addr(0x0001), State::Data(NOP), State::Mem(true)],
-            "after fetch 0x0001",
-        );
+        sys.bus
+            .assert(
+                &[State::Addr(0x0001), State::Data(NOP), State::Mem(true)],
+                "after fetch 0x0001",
+            )
+            .or_else(|err| {
+                sys.trace()?;
+                Err(err)
+            })?;
 
         // mem reads opcode, writes to bus
         sys.tick()?;
-        sys.bus.assert(
-            &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(true)],
-            "after memread 0x0001",
-        );
+        sys.bus
+            .assert(
+                &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(true)],
+                "after memread 0x0001",
+            )
+            .or_else(|err| {
+                sys.trace()?;
+                Err(err)
+            })?;
 
         // cpu decodes 'ld a' opcode (1 operand)
         sys.tick()?;
-        sys.bus.assert(
-            &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(false)],
-            "after decode ld a",
-        );
+        sys.bus
+            .assert(
+                &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(false)],
+                "after decode ld a",
+            )
+            .or_else(|err| {
+                sys.trace()?;
+                Err(err)
+            })?;
 
         // cpu issues fetch with PC=0002
         sys.tick()?;
-        sys.bus.assert(
-            &[State::Addr(0x0002), State::Data(LDA_N), State::Mem(true)],
-            "after fetch operand",
-        );
+        sys.bus
+            .assert(
+                &[State::Addr(0x0002), State::Data(LDA_N), State::Mem(true)],
+                "after fetch operand",
+            )
+            .or_else(|err| {
+                sys.trace()?;
+                Err(err)
+            })?;
         Ok(())
     }
 }

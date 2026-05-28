@@ -3,27 +3,9 @@ use crate::{
     cpu::Phase::{Execute, FetchOperand},
     device::Device,
     instructions::{INSTRUCTIONS, Instruction},
+    phase::Phase,
     regs::{Reg8::A, Regs},
 };
-
-/// The phase of the CPU.
-#[non_exhaustive]
-#[derive(Debug, Default, PartialEq)]
-pub enum Phase {
-    /// Decodes the opcode on the data bus.
-    Decode,
-    /// Executes the current instruction.
-    Execute,
-    /// Requests the next opcode from memory.
-    #[default]
-    FetchOpcode,
-    /// Requests an operand from memory.
-    FetchOperand,
-    /// Waits for memory to respond.
-    MemWait,
-    /// Reads an operand from the data bus.
-    ReadOperand,
-}
 
 /// The system CPU.
 #[non_exhaustive]
@@ -119,7 +101,7 @@ impl Cpu {
 
 #[cfg(test)]
 mod tests {
-    use crate::instructions::LDA_N;
+    use crate::{instructions::LDA_N, phase::Phase};
 
     use super::*;
 
