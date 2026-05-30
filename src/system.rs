@@ -76,14 +76,15 @@ impl System {
 
     /// Prints a timing diagram from the stored history.
     ///
-    /// # Errors
+    /// # Panics
     ///
     /// If writing to the strings fails.
     #[expect(clippy::non_ascii_literal, reason = "looks nice")]
+    #[expect(clippy::unwrap_used, reason = "panic is okay here")]
     #[inline]
-    pub fn trace(&self) -> Result<()> {
+    pub fn trace(&self) {
         if self.history.is_empty() {
-            return Ok(());
+            return;
         }
         let mut tick = String::from("TICK ");
         let mut header = String::from("─────");
@@ -92,11 +93,11 @@ impl System {
         let mut data = String::from("DATA ");
         let mut mem = String::from("MEM  ");
         for snapshot in &self.history {
-            write!(tick, " {:04X}", snapshot.tick)?;
-            write!(header, "─────")?;
-            write!(phase, " {}", snapshot.phase)?;
-            write!(addr, " {:04X}", snapshot.bus.addr)?;
-            write!(data, " ──{:02X}", snapshot.bus.data)?;
+            write!(tick, " {:04X}", snapshot.tick).unwrap();
+            write!(header, "─────").unwrap();
+            write!(phase, " {}", snapshot.phase).unwrap();
+            write!(addr, " {:04X}", snapshot.bus.addr).unwrap();
+            write!(data, " ──{:02X}", snapshot.bus.data).unwrap();
             write!(
                 mem,
                 "{}",
@@ -105,7 +106,8 @@ impl System {
                 } else {
                     " ────"
                 }
-            )?;
+            )
+            .unwrap();
         }
         println!("{tick}");
         println!("{header}");
@@ -113,6 +115,5 @@ impl System {
         println!("{addr}");
         println!("{data}");
         println!("{mem}");
-        Ok(())
     }
 }
