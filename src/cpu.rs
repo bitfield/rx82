@@ -4,7 +4,7 @@ use crate::{
     device::Device,
     instructions::{INSTRUCTIONS, Instruction},
     phase::Phase,
-    regs::{Reg8::A, Regs},
+    regs::Regs,
 };
 
 /// The system CPU.
@@ -40,8 +40,6 @@ impl Device for Cpu {
             }
             Phase::Execute => {
                 self.need_operand = false;
-                println!("execute");
-                self.debug_print();
                 if let Some(ins) = INSTRUCTIONS.get(&self.opcode) {
                     (ins.execute)(self);
                 }
@@ -74,23 +72,8 @@ impl Device for Cpu {
 }
 
 impl Cpu {
-    /// Prints the CPU's state and registers.
-    #[expect(clippy::use_debug, reason = "it's for debugging")]
-    #[inline]
-    pub fn debug_print(&self) {
-        println!(
-            "PC {:04X} A {:02X} OC {:02X} O1 {:02X} Phase {:?}",
-            self.pc,
-            self.regs.get8(A),
-            self.opcode,
-            self.operand,
-            self.phase,
-        );
-    }
-
     /// Decodes the current opcode and decides whether an operand is needed.
     fn decode(&mut self) -> Phase {
-        println!("decoding {:02X}", self.opcode);
         self.ins = INSTRUCTIONS.get(&self.opcode).unwrap_or_default();
         match self.ins.bytes {
             2 => FetchOperand,

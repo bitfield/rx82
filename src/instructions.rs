@@ -31,26 +31,12 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
                     sys.mem.load(0x0000, &[LDA_N, 0xFF])?;
                     sys.cpu.pc = 0x0000;
                     sys.tick()?; // fetch
-                    sys.debug_print();
-                    sys.cpu.debug_print();
                     sys.tick()?; // memwait
-                    sys.debug_print();
-                    sys.cpu.debug_print();
                     sys.tick()?; // decode
-                    sys.debug_print();
-                    sys.cpu.debug_print();
                     sys.tick()?; // fetch operand
-                    sys.debug_print();
-                    sys.cpu.debug_print();
                     sys.tick()?; // memwait
-                    sys.debug_print();
-                    sys.cpu.debug_print();
                     sys.tick()?; // read operand
-                    sys.debug_print();
-                    sys.cpu.debug_print();
                     sys.tick()?; // execute
-                    sys.debug_print();
-                    sys.cpu.debug_print();
                     let val = sys.cpu.regs.get8(Reg8::A);
                     if val != 0xFF {
                         bail!("want A=0xFF, got A={val:02X}")

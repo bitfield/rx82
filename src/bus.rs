@@ -95,7 +95,10 @@ mod tests {
 
     #[test]
     fn bus_has_correct_states() -> Result<()> {
-        let mut sys = System::default();
+        let mut sys = System {
+            debug: true,
+            ..Default::default()
+        };
         sys.mem.load(
             0x0000,
             &[

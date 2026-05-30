@@ -1,5 +1,3 @@
-use rand::RngExt as _;
-
 #[expect(
     clippy::min_ident_chars,
     reason = "R8 uses single-letter register names"
@@ -11,19 +9,10 @@ pub enum Reg8 {
 }
 
 /// The CPU registers.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Regs {
     /// Accumulator 1.
     ra: u8,
-}
-
-impl Default for Regs {
-    /// Registers are randomised.
-    #[inline]
-    fn default() -> Self {
-        let mut rng = rand::rng();
-        Self { ra: rng.random() }
-    }
 }
 
 impl Regs {

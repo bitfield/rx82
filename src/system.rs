@@ -1,7 +1,6 @@
 use anyhow::Result;
 
 use core::fmt::Write as _;
-use std::io::{Write as _, stdin, stdout};
 
 use crate::{bus::Bus, clock::Clock, cpu::Cpu, device::Device, memory::Memory, snapshot::Snapshot};
 
@@ -12,8 +11,11 @@ pub struct System {
     pub bus: Bus,
     /// The system CPU.
     pub cpu: Cpu,
+    /// Enable debug snapshots.
+    pub debug: bool,
     /// Any attached devices, such as the [`Clock`].
     pub devices: Vec<Box<dyn Device>>,
+    /// Stored debug snapshots.
     pub history: Vec<Snapshot>,
     /// The system memory.
     pub mem: Memory,
@@ -28,6 +30,7 @@ impl Default for System {
         Self {
             bus: Bus::default(),
             cpu: Cpu::default(),
+            debug: false,
             devices: vec![Box::new(Clock::default())],
             history: Vec::new(),
             mem: Memory::default(),
@@ -54,23 +57,19 @@ impl System {
     #[inline]
     pub fn tick(&mut self) -> Result<()> {
         let phase = self.cpu.phase;
-        if self.bus.debug {
-            let mut input = String::new();
-            self.debug_print();
-            stdout().flush()?;
-            _ = stdin().read_line(&mut input)?;
-        }
         self.cpu.tick(&mut self.bus);
         self.mem.tick(&mut self.bus);
         for device in &mut self.devices {
             device.tick(&mut self.bus);
         }
         self.bus.reconcile();
-        self.history.push(Snapshot {
-            tick: self.ticks,
-            phase,
-            bus: self.bus.clone(),
-        });
+        if self.debug {
+            self.history.push(Snapshot {
+                tick: self.ticks,
+                phase,
+                bus: self.bus.clone(),
+            });
+        }
         self.ticks = self.ticks.wrapping_add(1);
         Ok(())
     }
@@ -83,7 +82,9 @@ impl System {
     #[expect(clippy::non_ascii_literal, reason = "looks nice")]
     #[inline]
     pub fn trace(&self) -> Result<()> {
-        println!("{} snapshots", self.history.len());
+        if self.history.is_empty() {
+            return Ok(());
+        }
         let mut tick = String::from("TICK ");
         let mut header = String::from("─────");
         let mut phase = String::from("CPU  ");

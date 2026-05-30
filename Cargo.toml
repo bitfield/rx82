@@ -17,11 +17,8 @@ exclude = ["/.github/"]
 github = { repository = "bitfield/rx82", workflow = "CI" }
 maintenance = { status = "actively-developed" }
 
-[profile.release]
-
 [dependencies]
 anyhow = "1.0.102"
-rand = { version = "0.10.1", features = ["thread_rng"] }
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
