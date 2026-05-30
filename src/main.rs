@@ -2,21 +2,27 @@ use std::io::{Write as _, stdin, stdout};
 
 use anyhow::Result;
 
-use rx82::{phase::Phase::FetchOpcode, regs::Reg8::A, system::System};
+use rx82::{
+    asm::disassemble,
+    instructions::{LDA_N, NOP},
+    phase::Phase::FetchOpcode,
+    regs::Reg8::A,
+    system::System,
+};
 
 fn main() -> Result<()> {
     let mut sys = System::default();
     // write some interesting junk to memory,
     // just so we can see it being fetched
-    sys.mem.load(0x0000, &[0xFF, 0xFE, 0xFD, 0xFC])?;
+    sys.mem.load(0x0000, &[NOP, LDA_N, 0xFF, LDA_N, 0xFE])?;
     loop {
         if sys.cpu.phase == FetchOpcode {
-            println!("  PC  A NXT");
+            println!("  PC  A NEXT");
             println!(
-                "{:04X} {:02X}  {:02X}",
+                "{:04X} {:02X} {}",
                 sys.cpu.pc,
                 sys.cpu.regs.get8(A),
-                sys.mem.get(sys.cpu.pc),
+                disassemble(sys.mem.slice_from(sys.cpu.pc)?),
             );
             let mut input = String::new();
             print!("> ");

@@ -35,7 +35,6 @@ impl Device for Cpu {
             Phase::Decode => {
                 self.opcode = bus.data;
                 bus.defer_write(vec![State::Mem(false)]);
-                self.pc = self.pc.wrapping_add(1);
                 self.decode()
             }
             Phase::Execute => {
@@ -56,6 +55,7 @@ impl Device for Cpu {
                 Phase::MemWait
             }
             Phase::MemWait => {
+                self.pc = self.pc.wrapping_add(1);
                 if self.need_operand {
                     Phase::ReadOperand
                 } else {

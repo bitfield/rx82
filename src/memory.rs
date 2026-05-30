@@ -62,6 +62,18 @@ impl Memory {
             *loc = val;
         }
     }
+
+    /// Returns the slice starting at `addr`.
+    ///
+    /// # Errors
+    ///
+    /// If `addr` is out of range.
+    #[inline]
+    pub fn slice_from(&self, addr: u16) -> Result<&[u8]> {
+        let start = usize::from(addr);
+        let slice = self.0.get(start..).context("out of bounds")?;
+        Ok(slice)
+    }
 }
 
 #[cfg(test)]

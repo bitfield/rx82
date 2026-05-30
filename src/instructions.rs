@@ -1,12 +1,12 @@
-use anyhow::{Result, bail};
+use anyhow::{Result, ensure};
 
 use std::{collections::HashMap, sync::LazyLock};
 
 use crate::{cpu::Cpu, regs::Reg8, system::System};
 
 /// Temporary opcode constants to make test programs easier to read.
-pub(crate) const NOP: u8 = 0x00;
-pub(crate) const LDA_N: u8 = 0x01;
+pub const NOP: u8 = 0x00;
+pub const LDA_N: u8 = 0x01;
 
 /// The instruction set.
 pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
@@ -23,7 +23,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
         (
             LDA_N,
             Instruction {
-                name: "ld a, N",
+                name: "ld a",
                 bytes: 2,
                 execute: |cpu: &mut Cpu| cpu.regs.set8(Reg8::A, cpu.operand),
                 test: |sys: &mut System| -> Result<()> {
@@ -37,10 +37,8 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
                     sys.tick()?; // memwait
                     sys.tick()?; // read operand
                     sys.tick()?; // execute
-                    let val = sys.cpu.regs.get8(Reg8::A);
-                    if val != 0xFF {
-                        bail!("want A=0xFF, got A={val:02X}")
-                    }
+                    ensure!(sys.cpu.regs.get8(Reg8::A) == 0xFF);
+                    ensure!(sys.cpu.pc == 0x0002);
                     Ok(())
                 },
             },
