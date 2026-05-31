@@ -45,15 +45,6 @@ impl Default for System {
 impl System {
     /// Prints the current cycle count and bus state.
     #[inline]
-    pub fn debug_bus(&self) {
-        println!(
-            "Tick {:04X} Addr {:04X} Data {:02X} Mem {}",
-            self.ticks, self.bus.addr, self.bus.data, self.bus.mem
-        );
-    }
-
-    /// Prints the current cycle count and bus state.
-    #[inline]
     pub fn debug_cpu(&self) {
         println!("  PC  A NEXT");
         println!(
@@ -71,7 +62,7 @@ impl System {
     /// If flushing stdout or reading stdin fails in debug mode.
     #[inline]
     pub fn tick(&mut self) -> Result<()> {
-        let phase = self.cpu.phase;
+        let phase = self.cpu.phase; // save before cpu.tick() overwrites it
         self.cpu.tick(&mut self.bus);
         self.mem.tick(&mut self.bus);
         for device in &mut self.devices {
@@ -81,7 +72,7 @@ impl System {
         if self.debug {
             self.history.push(Snapshot {
                 tick: self.ticks,
-                phase,
+                phase, // at start of this tick
                 bus: self.bus.clone(),
             });
         }

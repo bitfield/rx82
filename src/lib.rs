@@ -6,7 +6,6 @@ pub mod cpu;
 pub mod device;
 pub mod instructions;
 pub mod memory;
-pub mod phase;
 pub mod regs;
 pub mod snapshot;
 pub mod system;
