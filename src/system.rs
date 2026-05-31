@@ -2,7 +2,10 @@ use anyhow::Result;
 
 use core::fmt::Write as _;
 
-use crate::{bus::Bus, clock::Clock, cpu::Cpu, device::Device, memory::Memory, snapshot::Snapshot};
+use crate::{
+    asm::disassemble, bus::Bus, clock::Clock, cpu::Cpu, device::Device, memory::Memory,
+    regs::Reg8::A, snapshot::Snapshot,
+};
 
 /// The RX82 system as a whole.
 #[non_exhaustive]
@@ -42,10 +45,22 @@ impl Default for System {
 impl System {
     /// Prints the current cycle count and bus state.
     #[inline]
-    pub fn debug_print(&self) {
+    pub fn debug_bus(&self) {
         println!(
             "Tick {:04X} Addr {:04X} Data {:02X} Mem {}",
             self.ticks, self.bus.addr, self.bus.data, self.bus.mem
+        );
+    }
+
+    /// Prints the current cycle count and bus state.
+    #[inline]
+    pub fn debug_cpu(&self) {
+        println!("  PC  A NEXT");
+        println!(
+            "{:04X} {:02X} {}",
+            self.cpu.pc,
+            self.cpu.regs.get8(A),
+            disassemble(self.mem.slice_from(self.cpu.pc))
         );
     }
 

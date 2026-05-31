@@ -10,13 +10,9 @@ pub enum Phase {
     Execute,
     /// Requests the next opcode from memory.
     #[default]
-    FetchOpcode,
-    /// Requests an operand from memory.
-    FetchOperand,
+    Fetch,
     /// Waits for memory to respond.
     MemWait,
-    /// Reads an operand from the data bus.
-    ReadOperand,
 }
 
 impl Display for Phase {
@@ -28,10 +24,8 @@ impl Display for Phase {
             match *self {
                 Phase::Decode => "DCOD",
                 Phase::Execute => "EXEC",
-                Phase::FetchOpcode => "FTCH",
-                Phase::FetchOperand => "FOPR",
+                Phase::Fetch => "FTCH",
                 Phase::MemWait => "WAIT",
-                Phase::ReadOperand => "ROPR",
             }
         )
     }

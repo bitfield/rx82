@@ -1,6 +1,5 @@
 use crate::{
     bus::{Bus, State},
-    cpu::Phase::{Execute, FetchOperand},
     device::Device,
     instructions::{INSTRUCTIONS, Instruction},
     phase::Phase,
@@ -13,7 +12,9 @@ use crate::{
 pub struct Cpu {
     /// The current instruction.
     pub ins: &'static Instruction,
-    /// Do we need to fetch an operand?
+    /// Have we just completed an instruction?
+    pub instruction_complete: bool,
+    /// Are we waiting for an operand to complete this instrution?
     pub need_operand: bool,
     /// The current opcode.
     pub opcode: u8,
@@ -31,53 +32,39 @@ impl Device for Cpu {
     /// Performs the current phase, and set the next phase.
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
+        self.instruction_complete = false;
         self.phase = match self.phase {
-            Phase::Decode => {
-                self.opcode = bus.data;
-                bus.defer_write(vec![State::Mem(false)]);
-                self.decode()
-            }
-            Phase::Execute => {
-                self.need_operand = false;
-                if let Some(ins) = INSTRUCTIONS.get(&self.opcode) {
-                    (ins.execute)(self);
-                }
-                Phase::FetchOpcode
-            }
-            Phase::FetchOpcode => {
-                bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
-                Phase::MemWait
-            }
-            Phase::FetchOperand => {
-                self.operand = bus.data;
-                bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
-                self.need_operand = true;
-                Phase::MemWait
-            }
-            Phase::MemWait => {
-                self.pc = self.pc.wrapping_add(1);
-                if self.need_operand {
-                    Phase::ReadOperand
-                } else {
-                    Phase::Decode
-                }
-            }
-            Phase::ReadOperand => {
+            Phase::Decode if self.need_operand => {
                 self.operand = bus.data;
                 bus.defer_write(vec![State::Mem(false)]);
                 Phase::Execute
             }
-        };
-    }
-}
-
-impl Cpu {
-    /// Decodes the current opcode and decides whether an operand is needed.
-    fn decode(&mut self) -> Phase {
-        self.ins = INSTRUCTIONS.get(&self.opcode).unwrap_or_default();
-        match self.ins.bytes {
-            2 => FetchOperand,
-            _ => Execute,
+            Phase::Decode => {
+                self.opcode = bus.data;
+                self.ins = INSTRUCTIONS.get(&self.opcode).unwrap_or_default();
+                if self.ins.bytes == 2 {
+                    self.need_operand = true;
+                    Phase::Fetch
+                } else {
+                    self.need_operand = false;
+                    bus.defer_write(vec![State::Mem(false)]);
+                    Phase::Execute
+                }
+            }
+            Phase::Execute => {
+                if let Some(ins) = INSTRUCTIONS.get(&self.opcode) {
+                    (ins.execute)(self);
+                }
+                self.instruction_complete = true;
+                self.need_operand = false;
+                Phase::Fetch
+            }
+            Phase::Fetch => {
+                bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
+                self.pc = self.pc.wrapping_add(1);
+                Phase::MemWait
+            }
+            Phase::MemWait => Phase::Decode,
         }
     }
 }
@@ -92,7 +79,7 @@ mod tests {
     fn cpu_phases_are_correct_for_zero_operand_instruction() {
         let mut cpu = Cpu::default();
         let mut bus = Bus::default();
-        assert_eq!(cpu.phase, Phase::FetchOpcode);
+        assert_eq!(cpu.phase, Phase::Fetch);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::MemWait);
         bus.data = 0x00; // nop
@@ -106,18 +93,18 @@ mod tests {
     fn cpu_phases_are_correct_for_one_operand_instruction() {
         let mut cpu = Cpu::default();
         let mut bus = Bus::default();
-        assert_eq!(cpu.phase, Phase::FetchOpcode);
+        assert_eq!(cpu.phase, Phase::Fetch);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::MemWait);
         bus.data = LDA_N; // ld a, N
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::FetchOperand);
+        assert_eq!(cpu.phase, Phase::Fetch);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::MemWait);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::ReadOperand);
+        assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Execute);
     }

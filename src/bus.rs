@@ -108,44 +108,65 @@ mod tests {
         )?;
         let ticks = vec![
             (
-                "after fetch 0x0000",
+                "fetch 0x0000",
+                &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
+            ),
+            (
+                "memwait 0x0000",
                 &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
             ),
             (
-                "after memread 0x0000",
+                "decode nop",
                 &[State::Addr(0x0000), State::Data(NOP), State::Mem(true)],
             ),
             (
-                "after decode nop",
+                "execute nop",
                 &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
             ),
             (
-                "after execute nop",
+                "fetch 0x0001",
                 &[State::Addr(0x0000), State::Data(NOP), State::Mem(false)],
             ),
             (
-                "after fetch 0x0001",
+                "memwait 0x0001",
                 &[State::Addr(0x0001), State::Data(NOP), State::Mem(true)],
             ),
             (
-                "after memread 0x0001",
+                "decode ld a",
                 &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(true)],
             ),
             (
-                "after decode ld a",
-                &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(false)],
+                "fetch operand",
+                &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(true)],
             ),
             (
-                "after fetch operand",
+                "memwait 0x0002",
                 &[State::Addr(0x0002), State::Data(LDA_N), State::Mem(true)],
+            ),
+            (
+                "decode operand 0xff",
+                &[State::Addr(0x0002), State::Data(0xFF), State::Mem(true)],
+            ),
+            (
+                "execute ld a, 0xff",
+                &[State::Addr(0x0002), State::Data(0xFF), State::Mem(false)],
+            ),
+            (
+                "fetch 0x0003",
+                &[State::Addr(0x0002), State::Data(0xFF), State::Mem(false)],
+            ),
+            (
+                "memwait 0x0003",
+                &[State::Addr(0x0003), State::Data(0xFF), State::Mem(true)],
             ),
         ];
 
-        for (msg, states) in ticks {
-            sys.tick()?;
-            sys.bus.assert(states, msg).inspect_err(|_| {
+        for (msg, start_states) in ticks {
+            sys.bus.assert(start_states, msg).inspect_err(|_| {
                 sys.trace();
             })?;
+            sys.tick()?;
+            println!("need_operand: {}", sys.cpu.need_operand);
         }
         Ok(())
     }
