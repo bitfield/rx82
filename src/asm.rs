@@ -3,7 +3,9 @@ use core::{
     str::Chars,
 };
 
-use crate::instructions::INSTRUCTIONS;
+use anyhow::{Result, bail};
+
+use crate::instructions::{INSTRUCTIONS, LDA_N, NOP};
 
 #[non_exhaustive]
 #[derive(Debug, PartialEq)]
@@ -49,7 +51,7 @@ impl<'source> Tokenizer<'source> {
         }
         Some(())
     }
-    
+
     #[inline]
     #[must_use]
     pub fn new(input: &'source str) -> Self {
@@ -78,6 +80,48 @@ impl<'source> Tokenizer<'source> {
     }
 }
 
+/// Returns the assembled bytes for the program `input`.
+///
+/// # Errors
+///
+/// If the program is invalid.
+#[expect(clippy::pattern_type_mismatch, reason = "can't borrow here")]
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "all unexpected tokens are invalid"
+)]
+#[inline]
+pub fn codegen<'tokenstream, T>(input: T) -> Result<Vec<u8>>
+where
+    T: IntoIterator<Item = &'tokenstream Token>,
+{
+    let mut code = Vec::new();
+    let mut tokens = input.into_iter();
+    while let Some(token) = tokens.next() {
+        code.extend(match token {
+            Token::Keyword(kw) if kw == "nop" => vec![NOP],
+            Token::Keyword(kw) if kw == "ld" => {
+                let Some(Token::Register(reg)) = tokens.next() else {
+                    bail!("syntax error")
+                };
+                let opcode = match reg.as_str() {
+                    "a" => LDA_N,
+                    _ => bail!("invalid register {reg}"),
+                };
+                let Some(Token::Comma) = tokens.next() else {
+                    bail!("syntax error")
+                };
+                let Some(Token::HexLiteral(operand)) = tokens.next() else {
+                    bail!("syntax error")
+                };
+                vec![opcode, *operand]
+            }
+            _ => bail!("invalid token {token:?}"),
+        });
+    }
+    Ok(code)
+}
+
 #[inline]
 pub fn disassemble(slice: &[u8]) -> String {
     let mut data = slice.iter();
@@ -100,11 +144,30 @@ pub fn tokenize(source: &str) -> Vec<Token> {
     Tokenizer::new(source).collect()
 }
 
+#[expect(clippy::unwrap_used, reason = "tests")]
 #[cfg(test)]
 mod tests {
     use crate::instructions::{LDA_N, NOP};
 
     use super::*;
+
+    #[test]
+    fn codegen_produces_correct_machine_code() {
+        assert_eq!(
+            codegen(&[Token::Keyword("nop".to_owned())]).unwrap(),
+            &[NOP]
+        );
+        assert_eq!(
+            codegen(&[
+                Token::Keyword("ld".to_owned()),
+                Token::Register("a".to_owned()),
+                Token::Comma,
+                Token::HexLiteral(0xFF)
+            ])
+            .unwrap(),
+            &[LDA_N, 0xFF]
+        );
+    }
 
     #[test]
     fn disassemble_correctly_disassembles_instructions() {
