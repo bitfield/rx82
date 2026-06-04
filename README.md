@@ -6,6 +6,12 @@
 
 An emulator for the RX82 retro computer system, including the R8 8-bit CPU.
 
+> ADRIC: _What do these numbers and letters mean?_\
+> DOCTOR: _It's an early version. Instructions have to be punched in by machine code._\
+> ADRIC: _Oh, how boring._\
+> DOCTOR: _**Boring?**_
+—Doctor Who, _Logopolis_
+
 # Installation
 
 ```sh
