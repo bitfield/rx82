@@ -80,6 +80,17 @@ impl<'source> Tokenizer<'source> {
     }
 }
 
+/// Assembles the code in `source`.
+/// 
+/// # Errors
+/// 
+/// If the source is invalid.
+#[inline]
+pub fn assemble(source: &str) -> Result<Vec<u8>> {
+    let tokens = tokenize(source);
+    codegen(tokens.iter())
+}
+
 /// Returns the assembled bytes for the program `input`.
 ///
 /// # Errors
@@ -150,6 +161,11 @@ mod tests {
     use crate::instructions::{LDA_N, NOP};
 
     use super::*;
+
+    #[test]
+    fn assemble_correctly_assembles_source() {
+        assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LDA_N, 0xFF]);
+    }
 
     #[test]
     fn codegen_produces_correct_machine_code() {
