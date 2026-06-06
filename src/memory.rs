@@ -8,7 +8,7 @@ use crate::{
 /// The system memory.
 #[non_exhaustive]
 #[derive(Debug)]
-pub struct Memory(Vec<u8>);
+pub struct Memory(pub Vec<u8>);
 
 impl Default for Memory {
     /// The default [`Memory`] is 64KiB of zeroes.
