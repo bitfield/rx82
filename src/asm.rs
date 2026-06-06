@@ -81,9 +81,9 @@ impl<'source> Tokenizer<'source> {
 }
 
 /// Assembles the code in `source`.
-/// 
+///
 /// # Errors
-/// 
+///
 /// If the source is invalid.
 #[inline]
 pub fn assemble(source: &str) -> Result<Vec<u8>> {

@@ -1,5 +1,7 @@
 use std::{
-    fs, io::{Write as _, stdin, stdout}, path::Path
+    fs,
+    io::{Write as _, stdin, stdout},
+    path::Path,
 };
 
 use anyhow::Result;
