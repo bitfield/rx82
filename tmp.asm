@@ -1,0 +1,5 @@
+ld a, 0xFF
+nop
+ld a, 0x01
+nop
+ld a, 0xFE

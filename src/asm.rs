@@ -7,76 +7,134 @@ use anyhow::{Result, bail};
 
 use crate::instructions::{INSTRUCTIONS, LDA_N, NOP};
 
+const KEYWORDS: &[&str] = &["ld", "nop"];
+
+#[expect(clippy::exhaustive_structs, reason = "users can create literals")]
+#[derive(Debug, Default)]
+pub struct Assembler {
+    pub debug: bool,
+}
+
+impl Assembler {
+    /// Assembles the code in `source`.
+    ///
+    /// # Errors
+    ///
+    /// If the source is invalid.
+    #[inline]
+    pub fn assemble(&self, source: &str) -> Result<Vec<u8>> {
+        let mut tokenizer = Tokenizer::new(source);
+        tokenizer.debug = self.debug;
+        let tokens = tokenizer.tokens();
+        codegen(&tokens)
+    }
+}
+
 #[non_exhaustive]
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Comma,
     HexLiteral(u8),
+    Identifier(String),
     Illegal(String),
     Keyword(String),
     Register(String),
 }
 
 #[non_exhaustive]
-pub struct Tokenizer<'source>(pub Peekable<Chars<'source>>);
-
-impl Iterator for Tokenizer<'_> {
-    type Item = Token;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.0.next_if(|ch| ch.is_whitespace()).is_some() {}
-        println!("examining '{}'", self.0.peek()?);
-        let token = match *self.0.peek()? {
-            '0' => self.read_hex_literal(),
-            ',' => self.advance(Token::Comma),
-            ch if ch.is_alphabetic() => self.read_alpha(),
-            ch => self.advance(Token::Illegal(ch.to_string())),
-        };
-        Some(token)
-    }
+pub struct Tokenizer<'source> {
+    pub debug: bool,
+    pub source: Peekable<Chars<'source>>,
 }
 
 impl<'source> Tokenizer<'source> {
     #[inline]
-    pub fn advance(&mut self, token: Token) -> Token {
-        self.0.next();
-        token
+    pub fn advance(&mut self) {
+        self.source.next();
     }
 
     #[inline]
     pub fn chomp(&mut self, st: &str) -> Option<()> {
         for want in st.chars() {
-            _ = self.0.next_if(|&got| want == got)?;
+            _ = self.source.next_if(|&got| want == got)?;
         }
         Some(())
     }
 
     #[inline]
+    pub fn debug_print(&self, msg: impl AsRef<str>) {
+        if self.debug {
+            println!("tokenize: {}", msg.as_ref());
+        }
+    }
+
+    #[inline]
+    pub fn identifier(&mut self) -> Option<Token> {
+        let ident: String =
+            iter::from_fn(|| self.source.next_if(|ch| ch.is_alphabetic())).collect();
+        self.debug_print(format!("identifier '{ident}'"));
+        Some(match ident.as_str() {
+            "a" => Token::Register(ident),
+            kw if is_keyword(kw) => Token::Keyword(ident),
+            _ => Token::Identifier(ident),
+        })
+    }
+
+    #[inline]
     #[must_use]
     pub fn new(input: &'source str) -> Self {
-        Self(input.chars().peekable())
-    }
-
-    #[inline]
-    pub fn read_alpha(&mut self) -> Token {
-        let word: String = iter::from_fn(|| self.0.next_if(|ch| ch.is_alphabetic())).collect();
-        println!("read word '{word}'");
-        match word.as_str() {
-            "a" => Token::Register(word),
-            _ => Token::Keyword(word),
+        Self {
+            debug: false,
+            source: input.chars().peekable(),
         }
     }
 
     #[inline]
-    pub fn read_hex_literal(&mut self) -> Token {
+    pub fn read_comma(&mut self) -> Option<Token> {
+        self.advance();
+        Some(Token::Comma)
+    }
+
+    #[inline]
+    pub fn read_hex_literal(&mut self) -> Option<Token> {
         self.chomp("0x");
-        let word: String = iter::from_fn(|| self.0.next_if(|ch| !ch.is_whitespace())).collect();
-        println!("read word '{word}'");
-        match u8::from_str_radix(&word, 16) {
+        let literal: String =
+            iter::from_fn(|| self.source.next_if(|ch| !ch.is_whitespace())).collect();
+        self.debug_print(format!("hex literal '{literal}'"));
+        Some(match u8::from_str_radix(&literal, 16) {
             Ok(val) => Token::HexLiteral(val),
-            Err(_) => Token::Illegal(word),
+            Err(_) => Token::Illegal(literal),
+        })
+    }
+
+    #[inline]
+    pub fn read_illegal(&mut self, ch: char) -> Option<Token> {
+        self.advance();
+        Some(Token::Illegal(ch.to_string()))
+    }
+
+    #[inline]
+    pub fn skip_whitespace(&mut self) -> Option<Token> {
+        while self.source.next_if(|ch| ch.is_whitespace()).is_some() {}
+        None
+    }
+
+    #[inline]
+    pub fn tokens(&mut self) -> Vec<Token> {
+        let mut tokens = Vec::new();
+        while let Some(next_char) = self.source.peek() {
+            let next = *next_char;
+            if let Some(token) = match next {
+                '0' => self.read_hex_literal(),
+                ',' => self.read_comma(),
+                ch if ch.is_alphabetic() => self.identifier(),
+                ch if ch.is_whitespace() => self.skip_whitespace(),
+                ch => self.read_illegal(ch),
+            } {
+                tokens.push(token);
+            }
         }
+        tokens
     }
 }
 
@@ -87,8 +145,7 @@ impl<'source> Tokenizer<'source> {
 /// If the source is invalid.
 #[inline]
 pub fn assemble(source: &str) -> Result<Vec<u8>> {
-    let tokens = tokenize(source);
-    codegen(tokens.iter())
+    Assembler::default().assemble(source)
 }
 
 /// Returns the assembled bytes for the program `input`.
@@ -102,32 +159,29 @@ pub fn assemble(source: &str) -> Result<Vec<u8>> {
     reason = "all unexpected tokens are invalid"
 )]
 #[inline]
-pub fn codegen<'tokenstream, T>(input: T) -> Result<Vec<u8>>
-where
-    T: IntoIterator<Item = &'tokenstream Token>,
-{
+pub fn codegen(input: &[Token]) -> Result<Vec<u8>> {
     let mut code = Vec::new();
-    let mut tokens = input.into_iter();
+    let mut tokens = input.iter();
     while let Some(token) = tokens.next() {
         code.extend(match token {
             Token::Keyword(kw) if kw == "nop" => vec![NOP],
             Token::Keyword(kw) if kw == "ld" => {
                 let Some(Token::Register(reg)) = tokens.next() else {
-                    bail!("syntax error")
+                    bail!("expected register")
                 };
                 let opcode = match reg.as_str() {
                     "a" => LDA_N,
                     _ => bail!("invalid register {reg}"),
                 };
                 let Some(Token::Comma) = tokens.next() else {
-                    bail!("syntax error")
+                    bail!("expected comma")
                 };
                 let Some(Token::HexLiteral(operand)) = tokens.next() else {
-                    bail!("syntax error")
+                    bail!("expected hex literal")
                 };
                 vec![opcode, *operand]
             }
-            _ => bail!("invalid token {token:?}"),
+            _ => bail!("unexpected {token:?}"),
         });
     }
     Ok(code)
@@ -149,10 +203,16 @@ pub fn disassemble(slice: &[u8]) -> String {
     }
 }
 
-#[must_use]
 #[inline]
+#[must_use]
+pub fn is_keyword(kw: &str) -> bool {
+    KEYWORDS.contains(&kw)
+}
+
+#[inline]
+#[must_use]
 pub fn tokenize(source: &str) -> Vec<Token> {
-    Tokenizer::new(source).collect()
+    Tokenizer::new(source).tokens()
 }
 
 #[expect(clippy::unwrap_used, reason = "tests")]
@@ -164,7 +224,8 @@ mod tests {
 
     #[test]
     fn assemble_correctly_assembles_source() {
-        assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LDA_N, 0xFF]);
+        let asm = Assembler { debug: true };
+        assert_eq!(asm.assemble("ld a, 0xFF").unwrap(), &[LDA_N, 0xFF]);
     }
 
     #[test]
