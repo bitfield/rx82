@@ -5,58 +5,35 @@ use core::{
 
 use anyhow::{Result, bail};
 
-use crate::instructions::{INSTRUCTIONS, LDA_N, NOP};
+use crate::instructions::{INSTRUCTIONS, KEYWORDS, LDA_N, NOP};
 
-const KEYWORDS: &[&str] = &["ld", "nop"];
-
-#[expect(clippy::exhaustive_structs, reason = "users can create literals")]
-#[derive(Debug, Default)]
-pub struct Assembler {
+#[non_exhaustive]
+pub struct Assembler<'source> {
+    pub chars: Peekable<Chars<'source>>,
     pub debug: bool,
 }
 
-impl Assembler {
+impl<'source> Assembler<'source> {
+    #[inline]
+    pub fn advance(&mut self) {
+        self.chars.next();
+    }
+
     /// Assembles the code in `source`.
     ///
     /// # Errors
     ///
     /// If the source is invalid.
     #[inline]
-    pub fn assemble(&self, source: &str) -> Result<Vec<u8>> {
-        let mut tokenizer = Tokenizer::new(source);
-        tokenizer.debug = self.debug;
-        let tokens = tokenizer.tokens();
+    pub fn assemble(&mut self) -> Result<Vec<u8>> {
+        let tokens = self.tokens();
         codegen(&tokens)
-    }
-}
-
-#[non_exhaustive]
-#[derive(Debug, PartialEq)]
-pub enum Token {
-    Comma,
-    HexLiteral(u8),
-    Identifier(String),
-    Illegal(String),
-    Keyword(String),
-    Register(String),
-}
-
-#[non_exhaustive]
-pub struct Tokenizer<'source> {
-    pub debug: bool,
-    pub source: Peekable<Chars<'source>>,
-}
-
-impl<'source> Tokenizer<'source> {
-    #[inline]
-    pub fn advance(&mut self) {
-        self.source.next();
     }
 
     #[inline]
     pub fn chomp(&mut self, st: &str) -> Option<()> {
         for want in st.chars() {
-            _ = self.source.next_if(|&got| want == got)?;
+            _ = self.chars.next_if(|&got| want == got)?;
         }
         Some(())
     }
@@ -68,24 +45,21 @@ impl<'source> Tokenizer<'source> {
         }
     }
 
+    #[must_use]
     #[inline]
-    pub fn identifier(&mut self) -> Option<Token> {
-        let ident: String =
-            iter::from_fn(|| self.source.next_if(|ch| ch.is_alphabetic())).collect();
-        self.debug_print(format!("identifier '{ident}'"));
-        Some(match ident.as_str() {
-            "a" => Token::Register(ident),
-            kw if is_keyword(kw) => Token::Keyword(ident),
-            _ => Token::Identifier(ident),
-        })
+    pub fn new(source: &'source str) -> Self {
+        Self {
+            chars: source.chars().peekable(),
+            debug: false,
+        }
     }
 
-    #[inline]
     #[must_use]
-    pub fn new(input: &'source str) -> Self {
+    #[inline]
+    pub fn new_with_debug(source: &'source str) -> Self {
         Self {
-            debug: false,
-            source: input.chars().peekable(),
+            chars: source.chars().peekable(),
+            debug: true,
         }
     }
 
@@ -99,11 +73,22 @@ impl<'source> Tokenizer<'source> {
     pub fn read_hex_literal(&mut self) -> Option<Token> {
         self.chomp("0x");
         let literal: String =
-            iter::from_fn(|| self.source.next_if(|ch| !ch.is_whitespace())).collect();
+            iter::from_fn(|| self.chars.next_if(|ch| !ch.is_whitespace())).collect();
         self.debug_print(format!("hex literal '{literal}'"));
         Some(match u8::from_str_radix(&literal, 16) {
             Ok(val) => Token::HexLiteral(val),
             Err(_) => Token::Illegal(literal),
+        })
+    }
+
+    #[inline]
+    pub fn read_identifier(&mut self) -> Option<Token> {
+        let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
+        self.debug_print(format!("identifier '{ident}'"));
+        Some(match ident.as_str() {
+            "a" => Token::Register(ident),
+            kw if KEYWORDS.contains(&kw) => Token::Keyword(ident),
+            _ => Token::Identifier(ident),
         })
     }
 
@@ -115,19 +100,19 @@ impl<'source> Tokenizer<'source> {
 
     #[inline]
     pub fn skip_whitespace(&mut self) -> Option<Token> {
-        while self.source.next_if(|ch| ch.is_whitespace()).is_some() {}
+        while self.chars.next_if(|ch| ch.is_whitespace()).is_some() {}
         None
     }
 
     #[inline]
     pub fn tokens(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
-        while let Some(next_char) = self.source.peek() {
+        while let Some(next_char) = self.chars.peek() {
             let next = *next_char;
             if let Some(token) = match next {
                 '0' => self.read_hex_literal(),
                 ',' => self.read_comma(),
-                ch if ch.is_alphabetic() => self.identifier(),
+                ch if ch.is_alphabetic() => self.read_identifier(),
                 ch if ch.is_whitespace() => self.skip_whitespace(),
                 ch => self.read_illegal(ch),
             } {
@@ -138,14 +123,15 @@ impl<'source> Tokenizer<'source> {
     }
 }
 
-/// Assembles the code in `source`.
-///
-/// # Errors
-///
-/// If the source is invalid.
-#[inline]
-pub fn assemble(source: &str) -> Result<Vec<u8>> {
-    Assembler::default().assemble(source)
+#[non_exhaustive]
+#[derive(Debug, PartialEq)]
+pub enum Token {
+    Comma,
+    HexLiteral(u8),
+    Identifier(String),
+    Illegal(String),
+    Keyword(String),
+    Register(String),
 }
 
 /// Returns the assembled bytes for the program `input`.
@@ -203,18 +189,6 @@ pub fn disassemble(slice: &[u8]) -> String {
     }
 }
 
-#[inline]
-#[must_use]
-pub fn is_keyword(kw: &str) -> bool {
-    KEYWORDS.contains(&kw)
-}
-
-#[inline]
-#[must_use]
-pub fn tokenize(source: &str) -> Vec<Token> {
-    Tokenizer::new(source).tokens()
-}
-
 #[expect(clippy::unwrap_used, reason = "tests")]
 #[cfg(test)]
 mod tests {
@@ -224,8 +198,8 @@ mod tests {
 
     #[test]
     fn assemble_correctly_assembles_source() {
-        let asm = Assembler { debug: true };
-        assert_eq!(asm.assemble("ld a, 0xFF").unwrap(), &[LDA_N, 0xFF]);
+        assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LDA_N, 0xFF]);
+        assert_eq!(assemble("nop").unwrap(), &[NOP]);
     }
 
     #[test]
@@ -265,5 +239,21 @@ mod tests {
                 Token::HexLiteral(0xFF)
             ]
         );
+    }
+
+    /// Assembles the code in `source`.
+    ///
+    /// # Errors
+    ///
+    /// If the source is invalid.
+    #[inline]
+    fn assemble(source: &str) -> Result<Vec<u8>> {
+        Assembler::new_with_debug(source).assemble()
+    }
+
+    #[inline]
+    #[must_use]
+    fn tokenize(source: &str) -> Vec<Token> {
+        Assembler::new_with_debug(source).tokens()
     }
 }

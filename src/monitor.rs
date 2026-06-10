@@ -1,8 +1,4 @@
-use std::{
-    fs,
-    io::{Write as _, stdin, stdout},
-    path::Path,
-};
+use std::io::{Write as _, stdin, stdout};
 
 use anyhow::Result;
 
@@ -10,10 +6,12 @@ use crate::{cpu::Phase::FetchOpcode, system::System};
 
 #[non_exhaustive]
 #[derive(Default)]
-pub struct Monitor(pub System);
+pub struct Monitor {
+    pub debug: bool,
+    pub sys: System,
+}
 
 impl Monitor {
-    #[expect(clippy::impl_trait_in_params, reason = "readability")]
     /// Loads the binary file at `path` into memory at address `addr`.
     ///
     /// # Errors
@@ -21,10 +19,8 @@ impl Monitor {
     /// If loading the file fails or if the data cannot be loaded at the requested
     /// address (for example, if it would go out of bounds).
     #[inline]
-    pub fn load_bin(&mut self, addr: u16, path: impl AsRef<Path>) -> Result<()> {
-        let data = fs::read(path)?;
-        self.0.mem.load(addr, &data)?;
-        Ok(())
+    pub fn load(&mut self, addr: u16, data: &[u8]) -> Result<()> {
+        self.sys.mem.load(addr, data)
     }
 
     /// Runs the monitor interactively until the user quits.
@@ -34,13 +30,13 @@ impl Monitor {
     /// If reading the user's command input fails.
     #[inline]
     pub fn run(&mut self) -> Result<()> {
-        self.0.debug = true;
+        self.sys.debug = self.debug;
         loop {
-            if self.0.cpu.phase == FetchOpcode {
-                self.0.debug_cpu();
+            if self.debug && self.sys.cpu.phase == FetchOpcode {
+                self.sys.debug_cpu();
                 wait_for_newline()?;
             }
-            self.0.tick()?;
+            self.sys.tick()?;
         }
     }
 }
@@ -63,13 +59,10 @@ mod tests {
 
     #[expect(clippy::indexing_slicing, reason = "must succeed for test to pass")]
     #[test]
-    fn load_bin_fn_loads_binary_file() {
+    fn load_loads_data() {
         let mut mon = Monitor::default();
-        mon.load_bin(0x000, "tests/data/test.bin").unwrap();
-        assert_eq!(
-            &mon.0.mem.0[0..=5],
-            &[LDA_N, 0xFF, LDA_N, 0xFE, LDA_N, 0xFD],
-            "wrong data"
-        );
+        let data = &[LDA_N, 0xFF, LDA_N, 0xFE, LDA_N, 0xFD];
+        mon.load(0x000, data).unwrap();
+        assert_eq!(&mon.sys.mem.0[0..=5], data, "wrong data");
     }
 }

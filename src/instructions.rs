@@ -8,6 +8,8 @@ use crate::{cpu::Cpu, regs::Reg8, system::System};
 pub const NOP: u8 = 0x00;
 pub const LDA_N: u8 = 0x01;
 
+pub const KEYWORDS: &[&str] = &["ld", "nop"];
+
 /// The instruction set.
 pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
     HashMap::from([

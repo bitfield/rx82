@@ -1,49 +1,82 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 use rx82::{asm::Assembler, monitor::Monitor};
 
 #[derive(Debug, Parser)]
 struct Cli {
     #[clap(subcommand)]
-    /// Subcommand.
-    command: Option<Command>,
-    /// Path of a binary file to load.
-    path: Option<PathBuf>,
+    command: Command,
+    #[command(flatten)]
+    opts: SharedOptions,
+}
+
+#[derive(Args, Debug)]
+struct SharedOptions {
+    /// Enable verbose debugging.
+    #[clap(short, long)]
+    debug: bool,
 }
 
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Assemble a source file.
     Asm {
-        /// Enable verbose debugging.
-        #[clap(short, long)]
-        debug: bool,
-        /// Path of the source file.
+        /// Path to the source file.
+        path: PathBuf,
+    },
+    /// Start the interactive monitor.
+    Mon {
+        /// Path to a binary file to load.
+        path: Option<PathBuf>,
+    },
+    /// Assemble and load a source file into the monitor.
+    Run {
+        /// Path to the source file.
         path: PathBuf,
     },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let mut mon = Monitor::default();
     match cli.command {
-        Some(Command::Asm { debug, path }) => {
-            let source = fs::read_to_string(&path)?;
-            let asm = Assembler { debug };
-            let data = asm.assemble(&source)?;
+        Command::Asm { path } => {
+            let data = assemble(&path, cli.opts.debug)?;
             let mut bin_path = path.clone();
             bin_path.set_extension("bin");
             fs::write(bin_path, data)?;
             Ok(())
         }
-        None => {
-            if let Some(path) = cli.path {
-                mon.load_bin(0x0000, path)?;
-            }
+        Command::Mon { path: Some(path) } => {
+            let mut mon = Monitor::default();
+            let data = fs::read(path)?;
+            mon.load(0x0000, &data)?;
+            mon.debug = cli.opts.debug;
+            mon.run()
+        }
+        Command::Mon { path: None } => {
+            let mut mon = Monitor::default();
+            mon.debug = true;
+            mon.run()
+        }
+        Command::Run { path } => {
+            let data = assemble(&path, cli.opts.debug)?;
+            let mut mon = Monitor::default();
+            mon.load(0x0000, &data)?;
+            mon.debug = cli.opts.debug;
             mon.run()
         }
     }
+}
+
+fn assemble(path: impl AsRef<Path>, debug: bool) -> Result<Vec<u8>> {
+    let source = fs::read_to_string(&path)?;
+    let mut asm = Assembler::new(&source);
+    asm.debug = debug;
+    asm.assemble()
 }
