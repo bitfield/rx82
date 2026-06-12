@@ -5,9 +5,9 @@ use core::{
 
 use anyhow::{Result, bail};
 
-use crate::instructions::{INSTRUCTIONS, LDA_N, NOP};
+use crate::instructions::{HALT, INSTRUCTIONS, LDA_N, NOP};
 
-pub const KEYWORDS: &[&str] = &["ld", "nop"];
+pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
 
 #[non_exhaustive]
 pub struct Assembler<'source> {
@@ -152,6 +152,7 @@ pub fn codegen(input: &[Token]) -> Result<Vec<u8>> {
     let mut tokens = input.iter();
     while let Some(token) = tokens.next() {
         code.extend(match token {
+            Token::Keyword(kw) if kw == "halt" => vec![HALT],
             Token::Keyword(kw) if kw == "nop" => vec![NOP],
             Token::Keyword(kw) if kw == "ld" => {
                 let Some(Token::Register(reg)) = tokens.next() else {
@@ -194,12 +195,13 @@ pub fn disassemble(slice: &[u8]) -> String {
 #[expect(clippy::unwrap_used, reason = "tests")]
 #[cfg(test)]
 mod tests {
-    use crate::instructions::{LDA_N, NOP};
+    use crate::instructions::{HALT, LDA_N, NOP};
 
     use super::*;
 
     #[test]
     fn assemble_correctly_assembles_source() {
+        assert_eq!(assemble("halt").unwrap(), &[HALT]);
         assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LDA_N, 0xFF]);
         assert_eq!(assemble("nop").unwrap(), &[NOP]);
     }
@@ -224,6 +226,7 @@ mod tests {
 
     #[test]
     fn disassemble_correctly_disassembles_instructions() {
+        assert_eq!(disassemble(&[HALT]), "halt");
         assert_eq!(disassemble(&[NOP]), "nop");
         assert_eq!(disassemble(&[0xFF]), "???");
         assert_eq!(disassemble(&[LDA_N, 0xFF]), "ld a, 0xFF");
