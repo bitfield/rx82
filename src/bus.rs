@@ -11,7 +11,7 @@ pub struct Bus {
     pub data: u8,
     /// Enables verbose debugging.
     pub debug: bool,
-    /// CPU /HALT signal.
+    /// CPU /HLT signal.
     pub halt: bool,
     /// CPU 'memory request' line.
     pub mem: bool,
@@ -43,7 +43,7 @@ impl Bus {
                 ),
                 State::Halt(halt) => ensure!(
                     self.halt == halt,
-                    "/HALT line {} {msg}",
+                    "/HLT line {} {msg}",
                     if self.halt { "active" } else { "inactive" }
                 ),
                 State::Mem(mem) => ensure!(

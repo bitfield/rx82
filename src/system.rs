@@ -3,9 +3,22 @@ use anyhow::Result;
 use core::fmt::Write as _;
 
 use crate::{
-    asm::disassemble, bus::Bus, clock::Clock, cpu::Cpu, device::Device, memory::Memory,
-    regs::Reg8::A, snapshot::Snapshot,
+    asm::disassemble,
+    bus::Bus,
+    clock::Clock,
+    cpu::{Cpu, Phase},
+    device::Device,
+    memory::Memory,
+    regs::Reg8::A,
 };
+
+/// A snapshot of the system state for debugging.
+#[non_exhaustive]
+pub struct Snapshot {
+    pub bus: Bus,
+    pub phase: Phase,
+    pub tick: u16,
+}
 
 /// The RX82 system as a whole.
 #[non_exhaustive]
@@ -97,7 +110,8 @@ impl System {
         let mut phase = String::from("CPU  ");
         let mut addr = String::from("ADDR ");
         let mut data = String::from("DATA ");
-        let mut mem = String::from("MEM  ");
+        let mut mem = String::from("/MEM ");
+        let mut halt = String::from("/HLT ");
         for snapshot in &self.history {
             write!(tick, " {:04X}", snapshot.tick).unwrap();
             write!(header, "─────").unwrap();
@@ -114,6 +128,16 @@ impl System {
                 }
             )
             .unwrap();
+            write!(
+                halt,
+                "{}",
+                if snapshot.bus.halt {
+                    " ████"
+                } else {
+                    " ────"
+                }
+            )
+            .unwrap();
         }
         println!("{tick}");
         println!("{header}");
@@ -121,5 +145,6 @@ impl System {
         println!("{addr}");
         println!("{data}");
         println!("{mem}");
+        println!("{halt}");
     }
 }

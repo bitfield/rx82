@@ -12,6 +12,8 @@ use Phase::{Decode, Execute, FetchOpcode, FetchOperand, ReadOperand, WaitOpcode,
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct Cpu {
+    /// HALT flag.
+    pub halt: bool,
     /// The current instruction.
     pub ins: &'static Instruction,
     /// The current operand.
@@ -40,6 +42,11 @@ impl Device for Cpu {
             }
             Execute => {
                 (self.ins.execute)(self);
+                if self.halt {
+                    bus.defer_write(vec![State::Halt(true)]);
+                } else {
+                    bus.defer_write(vec![State::Halt(false)]);
+                }
                 FetchOpcode
             }
             FetchOpcode => {

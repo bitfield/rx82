@@ -5,7 +5,9 @@ use core::{
 
 use anyhow::{Result, bail};
 
-use crate::instructions::{INSTRUCTIONS, KEYWORDS, LDA_N, NOP};
+use crate::instructions::{INSTRUCTIONS, LDA_N, NOP};
+
+pub const KEYWORDS: &[&str] = &["ld", "nop"];
 
 #[non_exhaustive]
 pub struct Assembler<'source> {
