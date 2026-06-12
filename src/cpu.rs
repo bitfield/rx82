@@ -42,17 +42,16 @@ impl Device for Cpu {
             }
             Execute => {
                 (self.ins.execute)(self);
-                if self.halt {
-                    bus.defer_write(vec![State::Halt(true)]);
-                } else {
-                    bus.defer_write(vec![State::Halt(false)]);
-                }
                 FetchOpcode
             }
             FetchOpcode => {
-                bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
-                self.pc = self.pc.wrapping_add(1);
-                WaitOpcode
+                if self.halt {
+                    FetchOpcode
+                } else {
+                    bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
+                    self.pc = self.pc.wrapping_add(1);
+                    WaitOpcode
+                }
             }
             FetchOperand => {
                 bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);

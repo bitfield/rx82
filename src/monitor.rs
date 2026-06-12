@@ -32,7 +32,7 @@ impl Monitor {
     pub fn run(&mut self) -> Result<()> {
         self.sys.debug = self.debug;
         loop {
-            if self.sys.bus.halt {
+            if self.sys.cpu.halt {
                 println!("halted");
                 self.debug = true;
             }
@@ -40,7 +40,7 @@ impl Monitor {
                 self.sys.debug_cpu();
                 wait_for_newline()?;
             }
-            self.sys.bus.halt = false;
+            self.sys.cpu.halt = false;
             self.sys.tick();
         }
     }

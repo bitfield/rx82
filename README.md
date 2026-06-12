@@ -66,6 +66,8 @@ You can also optionally load and run a binary file (such as one produced by the 
 rx82 mon my_prog.bin
 ```
 
+The program will run until a `halt` instruction is reached.
+
 To run the program in single-step mode, use the `--debug` switch:
 
 ```sh

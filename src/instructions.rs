@@ -31,7 +31,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
                     sys.mem.load(0x0000, &[HALT])?;
                     sys.cpu.pc = 0x0000;
                     sys.run();
-                    ensure!(sys.bus.halt, "/HLT not active");
+                    ensure!(sys.cpu.halt, "CPU not halted");
                     ensure!(sys.cpu.pc == 0x0001, "wrong PC");
                     Ok(())
                 },

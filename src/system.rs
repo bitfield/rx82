@@ -70,8 +70,7 @@ impl System {
     #[inline]
     pub fn run(&mut self) {
         self.cpu.halt = false;
-        self.bus.halt = false;
-        while !self.bus.halt {
+        while !self.cpu.halt {
             self.tick();
         }
     }
@@ -114,7 +113,6 @@ impl System {
         let mut addr = String::from("ADDR ");
         let mut data = String::from("DATA ");
         let mut mem = String::from("/MEM ");
-        let mut halt = String::from("/HLT ");
         for snapshot in &self.history {
             write!(tick, " {:04X}", snapshot.tick).unwrap();
             write!(header, "─────").unwrap();
@@ -131,16 +129,6 @@ impl System {
                 }
             )
             .unwrap();
-            write!(
-                halt,
-                "{}",
-                if snapshot.bus.halt {
-                    " ████"
-                } else {
-                    " ────"
-                }
-            )
-            .unwrap();
         }
         println!("{tick}");
         println!("{header}");
@@ -148,6 +136,5 @@ impl System {
         println!("{addr}");
         println!("{data}");
         println!("{mem}");
-        println!("{halt}");
     }
 }
