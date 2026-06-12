@@ -86,11 +86,19 @@ impl<'source> Assembler<'source> {
     #[inline]
     pub fn read_identifier(&mut self) -> Option<Token> {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
-        self.debug_print(format!("identifier '{ident}'"));
         Some(match ident.as_str() {
-            "a" => Token::Register(ident),
-            kw if KEYWORDS.contains(&kw) => Token::Keyword(ident),
-            _ => Token::Identifier(ident),
+            "a" => {
+                self.debug_print(format!("register '{ident}'"));
+                Token::Register(ident)
+            }
+            kw if KEYWORDS.contains(&kw) => {
+                self.debug_print(format!("keyword '{ident}'"));
+                Token::Keyword(ident)
+            }
+            _ => {
+                self.debug_print(format!("identifier '{ident}'"));
+                Token::Identifier(ident)
+            }
         })
     }
 
@@ -155,8 +163,11 @@ pub fn codegen(input: &[Token]) -> Result<Vec<u8>> {
             Token::Keyword(kw) if kw == "halt" => vec![HALT],
             Token::Keyword(kw) if kw == "nop" => vec![NOP],
             Token::Keyword(kw) if kw == "ld" => {
-                let Some(Token::Register(reg)) = tokens.next() else {
-                    bail!("expected register")
+                let Some(next) = tokens.next() else {
+                    bail!("unexpected end of file")
+                };
+                let Token::Register(reg) = next else {
+                    bail!("expected register, got {next:?}")
                 };
                 let opcode = match reg.as_str() {
                     "a" => LDA_N,

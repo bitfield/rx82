@@ -1,12 +1,18 @@
-    def STDOUT 1
-    jmp START
-HELLO:
-    data "Hello, world!", 0x00
-START:
+    ld b, 0x0D // length of string
     ld cd, HELLO
+
 LOOP:
-    cmp (cd), 0x00
-    rtz
-    out (cd), STDOUT
+    cmp b, 0x00
+    jrz END
+
+    ld a, (cd)
+    out a, 1
+    
     inc cd
-    jmp LOOP
+    dec b
+    jr LOOP
+
+HELLO: .data "Hello, world!"
+
+END:
+    halt
