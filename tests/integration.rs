@@ -73,7 +73,7 @@ fn program_executes_correctly() -> Result<()> {
         sys.bus.assert(start_states, msg).inspect_err(|_| {
             sys.trace();
         })?;
-        sys.tick()?;
+        sys.tick();
     }
     Ok(())
 }

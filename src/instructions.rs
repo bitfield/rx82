@@ -30,10 +30,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
                 test: |sys: &mut System| -> Result<()> {
                     sys.mem.load(0x0000, &[HALT])?;
                     sys.cpu.pc = 0x0000;
-                    sys.tick()?; // fetch
-                    sys.tick()?; // memwait
-                    sys.tick()?; // decode
-                    sys.tick()?; // execute
+                    sys.run();
                     ensure!(sys.bus.halt, "/HLT not active");
                     ensure!(sys.cpu.pc == 0x0001, "wrong PC");
                     Ok(())
@@ -48,17 +45,11 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
                 execute: |cpu: &mut Cpu| cpu.regs.set8(Reg8::A, cpu.operand),
                 test: |sys: &mut System| -> Result<()> {
                     sys.cpu.regs.set8(Reg8::A, 0x00);
-                    sys.mem.load(0x0000, &[LDA_N, 0xFF])?;
+                    sys.mem.load(0x0000, &[LDA_N, 0xFF, HALT])?;
                     sys.cpu.pc = 0x0000;
-                    sys.tick()?; // fetch
-                    sys.tick()?; // memwait
-                    sys.tick()?; // decode
-                    sys.tick()?; // fetch operand
-                    sys.tick()?; // memwait
-                    sys.tick()?; // read operand
-                    sys.tick()?; // execute
+                    sys.run();
                     ensure!(sys.cpu.regs.get8(Reg8::A) == 0xFF);
-                    ensure!(sys.cpu.pc == 0x0002);
+                    ensure!(sys.cpu.pc == 0x0003);
                     Ok(())
                 },
             },
@@ -113,7 +104,6 @@ mod tests {
             ..Default::default()
         };
         for (opcode, ins) in INSTRUCTIONS.iter() {
-            sys.cpu.halt = false;
             (ins.test)(&mut sys)
                 .context(format!(
                     "opcode {opcode:#04X} ({}) failed self-test",

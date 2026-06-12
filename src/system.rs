@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 use core::fmt::Write as _;
 
 use crate::{
@@ -68,13 +66,19 @@ impl System {
         );
     }
 
-    /// Advances the system by one clock cycle.
-    ///
-    /// # Errors
-    ///
-    /// If flushing stdout or reading stdin fails in debug mode.
+    /// Runs the system until a `/HLT` signal is raised.
     #[inline]
-    pub fn tick(&mut self) -> Result<()> {
+    pub fn run(&mut self) {
+        self.cpu.halt = false;
+        self.bus.halt = false;
+        while !self.bus.halt {
+            self.tick();
+        }
+    }
+
+    /// Advances the system by one clock cycle.
+    #[inline]
+    pub fn tick(&mut self) {
         let phase = self.cpu.phase; // save before cpu.tick() overwrites it
         self.cpu.tick(&mut self.bus);
         self.mem.tick(&mut self.bus);
@@ -90,7 +94,6 @@ impl System {
             });
         }
         self.ticks = self.ticks.wrapping_add(1);
-        Ok(())
     }
 
     /// Prints a timing diagram from the stored history.

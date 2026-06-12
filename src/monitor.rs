@@ -36,7 +36,7 @@ impl Monitor {
                 self.sys.debug_cpu();
                 wait_for_newline()?;
             }
-            self.sys.tick()?;
+            self.sys.tick();
         }
     }
 }
