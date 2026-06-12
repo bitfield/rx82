@@ -11,7 +11,9 @@ pub struct Bus {
     pub data: u8,
     /// Enables verbose debugging.
     pub debug: bool,
-    /// The 'memory request' line.
+    /// CPU /HALT signal.
+    pub halt: bool,
+    /// CPU 'memory request' line.
     pub mem: bool,
     /// A possible pending write to the bus state during the current cycle.
     pending_write: Option<Vec<State>>,
@@ -39,9 +41,14 @@ impl Bus {
                     data,
                     self.data
                 ),
+                State::Halt(halt) => ensure!(
+                    self.halt == halt,
+                    "/HALT line {} {msg}",
+                    if self.halt { "active" } else { "inactive" }
+                ),
                 State::Mem(mem) => ensure!(
                     self.mem == mem,
-                    "mem line {} {msg}",
+                    "/MEM line {} {msg}",
                     if self.mem { "active" } else { "inactive" }
                 ),
             }
@@ -67,6 +74,7 @@ impl Bus {
                 match state {
                     State::Addr(addr) => self.addr = addr,
                     State::Data(data) => self.data = data,
+                    State::Halt(halt) => self.halt = halt,
                     State::Mem(mem) => self.mem = mem,
                 }
             }
@@ -80,5 +88,17 @@ impl Bus {
 pub enum State {
     Addr(u16),
     Data(u8),
+    Halt(bool),
     Mem(bool),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_set_halt_line() {
+        let mut bus = Bus::default();
+        bus.defer_write(vec![State::Halt(true)]);
+    }
 }
