@@ -79,9 +79,14 @@ rx82 --debug mon my_prog.bin
 In single-step mode, the monitor displays the current CPU registers and the next instruction in memory, then prompts for a command:
 
 ```txt
-PC  A NEXT
+PC   A  NEXT
 0000 00 nop
 >
 ```
 
 To execute the next CPU instruction, press Enter, or press Ctrl-C to exit.
+
+# Changelog
+
+* **0.2.0** — monitor improvements, add `halt` instruction, add assembler
+* **0.1.0** — first release
