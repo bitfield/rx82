@@ -32,10 +32,15 @@ impl Monitor {
     pub fn run(&mut self) -> Result<()> {
         self.sys.debug = self.debug;
         loop {
+            if self.sys.bus.halt {
+                println!("halted");
+                self.debug = true;
+            }
             if self.debug && self.sys.cpu.phase == FetchOpcode {
                 self.sys.debug_cpu();
                 wait_for_newline()?;
             }
+            self.sys.bus.halt = false;
             self.sys.tick();
         }
     }
