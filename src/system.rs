@@ -7,7 +7,7 @@ use crate::{
     cpu::{Cpu, Phase},
     device::Device,
     memory::Memory,
-    regs::Reg8::A,
+    regs::Reg8::{A, B},
 };
 
 /// A snapshot of the system state for debugging.
@@ -57,11 +57,12 @@ impl System {
     /// Prints the current cycle count and bus state.
     #[inline]
     pub fn debug_cpu(&self) {
-        println!("  PC  A NEXT");
+        println!("  PC  A  B NEXT");
         println!(
-            "{:04X} {:02X} {}",
+            "{:04X} {:02X} {:02X} {}",
             self.cpu.pc,
             self.cpu.regs.get8(A),
+            self.cpu.regs.get8(B),
             disassemble(self.mem.slice_from(self.cpu.pc))
         );
     }

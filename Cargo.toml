@@ -33,3 +33,4 @@ missing_docs_in_private_items = "allow" # TODO: remove for release
 pub_with_shorthand = "allow"
 missing_trait_methods = "allow"
 impl_trait_in_params = "allow"
+little_endian_bytes = "allow"
