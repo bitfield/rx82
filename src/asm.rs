@@ -21,15 +21,45 @@ impl<'source> Assembler<'source> {
         self.chars.next();
     }
 
-    /// Assembles the code in `source`.
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "any unexpected token is illegal here"
+    )]
+    /// Assembles the code in `self.source`.
     ///
     /// # Errors
     ///
     /// If the source is invalid.
     #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
-        let tokens = self.tokens();
-        codegen(&tokens)
+        let mut code = Vec::new();
+        while let Some(token) = self.next_token() {
+            code.extend(match token {
+                Token::Keyword(kw) if kw == "halt" => vec![HALT],
+                Token::Keyword(kw) if kw == "nop" => vec![NOP],
+                Token::Keyword(kw) if kw == "ld" => {
+                    let Some(next) = self.next_token() else {
+                        bail!("unexpected end of file")
+                    };
+                    let Token::Register(reg) = next else {
+                        bail!("expected register, got {next:?}")
+                    };
+                    let opcode = match reg.as_str() {
+                        "a" => LDA_N,
+                        _ => bail!("invalid register {reg}"),
+                    };
+                    let Some(Token::Comma) = self.next_token() else {
+                        bail!("expected comma")
+                    };
+                    let Some(Token::HexLiteral(operand)) = self.next_token() else {
+                        bail!("expected hex literal")
+                    };
+                    vec![opcode, operand]
+                }
+                unexpected => bail!("unexpected token {unexpected:?}"),
+            });
+        }
+        Ok(code)
     }
 
     #[inline]
@@ -43,7 +73,7 @@ impl<'source> Assembler<'source> {
     #[inline]
     pub fn debug_print(&self, msg: impl AsRef<str>) {
         if self.debug {
-            println!("tokenize: {}", msg.as_ref());
+            println!("asm: {}", msg.as_ref());
         }
     }
 
@@ -62,6 +92,22 @@ impl<'source> Assembler<'source> {
         Self {
             chars: source.chars().peekable(),
             debug: true,
+        }
+    }
+
+    #[inline]
+    pub fn next_token(&mut self) -> Option<Token> {
+        self.skip_whitespace();
+        if let Some(next_char) = self.chars.peek() {
+            let next = *next_char;
+            match next {
+                '0' => self.read_hex_literal(),
+                ',' => self.read_comma(),
+                ch if ch.is_alphabetic() => self.read_identifier(),
+                ch => self.read_illegal(ch),
+            }
+        } else {
+            None
         }
     }
 
@@ -109,27 +155,8 @@ impl<'source> Assembler<'source> {
     }
 
     #[inline]
-    pub fn skip_whitespace(&mut self) -> Option<Token> {
+    pub fn skip_whitespace(&mut self) {
         while self.chars.next_if(|ch| ch.is_whitespace()).is_some() {}
-        None
-    }
-
-    #[inline]
-    pub fn tokens(&mut self) -> Vec<Token> {
-        let mut tokens = Vec::new();
-        while let Some(next_char) = self.chars.peek() {
-            let next = *next_char;
-            if let Some(token) = match next {
-                '0' => self.read_hex_literal(),
-                ',' => self.read_comma(),
-                ch if ch.is_alphabetic() => self.read_identifier(),
-                ch if ch.is_whitespace() => self.skip_whitespace(),
-                ch => self.read_illegal(ch),
-            } {
-                tokens.push(token);
-            }
-        }
-        tokens
     }
 }
 
@@ -142,49 +169,6 @@ pub enum Token {
     Illegal(String),
     Keyword(String),
     Register(String),
-}
-
-/// Returns the assembled bytes for the program `input`.
-///
-/// # Errors
-///
-/// If the program is invalid.
-#[expect(clippy::pattern_type_mismatch, reason = "can't borrow here")]
-#[expect(
-    clippy::wildcard_enum_match_arm,
-    reason = "all unexpected tokens are invalid"
-)]
-#[inline]
-pub fn codegen(input: &[Token]) -> Result<Vec<u8>> {
-    let mut code = Vec::new();
-    let mut tokens = input.iter();
-    while let Some(token) = tokens.next() {
-        code.extend(match token {
-            Token::Keyword(kw) if kw == "halt" => vec![HALT],
-            Token::Keyword(kw) if kw == "nop" => vec![NOP],
-            Token::Keyword(kw) if kw == "ld" => {
-                let Some(next) = tokens.next() else {
-                    bail!("unexpected end of file")
-                };
-                let Token::Register(reg) = next else {
-                    bail!("expected register, got {next:?}")
-                };
-                let opcode = match reg.as_str() {
-                    "a" => LDA_N,
-                    _ => bail!("invalid register {reg}"),
-                };
-                let Some(Token::Comma) = tokens.next() else {
-                    bail!("expected comma")
-                };
-                let Some(Token::HexLiteral(operand)) = tokens.next() else {
-                    bail!("expected hex literal")
-                };
-                vec![opcode, *operand]
-            }
-            _ => bail!("unexpected {token:?}"),
-        });
-    }
-    Ok(code)
 }
 
 #[inline]
@@ -212,27 +196,9 @@ mod tests {
 
     #[test]
     fn assemble_correctly_assembles_source() {
-        assert_eq!(assemble("halt").unwrap(), &[HALT]);
         assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LDA_N, 0xFF]);
+        assert_eq!(assemble("halt").unwrap(), &[HALT]);
         assert_eq!(assemble("nop").unwrap(), &[NOP]);
-    }
-
-    #[test]
-    fn codegen_produces_correct_machine_code() {
-        assert_eq!(
-            codegen(&[Token::Keyword("nop".to_owned())]).unwrap(),
-            &[NOP]
-        );
-        assert_eq!(
-            codegen(&[
-                Token::Keyword("ld".to_owned()),
-                Token::Register("a".to_owned()),
-                Token::Comma,
-                Token::HexLiteral(0xFF)
-            ])
-            .unwrap(),
-            &[LDA_N, 0xFF]
-        );
     }
 
     #[test]
@@ -243,20 +209,6 @@ mod tests {
         assert_eq!(disassemble(&[LDA_N, 0xFF]), "ld a, 0xFF");
     }
 
-    #[test]
-    fn tokenizer_correctly_tokenizes_source() {
-        assert_eq!(tokenize("nop"), [Token::Keyword("nop".to_owned())]);
-        assert_eq!(
-            tokenize("ld a, 0xFF"),
-            [
-                Token::Keyword("ld".to_owned()),
-                Token::Register("a".to_owned()),
-                Token::Comma,
-                Token::HexLiteral(0xFF)
-            ]
-        );
-    }
-
     /// Assembles the code in `source`.
     ///
     /// # Errors
@@ -265,11 +217,5 @@ mod tests {
     #[inline]
     fn assemble(source: &str) -> Result<Vec<u8>> {
         Assembler::new_with_debug(source).assemble()
-    }
-
-    #[inline]
-    #[must_use]
-    fn tokenize(source: &str) -> Vec<Token> {
-        Assembler::new_with_debug(source).tokens()
     }
 }
