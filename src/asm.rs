@@ -5,7 +5,10 @@ use core::{
 
 use anyhow::{Result, bail};
 
-use crate::instructions::{HALT, INSTRUCTIONS, LDA_N, NOP};
+use crate::instructions::{
+    INSTRUCTIONS,
+    Opcode::{Halt, LdAN, Nop},
+};
 
 pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
 
@@ -25,6 +28,7 @@ impl<'source> Assembler<'source> {
         clippy::wildcard_enum_match_arm,
         reason = "any unexpected token is illegal here"
     )]
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     /// Assembles the code in `self.source`.
     ///
     /// # Errors
@@ -35,8 +39,8 @@ impl<'source> Assembler<'source> {
         let mut code = Vec::new();
         while let Some(token) = self.next_token() {
             code.extend(match token {
-                Token::Keyword(kw) if kw == "halt" => vec![HALT],
-                Token::Keyword(kw) if kw == "nop" => vec![NOP],
+                Token::Keyword(kw) if kw == "halt" => vec![Halt as u8],
+                Token::Keyword(kw) if kw == "nop" => vec![Nop as u8],
                 Token::Keyword(kw) if kw == "ld" => {
                     let Some(next) = self.next_token() else {
                         bail!("unexpected end of file")
@@ -45,7 +49,7 @@ impl<'source> Assembler<'source> {
                         bail!("expected register, got {next:?}")
                     };
                     let opcode = match reg.as_str() {
-                        "a" => LDA_N,
+                        "a" => LdAN as u8,
                         _ => bail!("invalid register {reg}"),
                     };
                     let Some(Token::Comma) = self.next_token() else {
@@ -189,24 +193,24 @@ pub fn disassemble(slice: &[u8]) -> String {
 
 #[expect(clippy::unwrap_used, reason = "tests")]
 #[cfg(test)]
+#[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
 mod tests {
-    use crate::instructions::{HALT, LDA_N, NOP};
 
     use super::*;
 
     #[test]
     fn assemble_correctly_assembles_source() {
-        assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LDA_N, 0xFF]);
-        assert_eq!(assemble("halt").unwrap(), &[HALT]);
-        assert_eq!(assemble("nop").unwrap(), &[NOP]);
+        assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LdAN as u8, 0xFF]);
+        assert_eq!(assemble("halt").unwrap(), &[Halt as u8]);
+        assert_eq!(assemble("nop").unwrap(), &[Nop as u8]);
     }
 
     #[test]
     fn disassemble_correctly_disassembles_instructions() {
-        assert_eq!(disassemble(&[HALT]), "halt");
-        assert_eq!(disassemble(&[NOP]), "nop");
+        assert_eq!(disassemble(&[Halt as u8]), "halt");
+        assert_eq!(disassemble(&[Nop as u8]), "nop");
         assert_eq!(disassemble(&[0xFF]), "???");
-        assert_eq!(disassemble(&[LDA_N, 0xFF]), "ld a, 0xFF");
+        assert_eq!(disassemble(&[LdAN as u8, 0xFF]), "ld a, 0xFF");
     }
 
     /// Assembles the code in `source`.

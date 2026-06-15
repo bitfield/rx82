@@ -2,18 +2,21 @@ use anyhow::{Result, ensure};
 
 use std::{collections::HashMap, sync::LazyLock};
 
-use crate::{cpu::Cpu, regs::Reg8, system::System};
+use crate::{
+    cpu::Cpu,
+    instructions::Opcode::Nop,
+    regs::Reg8::{A, B},
+    system::System,
+};
 
-/// Temporary opcode constants to make test programs easier to read.
-pub const NOP: u8 = 0x00;
-pub const LDA_N: u8 = 0x01;
-pub const HALT: u8 = 0x02;
+use Opcode::*;
 
 /// The instruction set.
+#[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
 pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
     HashMap::from([
         (
-            NOP,
+            Nop as u8,
             Instruction {
                 name: "nop",
                 bytes: 1,
@@ -22,34 +25,45 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             },
         ),
         (
-            HALT,
+            Halt as u8,
             Instruction {
                 name: "halt",
                 bytes: 1,
                 execute: |cpu: &mut Cpu| cpu.halt = true,
                 test: |sys: &mut System| -> Result<()> {
-                    sys.mem.load(0x0000, &[HALT])?;
-                    sys.cpu.pc = 0x0000;
-                    sys.run();
-                    ensure!(sys.cpu.halt, "CPU not halted");
+                    sys.run_program(&[Halt as u8])?;
+                    ensure!(sys.cpu.halt, "not halted");
                     ensure!(sys.cpu.pc == 0x0001, "wrong PC");
                     Ok(())
                 },
             },
         ),
         (
-            LDA_N,
+            LdAN as u8,
             Instruction {
                 name: "ld a",
                 bytes: 2,
-                execute: |cpu: &mut Cpu| cpu.regs.set8(Reg8::A, cpu.operand),
+                execute: |cpu: &mut Cpu| cpu.regs.set8(A, cpu.operand),
                 test: |sys: &mut System| -> Result<()> {
-                    sys.cpu.regs.set8(Reg8::A, 0x00);
-                    sys.mem.load(0x0000, &[LDA_N, 0xFF, HALT])?;
-                    sys.cpu.pc = 0x0000;
-                    sys.run();
-                    ensure!(sys.cpu.regs.get8(Reg8::A) == 0xFF);
-                    ensure!(sys.cpu.pc == 0x0003);
+                    sys.cpu.regs.set8(A, 0x00);
+                    sys.run_program(&[LdAN as u8, 0xFF, Halt as u8])?;
+                    ensure!(sys.cpu.regs.get8(A) == 0xFF, "wrong A");
+                    ensure!(sys.cpu.pc == 0x0003, "wrong PC");
+                    Ok(())
+                },
+            },
+        ),
+        (
+            LdBN as u8,
+            Instruction {
+                name: "ld b",
+                bytes: 2,
+                execute: |cpu: &mut Cpu| cpu.regs.set8(B, cpu.operand),
+                test: |sys: &mut System| -> Result<()> {
+                    sys.cpu.regs.set8(B, 0x00);
+                    sys.run_program(&[LdBN as u8, 0xFF, Halt as u8])?;
+                    ensure!(sys.cpu.regs.get8(B) == 0xFF, "wrong B");
+                    ensure!(sys.cpu.pc == 0x0003, "wrong PC");
                     Ok(())
                 },
             },
@@ -84,6 +98,16 @@ impl Default for &Instruction {
     }
 }
 
+#[non_exhaustive]
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+#[repr(u8)]
+pub enum Opcode {
+    Nop,
+    LdAN,
+    LdBN,
+    Halt,
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::Context as _;
@@ -99,10 +123,7 @@ mod tests {
     #[expect(clippy::unwrap_used, reason = "test")]
     #[test]
     fn instructions_pass_self_test() {
-        let mut sys = System {
-            debug: true,
-            ..Default::default()
-        };
+        let mut sys = System::default();
         for (opcode, ins) in INSTRUCTIONS.iter() {
             (ins.test)(&mut sys)
                 .context(format!(

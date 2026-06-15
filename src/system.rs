@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use core::fmt::Write as _;
 
 use crate::{
@@ -67,13 +69,26 @@ impl System {
         );
     }
 
-    /// Runs the system until a `/HLT` signal is raised.
+    /// Runs the system until halted.
     #[inline]
     pub fn run(&mut self) {
         self.cpu.halt = false;
         while !self.cpu.halt {
             self.tick();
         }
+    }
+
+    /// Runs `program` until halted.
+    ///
+    /// # Errors
+    ///
+    /// If the program does not fit into memory.
+    #[inline]
+    pub fn run_program(&mut self, program: &[u8]) -> Result<()> {
+        self.mem.load(0x0000, program)?;
+        self.cpu.pc = 0x0000;
+        self.run();
+        Ok(())
     }
 
     /// Advances the system by one clock cycle.

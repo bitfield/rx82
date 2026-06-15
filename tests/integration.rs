@@ -2,22 +2,17 @@ use anyhow::Result;
 
 use rx82::{
     bus::State,
-    instructions::{LDA_N, NOP},
+    instructions::Opcode::{LdAN, Nop},
     system::System,
 };
 
+#[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
 #[expect(clippy::tests_outside_test_module, reason = "integration test")]
 #[test]
 fn program_executes_correctly() -> Result<()> {
     let mut sys = System::default();
     sys.debug = true;
-    sys.mem.load(
-        0x0000,
-        &[
-            LDA_N, 0xFF, // 0000 ld a, 0xFF
-            NOP,  //        0002 nop
-        ],
-    )?;
+    sys.mem.load(0x0000, &[LdAN as u8, 0xFF, Nop as u8])?;
     let ticks = vec![
         (
             "initial",
@@ -29,15 +24,27 @@ fn program_executes_correctly() -> Result<()> {
         ),
         (
             "after WaitOpcode 0x0000",
-            &[State::Addr(0x0000), State::Data(LDA_N), State::Mem(true)],
+            &[
+                State::Addr(0x0000),
+                State::Data(LdAN as u8),
+                State::Mem(true),
+            ],
         ),
         (
             "after Decode nop",
-            &[State::Addr(0x0000), State::Data(LDA_N), State::Mem(true)],
+            &[
+                State::Addr(0x0000),
+                State::Data(LdAN as u8),
+                State::Mem(true),
+            ],
         ),
         (
             "after FetchOperand 0x0001",
-            &[State::Addr(0x0001), State::Data(LDA_N), State::Mem(true)],
+            &[
+                State::Addr(0x0001),
+                State::Data(LdAN as u8),
+                State::Mem(true),
+            ],
         ),
         (
             "after WaitOperand 0x0001",
@@ -57,15 +64,27 @@ fn program_executes_correctly() -> Result<()> {
         ),
         (
             "after WaitOpcode 0x0000",
-            &[State::Addr(0x0002), State::Data(NOP), State::Mem(true)],
+            &[
+                State::Addr(0x0002),
+                State::Data(Nop as u8),
+                State::Mem(true),
+            ],
         ),
         (
             "after Decode nop",
-            &[State::Addr(0x0002), State::Data(NOP), State::Mem(false)],
+            &[
+                State::Addr(0x0002),
+                State::Data(Nop as u8),
+                State::Mem(false),
+            ],
         ),
         (
             "after Execute nop",
-            &[State::Addr(0x0002), State::Data(NOP), State::Mem(false)],
+            &[
+                State::Addr(0x0002),
+                State::Data(Nop as u8),
+                State::Mem(false),
+            ],
         ),
     ];
 

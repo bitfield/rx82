@@ -113,13 +113,14 @@ impl Display for Phase {
 #[cfg(test)]
 mod tests {
     use crate::{
-        instructions::{LDA_N, NOP},
+        instructions::Opcode::{LdAN, Nop},
         regs::Reg8::A,
     };
 
     use super::*;
     use Phase::{Decode, Execute, FetchOpcode, FetchOperand, ReadOperand, WaitOpcode, WaitOperand};
 
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     #[test]
     fn cpu_phases_are_correct_for_zero_operand_instruction() {
         let mut cpu = Cpu::default();
@@ -127,13 +128,14 @@ mod tests {
         assert_eq!(cpu.phase, FetchOpcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, WaitOpcode);
-        bus.data = NOP; // nop
+        bus.data = Nop as u8; // nop
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Decode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Execute);
     }
 
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     #[test]
     fn cpu_phases_are_correct_for_one_operand_instruction() {
         let mut cpu = Cpu::default();
@@ -141,7 +143,7 @@ mod tests {
         assert_eq!(cpu.phase, FetchOpcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, WaitOpcode);
-        bus.data = LDA_N; // ld a, N
+        bus.data = LdAN as u8; // ld a, N
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Decode);
         cpu.tick(&mut bus);

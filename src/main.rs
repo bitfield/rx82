@@ -58,7 +58,7 @@ fn main() -> Result<()> {
         } => {
             let mut mon = Monitor::default();
             let data = fs::read(path)?;
-            mon.load(0x0000, &data)?;
+            mon.sys.mem.load(0x0000, &data)?;
             mon.debug = debug;
             mon.run()
         }
@@ -71,7 +71,7 @@ fn main() -> Result<()> {
             let source = fs::read_to_string(&path)?;
             let data = Assembler::new(&source).assemble()?;
             let mut mon = Monitor::default();
-            mon.load(0x0000, &data)?;
+            mon.sys.mem.load(0x0000, &data)?;
             mon.debug = debug;
             mon.run()
         }
