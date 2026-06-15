@@ -1,10 +1,9 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
-    bus::{Bus, State},
-    device::Device,
     instructions::{INSTRUCTIONS, Instruction},
     regs::Regs,
+    system::{Bus, Device, State},
 };
 use Phase::{Decode, Execute, FetchOpcode, FetchOperand, ReadOperand, WaitOpcode, WaitOperand};
 
@@ -69,7 +68,15 @@ impl Device for Cpu {
     }
 }
 
-/// The phase of the CPU.
+impl Cpu {
+    /// Resets the CPU to its power-on state.
+    #[inline]
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
+/// The phase the CPU will execute next tick.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Phase {
@@ -114,11 +121,10 @@ impl Display for Phase {
 mod tests {
     use crate::{
         instructions::Opcode::{LdAN, Nop},
-        regs::Reg8::A,
+        regs::{Reg8::A, Reg16::AB},
     };
 
     use super::*;
-    use Phase::{Decode, Execute, FetchOpcode, FetchOperand, ReadOperand, WaitOpcode, WaitOperand};
 
     #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     #[test]
@@ -157,5 +163,15 @@ mod tests {
         assert_eq!(cpu.phase, Execute);
         cpu.tick(&mut bus);
         assert_eq!(cpu.regs.get8(A), 0xFF);
+    }
+
+    #[test]
+    fn reset_resets_cpu() {
+        let mut cpu = Cpu::default();
+        cpu.regs.set16(AB, 0xBEEF);
+        cpu.pc = 0xC000;
+        cpu.reset();
+        assert_eq!(cpu.regs.get16(AB), 0x0000, "AB not reset");
+        assert_eq!(cpu.pc, 0x0000, "PC not reset");
     }
 }

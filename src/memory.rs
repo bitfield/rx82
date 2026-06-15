@@ -1,9 +1,6 @@
 use anyhow::{Context as _, Result};
 
-use crate::{
-    bus::{Bus, State},
-    device::Device,
-};
+use crate::system::{Bus, Device, State};
 
 /// The system memory.
 #[non_exhaustive]

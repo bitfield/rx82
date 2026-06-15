@@ -10,8 +10,10 @@ use crate::instructions::{
     Opcode::{Halt, LdAN, Nop},
 };
 
+/// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
 
+/// Assembles a given program.
 #[non_exhaustive]
 pub struct Assembler<'source> {
     pub chars: Peekable<Chars<'source>>,
@@ -19,6 +21,7 @@ pub struct Assembler<'source> {
 }
 
 impl<'source> Assembler<'source> {
+    /// Consumes the next source character.
     #[inline]
     pub fn advance(&mut self) {
         self.chars.next();
@@ -66,6 +69,7 @@ impl<'source> Assembler<'source> {
         Ok(code)
     }
 
+    /// Consumes as much of the given string as is present in the source.
     #[inline]
     pub fn chomp(&mut self, st: &str) -> Option<()> {
         for want in st.chars() {
@@ -74,6 +78,7 @@ impl<'source> Assembler<'source> {
         Some(())
     }
 
+    /// Prints a message if debug mode is on.
     #[inline]
     pub fn debug_print(&self, msg: impl AsRef<str>) {
         if self.debug {
@@ -81,6 +86,7 @@ impl<'source> Assembler<'source> {
         }
     }
 
+    /// Creates a new `Assembler` that will assemble `source`.
     #[must_use]
     #[inline]
     pub fn new(source: &'source str) -> Self {
@@ -90,6 +96,7 @@ impl<'source> Assembler<'source> {
         }
     }
 
+    /// Creates a new debug `Assembler` to assemble `source`.
     #[must_use]
     #[inline]
     pub fn new_with_debug(source: &'source str) -> Self {
@@ -99,6 +106,7 @@ impl<'source> Assembler<'source> {
         }
     }
 
+    /// Scans and return the next token from the source code.
     #[inline]
     pub fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
@@ -115,12 +123,14 @@ impl<'source> Assembler<'source> {
         }
     }
 
+    /// Reads a comma token.
     #[inline]
     pub fn read_comma(&mut self) -> Option<Token> {
         self.advance();
         Some(Token::Comma)
     }
 
+    /// Reads a hex literal token.
     #[inline]
     pub fn read_hex_literal(&mut self) -> Option<Token> {
         self.chomp("0x");
@@ -133,6 +143,7 @@ impl<'source> Assembler<'source> {
         })
     }
 
+    /// Reads an identifier, register name, or keyword.
     #[inline]
     pub fn read_identifier(&mut self) -> Option<Token> {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
@@ -152,18 +163,21 @@ impl<'source> Assembler<'source> {
         })
     }
 
+    /// Reads an illegal token.
     #[inline]
     pub fn read_illegal(&mut self, ch: char) -> Option<Token> {
         self.advance();
         Some(Token::Illegal(ch.to_string()))
     }
 
+    /// Advances to the next non-whitespace character.
     #[inline]
     pub fn skip_whitespace(&mut self) {
         while self.chars.next_if(|ch| ch.is_whitespace()).is_some() {}
     }
 }
 
+/// A source code token.
 #[non_exhaustive]
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -175,6 +189,7 @@ pub enum Token {
     Register(String),
 }
 
+/// Disassembles a single instruction from `slice`.
 #[inline]
 pub fn disassemble(slice: &[u8]) -> String {
     let mut data = slice.iter();
@@ -195,11 +210,11 @@ pub fn disassemble(slice: &[u8]) -> String {
 #[cfg(test)]
 #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
 mod tests {
-
     use super::*;
 
     #[test]
     fn assemble_correctly_assembles_source() {
+        let assemble = |source| Assembler::new_with_debug(source).assemble();
         assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LdAN as u8, 0xFF]);
         assert_eq!(assemble("halt").unwrap(), &[Halt as u8]);
         assert_eq!(assemble("nop").unwrap(), &[Nop as u8]);
@@ -211,15 +226,5 @@ mod tests {
         assert_eq!(disassemble(&[Nop as u8]), "nop");
         assert_eq!(disassemble(&[0xFF]), "???");
         assert_eq!(disassemble(&[LdAN as u8, 0xFF]), "ld a, 0xFF");
-    }
-
-    /// Assembles the code in `source`.
-    ///
-    /// # Errors
-    ///
-    /// If the source is invalid.
-    #[inline]
-    fn assemble(source: &str) -> Result<Vec<u8>> {
-        Assembler::new_with_debug(source).assemble()
     }
 }

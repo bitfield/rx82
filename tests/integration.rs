@@ -1,9 +1,8 @@
 use anyhow::Result;
 
 use rx82::{
-    bus::State,
     instructions::Opcode::{LdAN, Nop},
-    system::System,
+    system::{State, System},
 };
 
 #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]

@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use crate::{cpu::Phase::FetchOpcode, system::System};
 
+/// The interactive CLI system monitor.
 #[non_exhaustive]
 #[derive(Default)]
 pub struct Monitor {
@@ -35,6 +36,7 @@ impl Monitor {
     }
 }
 
+/// Prompts and reads the user's next command.
 #[expect(clippy::single_call_fn, reason = "readability")]
 fn wait_for_newline() -> Result<()> {
     let mut input = String::new();

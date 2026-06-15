@@ -1,3 +1,4 @@
+/// The 8-bit registers.
 #[expect(
     clippy::min_ident_chars,
     reason = "R8 uses single-letter register names"
@@ -9,6 +10,7 @@ pub enum Reg8 {
     B,
 }
 
+/// The 16-bit register pairs.
 #[non_exhaustive]
 #[derive(Copy, Clone)]
 pub enum Reg16 {
@@ -23,12 +25,12 @@ pub struct Regs {
 }
 
 impl Regs {
-    /// Returns the byte in register `reg`.
+    /// Returns the word in register pair `reg`.
     #[inline]
     #[must_use]
     pub fn get16(&self, reg: Reg16) -> u16 {
         match reg {
-            Reg16::AB => u16::from_le_bytes([self.ra, self.rb]),
+            Reg16::AB => u16::from_be_bytes([self.ra, self.rb]),
         }
     }
 
@@ -46,7 +48,7 @@ impl Regs {
     #[inline]
     pub fn set16(&mut self, reg: Reg16, val: u16) {
         match reg {
-            Reg16::AB => [self.ra, self.rb] = val.to_le_bytes(),
+            Reg16::AB => [self.ra, self.rb] = val.to_be_bytes(),
         }
     }
 
@@ -67,7 +69,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn set8_and_get8_regs_works() {
+    fn addressing_individual_regs_works() {
         let mut regs = Regs::default();
         regs.set8(A, 0xFF);
         assert_eq!(regs.get8(A), 0xFF, "wrong A");
@@ -76,9 +78,14 @@ mod tests {
     }
 
     #[test]
-    fn set16_and_get16_regs_works() {
+    fn addressing_reg_pairs_works() {
         let mut regs = Regs::default();
+        regs.set8(A, 0xDE);
+        regs.set8(B, 0xAD);
+        assert_eq!(regs.get16(AB), 0xDEAD, "wrong AB");
         regs.set16(AB, 0xBEEF);
         assert_eq!(regs.get16(AB), 0xBEEF, "wrong AB");
+        assert_eq!(regs.get8(A), 0xBE, "wrong A");
+        assert_eq!(regs.get8(B), 0xEF, "wrong A");
     }
 }

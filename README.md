@@ -79,8 +79,8 @@ rx82 --debug mon my_prog.bin
 In single-step mode, the monitor displays the current CPU registers and the next instruction in memory, then prompts for a command:
 
 ```txt
-PC   A  NEXT
-0000 00 nop
+  PC  A  B NEXT
+0000 00 00 nop
 >
 ```
 

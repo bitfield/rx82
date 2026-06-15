@@ -11,7 +11,7 @@ use crate::{
 
 use Opcode::*;
 
-/// The instruction set.
+/// The R8 instruction set.
 #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
 pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
     HashMap::from([
@@ -45,7 +45,6 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
                 bytes: 2,
                 execute: |cpu: &mut Cpu| cpu.regs.set8(A, cpu.operand),
                 test: |sys: &mut System| -> Result<()> {
-                    sys.cpu.regs.set8(A, 0x00);
                     sys.run_program(&[LdAN as u8, 0xFF, Halt as u8])?;
                     ensure!(sys.cpu.regs.get8(A) == 0xFF, "wrong A");
                     ensure!(sys.cpu.pc == 0x0003, "wrong PC");
@@ -60,7 +59,6 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
                 bytes: 2,
                 execute: |cpu: &mut Cpu| cpu.regs.set8(B, cpu.operand),
                 test: |sys: &mut System| -> Result<()> {
-                    sys.cpu.regs.set8(B, 0x00);
                     sys.run_program(&[LdBN as u8, 0xFF, Halt as u8])?;
                     ensure!(sys.cpu.regs.get8(B) == 0xFF, "wrong B");
                     ensure!(sys.cpu.pc == 0x0003, "wrong PC");
@@ -125,6 +123,7 @@ mod tests {
     fn instructions_pass_self_test() {
         let mut sys = System::default();
         for (opcode, ins) in INSTRUCTIONS.iter() {
+            sys.cpu.reset();
             (ins.test)(&mut sys)
                 .context(format!(
                     "opcode {opcode:#04X} ({}) failed self-test",
