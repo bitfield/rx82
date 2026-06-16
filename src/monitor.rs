@@ -11,7 +11,9 @@ use crate::{
 #[non_exhaustive]
 #[derive(Default)]
 pub struct Monitor {
+    /// Enables single-step mode.
     pub debug: bool,
+    /// The running system.
     pub sys: System,
 }
 
@@ -43,6 +45,10 @@ impl Monitor {
 }
 
 /// Prompts and reads the user's next command.
+///
+/// # Errors
+///
+/// If reading the command fails.
 #[expect(clippy::single_call_fn, reason = "readability")]
 fn wait_for_newline() -> Result<()> {
     let mut input = String::new();

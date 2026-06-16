@@ -6,7 +6,8 @@ LOOP:
     jrz END
 
     ld a, (cd)
-    out a, 1
+    // spin on UART status register
+    // write A to UART TX register
     
     inc cd
     dec b

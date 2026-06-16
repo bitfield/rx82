@@ -32,25 +32,24 @@ This crate provides a reference implementation of the RX82 and R8 architectures,
 
 For example, you could use the R8 CPU as part of your own emulator that replaces the RX82 system with something else. Equally, you could use the RX82 system components but replace the CPU with a design of your own, or an emulated real machine such as a 6502.
 
-## The RX82 architecture
-
-The RX82 is a single-board computer with one R8 CPU clocked at 4Mhz, 64KiB of static RAM, an 8-bit data bus, and a 16-bit address bus.
-
-## The R8 CPU
-
-The R8 is an 8-bit CPU with some 16-bit features. It has eight 8-bit registers: A, B, C, D, E, F, G, and H. Similar to the Z80, these can also be addressed as four 16-bit register pairs: AB, CD, EF, and GH.
-
-The 16-bit address bus allows the R8 to address up to 64KiB of memory.
-
 # Usage
 
 ## Assembling R8 source files
+
+Prepare your program in a text file (see _R8 Assembly Language_ below), and run:
 
 ```sh
 rx82 asm my_prog.asm
 ```
 
 If the program assembles correctly, this will produce a `my_prog.bin` file you can run with the monitor.
+
+To assemble with verbose debugging (probably only of interest to RX82 developers), use the `--debug` switch:
+
+```sh
+rx82 asm --debug my_prog.asm
+```
+
 
 ## Starting the monitor
 
@@ -71,7 +70,7 @@ The program will run until a `halt` instruction is reached.
 To run the program in single-step mode, use the `--debug` switch:
 
 ```sh
-rx82 --debug mon my_prog.bin
+rx82 mon --debug my_prog.bin
 ```
 
 ## Using the monitor
@@ -85,6 +84,33 @@ In single-step mode, the monitor displays the current CPU registers and the next
 ```
 
 To execute the next CPU instruction, press Enter, or press Ctrl-C to exit.
+
+# RX82 user's manual
+
+## The RX82 architecture
+
+The RX82 is a single-board computer with one R8 CPU clocked at 4Mhz, 64KiB of static RAM, an 8-bit data bus, and a 16-bit address bus.
+
+## The R8 CPU
+
+The R8 is an 8-bit CPU with some 16-bit features. It has eight 8-bit registers: A, B, C, D, E, F, G, and H. Similar to the Z80, these can also be addressed as four 16-bit register pairs: AB, CD, EF, and GH.
+
+The 16-bit address bus allows the R8 to address up to 64KiB of memory.
+
+## R8 assembly language
+
+The input format recognised by the R8 assembler is very similar to that of most Z80 or 6502 assemblers. Here's a simple example program:
+
+```asm
+    ld a, 0xDE
+    nop
+    ld b, 0xAD
+    nop
+    ld ab, 0xBEEF
+    halt
+```
+
+Whitespace is ignored, and only hexadecimal literals are understood.
 
 # Changelog
 

@@ -87,14 +87,26 @@ impl Bus {
 /// The trait that all devices connected to the [`Bus`] implement.
 pub trait Device {
     /// Notifies the device that a new clock cycle has begun.
+    ///
+    /// The implementation of `tick` should be fast (<<250ns), because there may be any
+    /// number of devices connected to the system, each of which executes one tick per
+    /// system clock cycle. There is no timeout, so a slow device will affect the
+    /// system's achieved cycle rate.
+    ///
+    /// During its tick, a device may try to write to the bus using
+    /// [`Bus::defer_write`]. If a higher-priority device has already written to the bus
+    /// this tick, all further attempted writes will be ignored.
     fn tick(&mut self, bus: &mut Bus);
 }
 
 /// A snapshot of the system state for debugging.
 #[non_exhaustive]
 pub struct Snapshot {
+    /// Bus state at end of tick.
     pub bus: Bus,
+    /// CPU phase at start of tick.
     pub phase: Phase,
+    /// Sequence number of just-completed tick.
     pub tick: u16,
 }
 
@@ -102,16 +114,37 @@ pub struct Snapshot {
 #[non_exhaustive]
 #[derive(Clone, Debug)]
 pub enum State {
+    /// Address bus value.
     Addr(u16),
+    /// Data bus value.
     Data(u8),
+    /// `MEM` line state.
     Mem(bool),
 }
 
 /// The RX82 system as a whole.
+///
+/// Execution proceeds by repeatedly calling [`System::tick`]. On each tick, all devices attached to the system will be ticked by calling their [`Device::tick`] method in turn, in this order:
+///
+/// 1. CPU
+/// 2. Memory
+/// 3. Devices in the `devices` list, in order of decreasing priority.
+/// 4. Clock
+///
+/// Each device has a chance to write to the bus on its tick, but if a higher-priority
+/// device has already written to the bus, this attempted write will be ignored. This
+/// models a simple daisy-chained “bus grant” arbitration scheme.
+///
+/// The clock is ticked last, after everything else has been done, because its job is
+/// solely to regulate the system cycle rate by waiting (if necessary) until the next
+/// cycle is actually due. Thus the clock can only slow down a speeding system, not
+/// speed up a slow one.
 #[non_exhaustive]
 pub struct System {
     /// The system bus.
     pub bus: Bus,
+    /// The system clock.
+    pub clock: Clock,
     /// The system CPU.
     pub cpu: Cpu,
     /// Enable debug snapshots.
@@ -127,14 +160,15 @@ pub struct System {
 }
 
 impl Default for System {
-    /// The default `System` has all-default devices, including a default [`Clock`].
+    /// The default `System` has all-default devices.
     #[inline]
     fn default() -> Self {
         Self {
             bus: Bus::default(),
+            clock: Clock::default(),
             cpu: Cpu::default(),
             debug: false,
-            devices: vec![Box::new(Clock::default())],
+            devices: Vec::new(),
             history: Vec::new(),
             mem: Memory::default(),
             ticks: Default::default(),
@@ -195,6 +229,7 @@ impl System {
                 bus: self.bus.clone(),
             });
         }
+        self.clock.tick(&mut self.bus);
         self.ticks = self.ticks.wrapping_add(1);
     }
 

@@ -1,7 +1,7 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
-    instructions::{INSTRUCTIONS, Instruction},
+    instructions::{INSTRUCTIONS, Instruction, Length},
     regs::Regs,
     system::{Bus, Device, State},
 };
@@ -14,8 +14,10 @@ pub struct Cpu {
     pub halt: bool,
     /// The current instruction.
     pub ins: &'static Instruction,
-    /// The current operand.
-    pub operand: u8,
+    /// The current operand (high byte).
+    pub op_hi: u8,
+    /// The current operand (low byte).
+    pub op_lo: u8,
     /// The program counter.
     pub pc: u16,
     /// The current phase.
@@ -32,31 +34,53 @@ impl Device for Cpu {
     fn tick(&mut self, bus: &mut Bus) {
         self.phase = match self.phase {
             Phase::Decode => match self.target {
+                // We've fetched an instruction; what kind is it?
                 Target::Opcode => {
                     self.ins = INSTRUCTIONS.get(&bus.data).unwrap_or_default();
-                    if self.ins.bytes == 2 {
-                        self.target = Target::Operand;
+                    match self.ins.length {
+                        Length::OneByte => {
+                            // No operands needed, so execute it
+                            bus.defer_write(vec![State::Mem(false)]);
+                            Phase::Execute
+                        }
+                        Length::TwoBytes | Length::ThreeBytes => {
+                            // 1 or 2 operands needed; fetch the first
+                            self.target = Target::Operand;
+                            Phase::Fetch
+                        }
+                    }
+                }
+                // We've fetched an operand; check if we still need another.
+                Target::Operand => {
+                    self.op_lo = bus.data;
+                    if self.ins.length == Length::ThreeBytes {
+                        // Yes, fetch the second operand
+                        self.target = Target::Operand2;
                         Phase::Fetch
                     } else {
+                        // No, execute this instruction
                         bus.defer_write(vec![State::Mem(false)]);
                         Phase::Execute
                     }
                 }
-                Target::Operand => {
-                    self.operand = bus.data;
+                Target::Operand2 => {
+                    self.op_hi = bus.data;
                     bus.defer_write(vec![State::Mem(false)]);
                     Phase::Execute
                 }
             },
             Phase::Execute => {
+                // Execute this instruction, then fetch the next
                 (self.ins.execute)(self);
                 self.target = Target::Opcode;
                 Phase::Fetch
             }
             Phase::Fetch => {
                 if self.halt {
+                    // Just keep looping in this state
                     Phase::Fetch
                 } else {
+                    // Issue a memory read and await the result
                     bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
                     self.pc = self.pc.wrapping_add(1);
                     Phase::Wait
@@ -68,7 +92,8 @@ impl Device for Cpu {
 }
 
 impl Cpu {
-    /// Resets the CPU to its power-on state.
+    /// Resets the CPU to its power-on state: all registers zero, PC zero, not halted,
+    /// phase 'fetch' and target 'opcode'.
     #[inline]
     pub fn reset(&mut self) {
         *self = Self::default();
@@ -79,14 +104,14 @@ impl Cpu {
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Phase {
-    /// Read the opcode or operand from the data bus.
+    /// Reads the opcode or operand from the data bus.
     Decode,
     /// Executes the current instruction.
     Execute,
-    /// Requests the next opcode from memory.
+    /// Requests the next opcode or operand from memory.
     #[default]
     Fetch,
-    /// Wait for the next opcode.
+    /// Waits for an in-flight memory request to complete.
     Wait,
 }
 
@@ -107,17 +132,22 @@ impl Display for Phase {
     }
 }
 
+/// The target of the next fetch operation.
 #[derive(Debug, Default, PartialEq)]
 pub enum Target {
+    /// An opcode.
     #[default]
     Opcode,
+    /// A 1-byte operand (or low byte of a 2-byte operand).
     Operand,
+    /// A second 1-byte operand (or high byte of a 2-byte operand).
+    Operand2,
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        instructions::Opcode::{LdAN, Nop},
+        instructions::Opcode::{LdABN, LdAN, Nop},
         regs::{Reg8::A, Reg16::AB},
     };
 
@@ -166,6 +196,43 @@ mod tests {
         cpu.tick(&mut bus);
         assert_eq!(cpu.regs.get8(A), 0xFF);
         assert_eq!(cpu.pc, 0x0002);
+    }
+
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
+    #[test]
+    fn cpu_states_are_correct_for_3_byte_instruction() {
+        let mut cpu = Cpu::default();
+        let mut bus = Bus::default();
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Opcode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = LdABN as u8; // ld ab, N
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand);
+        assert_eq!(cpu.pc, 0x0001);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xEF;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand2);
+        assert_eq!(cpu.pc, 0x0002);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xBE;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Execute);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.regs.get16(AB), 0xBEEF);
+        assert_eq!(cpu.pc, 0x0003);
     }
 
     #[test]

@@ -4,6 +4,9 @@ use std::{thread::sleep, time::Instant};
 use crate::system::{Bus, Device};
 
 /// The system clock.
+///
+/// Does nothing except try to slow down the system to the nominal cycle rate by
+/// delaying its return from the [`Clock::tick`] method.
 #[non_exhaustive]
 pub struct Clock {
     /// Time the next tick is due.

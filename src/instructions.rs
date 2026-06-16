@@ -4,8 +4,10 @@ use std::{collections::HashMap, sync::LazyLock};
 
 use crate::{
     cpu::Cpu,
-    instructions::Opcode::Nop,
-    regs::Reg8::{A, B},
+    regs::{
+        Reg8::{A, B},
+        Reg16::AB,
+    },
     system::System,
 };
 
@@ -19,7 +21,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Nop as u8,
             Instruction {
                 name: "nop",
-                bytes: 1,
+                length: Length::OneByte,
                 execute: |_| {},
                 test: |_| Ok(()),
             },
@@ -28,7 +30,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Halt as u8,
             Instruction {
                 name: "halt",
-                bytes: 1,
+                length: Length::OneByte,
                 execute: |cpu: &mut Cpu| cpu.halt = true,
                 test: |sys: &mut System| -> Result<()> {
                     sys.run_program(&[Halt as u8])?;
@@ -42,8 +44,8 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             LdAN as u8,
             Instruction {
                 name: "ld a",
-                bytes: 2,
-                execute: |cpu: &mut Cpu| cpu.regs.set8(A, cpu.operand),
+                length: Length::TwoBytes,
+                execute: |cpu: &mut Cpu| cpu.regs.set8(A, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     sys.run_program(&[LdAN as u8, 0xFF, Halt as u8])?;
                     ensure!(sys.cpu.regs.get8(A) == 0xFF, "wrong A");
@@ -53,11 +55,28 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             },
         ),
         (
+            LdABN as u8,
+            Instruction {
+                name: "ld ab",
+                length: Length::ThreeBytes,
+                execute: |cpu: &mut Cpu| {
+                    cpu.regs.set8(A, cpu.op_hi);
+                    cpu.regs.set8(B, cpu.op_lo);
+                },
+                test: |sys: &mut System| -> Result<()> {
+                    sys.run_program(&[LdABN as u8, 0xEF, 0xBE, Halt as u8])?;
+                    ensure!(sys.cpu.regs.get16(AB) == 0xBEEF, "wrong AB");
+                    ensure!(sys.cpu.pc == 0x0004, "wrong PC");
+                    Ok(())
+                },
+            },
+        ),
+        (
             LdBN as u8,
             Instruction {
                 name: "ld b",
-                bytes: 2,
-                execute: |cpu: &mut Cpu| cpu.regs.set8(B, cpu.operand),
+                length: Length::TwoBytes,
+                execute: |cpu: &mut Cpu| cpu.regs.set8(B, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     sys.run_program(&[LdBN as u8, 0xFF, Halt as u8])?;
                     ensure!(sys.cpu.regs.get8(B) == 0xFF, "wrong B");
@@ -74,7 +93,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
 #[derive(Clone, Debug)]
 pub struct Instruction {
     /// Number of bytes the instruction requires in memory.
-    pub bytes: u8,
+    pub length: Length,
     /// The closure that executes this instruction.
     pub execute: fn(&mut Cpu),
     /// The instruction's symbolic name.
@@ -89,20 +108,35 @@ impl Default for &Instruction {
     fn default() -> Self {
         &Instruction {
             name: "nop",
-            bytes: 1,
+            length: Length::OneByte,
             execute: |_| {},
             test: |_| Ok(()),
         }
     }
 }
 
+/// Identifies whether this is a 1, 2, or 3-byte instruction.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Length {
+    OneByte,
+    TwoBytes,
+    ThreeBytes,
+}
+
+/// Identifies the specific opcode.
 #[non_exhaustive]
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum Opcode {
+    /// 'nop'.
     Nop,
+    /// 'ld a, N'
     LdAN,
+    /// 'ld ab, NN'
+    LdABN,
+    /// 'ld b, N'
     LdBN,
+    /// 'halt'
     Halt,
 }
 

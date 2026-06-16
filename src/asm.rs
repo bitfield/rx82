@@ -6,7 +6,7 @@ use core::{
 use anyhow::{Result, bail};
 
 use crate::instructions::{
-    INSTRUCTIONS,
+    INSTRUCTIONS, Length,
     Opcode::{Halt, LdAN, Nop},
 };
 
@@ -16,7 +16,9 @@ pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
 /// Assembles a given program.
 #[non_exhaustive]
 pub struct Assembler<'source> {
+    /// Stores the source code being assembled.
     pub chars: Peekable<Chars<'source>>,
+    /// Enables verbose debugging.
     pub debug: bool,
 }
 
@@ -32,7 +34,7 @@ impl<'source> Assembler<'source> {
         reason = "any unexpected token is illegal here"
     )]
     #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
-    /// Assembles the code in `self.source`.
+    /// Assembles the source code.
     ///
     /// # Errors
     ///
@@ -69,7 +71,7 @@ impl<'source> Assembler<'source> {
         Ok(code)
     }
 
-    /// Consumes as much of the given string as is present in the source.
+    /// Skips the given string (or as much of it as is present in the source).
     #[inline]
     pub fn chomp(&mut self, st: &str) -> Option<()> {
         for want in st.chars() {
@@ -106,7 +108,7 @@ impl<'source> Assembler<'source> {
         }
     }
 
-    /// Scans and return the next token from the source code.
+    /// Scans and returns the next token from the source code.
     #[inline]
     pub fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
@@ -199,9 +201,11 @@ pub fn disassemble(slice: &[u8]) -> String {
     let Some(ins) = INSTRUCTIONS.get(opcode) else {
         return "???".to_owned();
     };
-    match ins.bytes {
-        1 => ins.name.to_owned(),
-        2 if let Some(operand) = data.next() => format!("{}, {:#04X}", ins.name, operand),
+    match ins.length {
+        Length::OneByte => ins.name.to_owned(),
+        Length::TwoBytes if let Some(operand) = data.next() => {
+            format!("{}, {:#04X}", ins.name, operand)
+        }
         _ => "???".to_owned(),
     }
 }
