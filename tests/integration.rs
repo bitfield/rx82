@@ -18,11 +18,11 @@ fn program_executes_correctly() -> Result<()> {
             &[State::Addr(0x0000), State::Data(0x00), State::Mem(false)],
         ),
         (
-            "after FetchOpcode 0x0000",
+            "after fetch opcode at 0x0000",
             &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
         ),
         (
-            "after WaitOpcode 0x0000",
+            "after wait at 0x0000",
             &[
                 State::Addr(0x0000),
                 State::Data(LdAN as u8),
@@ -30,7 +30,7 @@ fn program_executes_correctly() -> Result<()> {
             ],
         ),
         (
-            "after Decode nop",
+            "after decode nop",
             &[
                 State::Addr(0x0000),
                 State::Data(LdAN as u8),
@@ -38,7 +38,7 @@ fn program_executes_correctly() -> Result<()> {
             ],
         ),
         (
-            "after FetchOperand 0x0001",
+            "after fetch operand at 0x0001",
             &[
                 State::Addr(0x0001),
                 State::Data(LdAN as u8),
@@ -46,23 +46,23 @@ fn program_executes_correctly() -> Result<()> {
             ],
         ),
         (
-            "after WaitOperand 0x0001",
+            "after wait at 0x0001",
             &[State::Addr(0x0001), State::Data(0xFF), State::Mem(true)],
         ),
         (
-            "after ReadOperand 0x0001",
+            "after decode at 0x0001",
             &[State::Addr(0x0001), State::Data(0xFF), State::Mem(false)],
         ),
         (
-            "after Execute ld a, 0xff",
+            "after execute 'ld a, 0xff'",
             &[State::Addr(0x0001), State::Data(0xFF), State::Mem(false)],
         ),
         (
-            "after FetchOpcode 0x0002",
+            "after fetch opcode at 0x0002",
             &[State::Addr(0x0002), State::Data(0xFF), State::Mem(true)],
         ),
         (
-            "after WaitOpcode 0x0000",
+            "after wait at 0x0002",
             &[
                 State::Addr(0x0002),
                 State::Data(Nop as u8),
@@ -70,7 +70,7 @@ fn program_executes_correctly() -> Result<()> {
             ],
         ),
         (
-            "after Decode nop",
+            "after decode at 0x0002",
             &[
                 State::Addr(0x0002),
                 State::Data(Nop as u8),
@@ -78,7 +78,7 @@ fn program_executes_correctly() -> Result<()> {
             ],
         ),
         (
-            "after Execute nop",
+            "after execute 'nop'",
             &[
                 State::Addr(0x0002),
                 State::Data(Nop as u8),

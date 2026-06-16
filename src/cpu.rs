@@ -5,7 +5,6 @@ use crate::{
     regs::Regs,
     system::{Bus, Device, State},
 };
-use Phase::{Decode, Execute, FetchOpcode, FetchOperand, ReadOperand, WaitOpcode, WaitOperand};
 
 /// The system CPU.
 #[non_exhaustive]
@@ -23,6 +22,8 @@ pub struct Cpu {
     pub phase: Phase,
     /// The CPU's registers.
     pub regs: Regs,
+    /// Target of the current memory fetch.
+    pub target: Target,
 }
 
 impl Device for Cpu {
@@ -30,40 +31,38 @@ impl Device for Cpu {
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         self.phase = match self.phase {
-            Decode => {
-                self.ins = INSTRUCTIONS.get(&bus.data).unwrap_or_default();
-                if self.ins.bytes == 2 {
-                    FetchOperand
-                } else {
-                    bus.defer_write(vec![State::Mem(false)]);
-                    Execute
+            Phase::Decode => match self.target {
+                Target::Opcode => {
+                    self.ins = INSTRUCTIONS.get(&bus.data).unwrap_or_default();
+                    if self.ins.bytes == 2 {
+                        self.target = Target::Operand;
+                        Phase::Fetch
+                    } else {
+                        bus.defer_write(vec![State::Mem(false)]);
+                        Phase::Execute
+                    }
                 }
-            }
-            Execute => {
+                Target::Operand => {
+                    self.operand = bus.data;
+                    bus.defer_write(vec![State::Mem(false)]);
+                    Phase::Execute
+                }
+            },
+            Phase::Execute => {
                 (self.ins.execute)(self);
-                FetchOpcode
+                self.target = Target::Opcode;
+                Phase::Fetch
             }
-            FetchOpcode => {
+            Phase::Fetch => {
                 if self.halt {
-                    FetchOpcode
+                    Phase::Fetch
                 } else {
                     bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
                     self.pc = self.pc.wrapping_add(1);
-                    WaitOpcode
+                    Phase::Wait
                 }
             }
-            FetchOperand => {
-                bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
-                self.pc = self.pc.wrapping_add(1);
-                WaitOperand
-            }
-            ReadOperand => {
-                self.operand = bus.data;
-                bus.defer_write(vec![State::Mem(false)]);
-                Execute
-            }
-            WaitOpcode => Decode,
-            WaitOperand => ReadOperand,
+            Phase::Wait => Phase::Decode,
         }
     }
 }
@@ -80,21 +79,15 @@ impl Cpu {
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Phase {
-    /// Decodes the opcode or operand on the data bus.
+    /// Read the opcode or operand from the data bus.
     Decode,
     /// Executes the current instruction.
     Execute,
     /// Requests the next opcode from memory.
     #[default]
-    FetchOpcode,
-    /// Requests a single operand from memory.
-    FetchOperand,
-    /// Read the operand from the bus.
-    ReadOperand,
+    Fetch,
     /// Wait for the next opcode.
-    WaitOpcode,
-    /// Wait for the next operand.
-    WaitOperand,
+    Wait,
 }
 
 impl Display for Phase {
@@ -105,16 +98,20 @@ impl Display for Phase {
             f,
             "{}",
             match *self {
-                Decode => "DCOD",
-                Execute => "EXEC",
-                FetchOpcode => "FTCH",
-                FetchOperand => "FOPR",
-                ReadOperand => "ROPR",
-                WaitOpcode => "WAIT",
-                WaitOperand => "WOPR",
+                Phase::Decode => "DCOD",
+                Phase::Execute => "EXEC",
+                Phase::Fetch => "FTCH",
+                Phase::Wait => "WAIT",
             }
         )
     }
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub enum Target {
+    #[default]
+    Opcode,
+    Operand,
 }
 
 #[cfg(test)]
@@ -128,41 +125,47 @@ mod tests {
 
     #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     #[test]
-    fn cpu_phases_are_correct_for_zero_operand_instruction() {
+    fn cpu_states_are_correct_for_1_byte_instruction() {
         let mut cpu = Cpu::default();
         let mut bus = Bus::default();
-        assert_eq!(cpu.phase, FetchOpcode);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, WaitOpcode);
+        assert_eq!(cpu.phase, Phase::Wait);
         bus.data = Nop as u8; // nop
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Decode);
+        assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Execute);
+        assert_eq!(cpu.phase, Phase::Execute);
+        assert_eq!(cpu.pc, 0x0001);
     }
 
     #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     #[test]
-    fn cpu_phases_are_correct_for_one_operand_instruction() {
+    fn cpu_states_are_correct_for_2_byte_instruction() {
         let mut cpu = Cpu::default();
         let mut bus = Bus::default();
-        assert_eq!(cpu.phase, FetchOpcode);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, WaitOpcode);
+        assert_eq!(cpu.phase, Phase::Wait);
         bus.data = LdAN as u8; // ld a, N
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Decode);
+        assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, FetchOperand);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand);
+        assert_eq!(cpu.pc, 0x0001);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, WaitOperand);
+        assert_eq!(cpu.phase, Phase::Wait);
         bus.data = 0xFF;
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, ReadOperand);
+        assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Execute);
+        assert_eq!(cpu.phase, Phase::Execute);
         cpu.tick(&mut bus);
         assert_eq!(cpu.regs.get8(A), 0xFF);
+        assert_eq!(cpu.pc, 0x0002);
     }
 
     #[test]

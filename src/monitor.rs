@@ -2,7 +2,10 @@ use std::io::{Write as _, stdin, stdout};
 
 use anyhow::Result;
 
-use crate::{cpu::Phase::FetchOpcode, system::System};
+use crate::{
+    cpu::{Phase, Target},
+    system::System,
+};
 
 /// The interactive CLI system monitor.
 #[non_exhaustive]
@@ -26,7 +29,10 @@ impl Monitor {
                 println!("halted");
                 self.debug = true;
             }
-            if self.debug && self.sys.cpu.phase == FetchOpcode {
+            if self.debug
+                && self.sys.cpu.phase == Phase::Fetch
+                && self.sys.cpu.target == Target::Opcode
+            {
                 self.sys.debug_cpu();
                 wait_for_newline()?;
             }
