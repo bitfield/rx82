@@ -5,10 +5,7 @@ use core::{
 
 use anyhow::{Result, bail};
 
-use crate::instructions::{
-    INSTRUCTIONS, Length,
-    Opcode::{Halt, LdAN, Nop},
-};
+use crate::instructions::{INSTRUCTIONS, Length, Opcode::*};
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
@@ -55,6 +52,7 @@ impl<'source> Assembler<'source> {
                     };
                     let opcode = match reg.as_str() {
                         "a" => LdAN as u8,
+                        "b" => LdBN as u8,
                         _ => bail!("invalid register {reg}"),
                     };
                     let Some(Token::Comma) = self.next_token() else {
@@ -150,7 +148,7 @@ impl<'source> Assembler<'source> {
     pub fn read_identifier(&mut self) -> Option<Token> {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
         Some(match ident.as_str() {
-            "a" => {
+            "a" | "b" => {
                 self.debug_print(format!("register '{ident}'"));
                 Token::Register(ident)
             }
@@ -219,16 +217,18 @@ mod tests {
     #[test]
     fn assemble_correctly_assembles_source() {
         let assemble = |source| Assembler::new_with_debug(source).assemble();
-        assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LdAN as u8, 0xFF]);
-        assert_eq!(assemble("halt").unwrap(), &[Halt as u8]);
         assert_eq!(assemble("nop").unwrap(), &[Nop as u8]);
+        assert_eq!(assemble("halt").unwrap(), &[Halt as u8]);
+        assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LdAN as u8, 0xFF]);
+        assert_eq!(assemble("ld b, 0xFF").unwrap(), &[LdBN as u8, 0xFF]);
     }
 
     #[test]
     fn disassemble_correctly_disassembles_instructions() {
-        assert_eq!(disassemble(&[Halt as u8]), "halt");
         assert_eq!(disassemble(&[Nop as u8]), "nop");
-        assert_eq!(disassemble(&[0xFF]), "???");
+        assert_eq!(disassemble(&[Halt as u8]), "halt");
         assert_eq!(disassemble(&[LdAN as u8, 0xFF]), "ld a, 0xFF");
+        assert_eq!(disassemble(&[LdBN as u8, 0xFF]), "ld b, 0xFF");
+        assert_eq!(disassemble(&[0xFF]), "???");
     }
 }
