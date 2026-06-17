@@ -5,7 +5,7 @@ use core::{
 
 use anyhow::{Result, bail};
 
-use crate::instructions::{INSTRUCTIONS, Length, Opcode::*};
+use crate::instructions::{INSTRUCTIONS, Length::*, Opcode::*};
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
@@ -51,25 +51,34 @@ impl<'source> Assembler<'source> {
                         bail!("expected register, got {next:?}")
                     };
                     let opcode = match reg.as_str() {
-                        "a" => LdAN,
-                        "b" => LdBN,
-                        "ab" => LdABN,
+                        "a" => LdImmByteA,
+                        "b" => LdImmByteB,
+                        "c" => LdImmByteC,
+                        "d" => LdImmByteD,
+                        "e" => LdImmByteE,
+                        "f" => LdImmByteF,
+                        "g" => LdImmByteG,
+                        "h" => LdImmByteH,
+                        "ab" => LdImmWordAB,
+                        "cd" => LdImmWordCD,
+                        "ef" => LdImmWordEF,
+                        "gh" => LdImmWordGH,
                         _ => bail!("invalid register {reg}"),
                     };
                     let Some(Token::Comma) = self.next_token() else {
                         bail!("expected comma")
                     };
-                    if ["a", "b"].contains(&reg.as_str()) {
-                        let Some(Token::ByteLiteral(operand)) = self.next_token() else {
-                            bail!("expected byte literal")
-                        };
-                        vec![opcode as u8, operand]
-                    } else {
+                    if ["ab", "cd", "ef", "gh"].contains(&reg.as_str()) {
                         let Some(Token::WordLiteral(operand)) = self.next_token() else {
-                            bail!("expected word literal")
+                            bail!("expected word operand for 16-bit immediate 'ld {reg}'")
                         };
                         let [op_lo, op_hi] = operand.to_le_bytes();
                         vec![opcode as u8, op_lo, op_hi]
+                    } else {
+                        let Some(Token::ByteLiteral(operand)) = self.next_token() else {
+                            bail!("expected byte operand for 8-bit immediate 'ld {reg}'")
+                        };
+                        vec![opcode as u8, operand]
                     }
                 }
                 unexpected => bail!("unexpected token {unexpected:?}"),
@@ -165,7 +174,7 @@ impl<'source> Assembler<'source> {
     pub fn read_identifier(&mut self) -> Option<Token> {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
         Some(match ident.as_str() {
-            "a" | "b" | "ab" => {
+            "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "ab" | "cd" | "ef" | "gh" => {
                 self.debug_print(format!("register '{ident}'"));
                 Token::Register(ident)
             }
@@ -198,8 +207,8 @@ impl<'source> Assembler<'source> {
 #[non_exhaustive]
 #[derive(Debug, PartialEq)]
 pub enum Token {
-    Comma,
     ByteLiteral(u8),
+    Comma,
     Identifier(String),
     Illegal(String),
     Keyword(String),
@@ -211,25 +220,26 @@ pub enum Token {
 #[inline]
 pub fn disassemble(slice: &[u8]) -> String {
     let mut data = slice.iter();
+    let unknown = "???".to_owned();
     let Some(opcode) = data.next() else {
-        return "???".to_owned();
+        return unknown;
     };
     let Some(ins) = INSTRUCTIONS.get(opcode) else {
-        return "???".to_owned();
+        return unknown;
     };
-    match ins.length {
-        Length::OneByte => ins.name.to_owned(),
-        Length::TwoBytes if let Some(operand) = data.next() => {
+    match ins.bytes {
+        One => ins.name.to_owned(),
+        Two if let Some(operand) = data.next() => {
             format!("{}, {:#04X}", ins.name, operand)
         }
-        Length::ThreeBytes if let (Some(op_lo), Some(op_hi)) = (data.next(), data.next()) => {
+        Three if let (Some(op_lo), Some(op_hi)) = (data.next(), data.next()) => {
             format!(
                 "{}, {:#06X}",
                 ins.name,
                 u16::from_le_bytes([*op_lo, *op_hi])
             )
         }
-        _ => "???".to_owned(),
+        Two | Three => unknown,
     }
 }
 
@@ -237,28 +247,54 @@ pub fn disassemble(slice: &[u8]) -> String {
 #[cfg(test)]
 #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
 mod tests {
+    use anyhow::Context as _;
+
     use super::*;
 
     #[test]
-    fn assemble_correctly_assembles_source() {
+    fn assembler_assembles_and_disassembles_instructions_correctly() {
+        let cases: &[(&str, &[u8])] = &[
+            ("nop", &[Nop as u8]),
+            ("halt", &[Halt as u8]),
+            ("ld a, 0xFF", &[LdImmByteA as u8, 0xFF]),
+            ("ld b, 0xFF", &[LdImmByteB as u8, 0xFF]),
+            ("ld c, 0xFF", &[LdImmByteC as u8, 0xFF]),
+            ("ld d, 0xFF", &[LdImmByteD as u8, 0xFF]),
+            ("ld e, 0xFF", &[LdImmByteE as u8, 0xFF]),
+            ("ld f, 0xFF", &[LdImmByteF as u8, 0xFF]),
+            ("ld g, 0xFF", &[LdImmByteG as u8, 0xFF]),
+            ("ld h, 0xFF", &[LdImmByteH as u8, 0xFF]),
+            ("ld ab, 0xBEEF", &[LdImmWordAB as u8, 0xEF, 0xBE]),
+            ("ld cd, 0xBEEF", &[LdImmWordCD as u8, 0xEF, 0xBE]),
+            ("ld ef, 0xBEEF", &[LdImmWordEF as u8, 0xEF, 0xBE]),
+            ("ld gh, 0xBEEF", &[LdImmWordGH as u8, 0xEF, 0xBE]),
+        ];
         let assemble = |source| Assembler::new_with_debug(source).assemble();
-        assert_eq!(assemble("nop").unwrap(), &[Nop as u8]);
-        assert_eq!(assemble("halt").unwrap(), &[Halt as u8]);
-        assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LdAN as u8, 0xFF]);
-        assert_eq!(assemble("ld b, 0xFF").unwrap(), &[LdBN as u8, 0xFF]);
-        assert_eq!(
-            assemble("ld ab, 0xBEEF").unwrap(),
-            &[LdABN as u8, 0xEF, 0xBE]
-        );
+        for &(source, object) in cases {
+            let generated = assemble(source)
+                .context(format!("assembling '{source}'"))
+                .unwrap();
+            assert_eq!(
+                &generated,
+                object,
+                "wrong object code for '{source}': want {}, got {}",
+                as_hex(object),
+                as_hex(&generated),
+            );
+            assert_eq!(
+                &disassemble(object),
+                source,
+                "wrong source for object code {}",
+                as_hex(object)
+            );
+        }
     }
 
-    #[test]
-    fn disassemble_correctly_disassembles_instructions() {
-        assert_eq!(disassemble(&[Nop as u8]), "nop");
-        assert_eq!(disassemble(&[Halt as u8]), "halt");
-        assert_eq!(disassemble(&[LdAN as u8, 0xFF]), "ld a, 0xFF");
-        assert_eq!(disassemble(&[LdBN as u8, 0xFF]), "ld b, 0xFF");
-        assert_eq!(disassemble(&[LdABN as u8, 0xEF, 0xBE]), "ld ab, 0xBEEF");
-        assert_eq!(disassemble(&[0xFF]), "???");
+    fn as_hex(data: &[u8]) -> String {
+        let mut byte_strs = Vec::new();
+        for byte in data {
+            byte_strs.push(format!("{byte:#04X}"));
+        }
+        format!("[{}]", byte_strs.join(", "))
     }
 }

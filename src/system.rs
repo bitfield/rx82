@@ -7,7 +7,7 @@ use crate::{
     clock::Clock,
     cpu::{Cpu, Phase},
     memory::Memory,
-    regs::Reg8::{A, B},
+    regs::Reg8::*,
 };
 
 /// The system bus.
@@ -180,12 +180,18 @@ impl System {
     /// Prints the current CPU state and the next instruction in memory.
     #[inline]
     pub fn debug_cpu(&self) {
-        println!("  PC  A  B NEXT");
+        println!("  PC  A  B  C  D  E  F  G  H NEXT");
         println!(
-            "{:04X} {:02X} {:02X} {}",
+            "{:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {}",
             self.cpu.pc,
             self.cpu.regs.get8(A),
             self.cpu.regs.get8(B),
+            self.cpu.regs.get8(C),
+            self.cpu.regs.get8(D),
+            self.cpu.regs.get8(E),
+            self.cpu.regs.get8(F),
+            self.cpu.regs.get8(G),
+            self.cpu.regs.get8(H),
             disassemble(self.mem.slice_from(self.cpu.pc))
         );
     }

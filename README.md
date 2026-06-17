@@ -78,8 +78,8 @@ rx82 mon --debug my_prog.bin
 In single-step mode, the monitor displays the current CPU registers and the next instruction in memory, then prompts for a command:
 
 ```txt
-  PC  A  B NEXT
-0000 00 00 nop
+  PC  A  B  C  D  E  F  G  H NEXT
+0003 DE AD 00 00 00 00 00 00 ld cd, 0xBEEF
 >
 ```
 
@@ -103,14 +103,14 @@ The input format recognised by the R8 assembler is very similar to that of most 
 
 ```asm
     ld a, 0xDE
-    nop
     ld b, 0xAD
-    nop
-    ld ab, 0xBEEF
+    ld cd, 0xBEEF
+    ld ef, 0xCAFE
+    ld gh, 0xBABE
     halt
 ```
 
-Whitespace is ignored, and only hexadecimal literals are understood.
+Whitespace is ignored, and only `0x`-prefixed hexadecimal numbers are recognised as literals.
 
 # Changelog
 

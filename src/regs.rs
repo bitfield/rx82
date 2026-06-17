@@ -1,3 +1,5 @@
+use core::fmt::{Display, Formatter};
+
 /// The 8-bit registers.
 #[expect(
     clippy::min_ident_chars,
@@ -8,6 +10,33 @@
 pub enum Reg8 {
     A,
     B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+}
+
+impl Display for Reg8 {
+    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                Reg8::A => "a",
+                Reg8::B => "b",
+                Reg8::C => "c",
+                Reg8::D => "d",
+                Reg8::E => "e",
+                Reg8::F => "f",
+                Reg8::G => "g",
+                Reg8::H => "h",
+            }
+        )
+    }
 }
 
 /// The 16-bit register pairs.
@@ -15,6 +44,26 @@ pub enum Reg8 {
 #[derive(Copy, Clone)]
 pub enum Reg16 {
     AB,
+    CD,
+    EF,
+    GH,
+}
+
+impl Display for Reg16 {
+    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                Reg16::AB => "ab",
+                Reg16::CD => "cd",
+                Reg16::EF => "ef",
+                Reg16::GH => "gh",
+            }
+        )
+    }
 }
 
 /// The CPU registers.
@@ -22,6 +71,12 @@ pub enum Reg16 {
 pub struct Regs {
     ra: u8,
     rb: u8,
+    rc: u8,
+    rd: u8,
+    re: u8,
+    rf: u8,
+    rg: u8,
+    rh: u8,
 }
 
 impl Regs {
@@ -31,6 +86,9 @@ impl Regs {
     pub fn get16(&self, reg: Reg16) -> u16 {
         match reg {
             Reg16::AB => u16::from_be_bytes([self.ra, self.rb]),
+            Reg16::CD => u16::from_be_bytes([self.rc, self.rd]),
+            Reg16::EF => u16::from_be_bytes([self.re, self.rf]),
+            Reg16::GH => u16::from_be_bytes([self.rg, self.rh]),
         }
     }
 
@@ -41,6 +99,12 @@ impl Regs {
         match reg {
             Reg8::A => self.ra,
             Reg8::B => self.rb,
+            Reg8::C => self.rc,
+            Reg8::D => self.rd,
+            Reg8::E => self.re,
+            Reg8::F => self.rf,
+            Reg8::G => self.rg,
+            Reg8::H => self.rh,
         }
     }
 
@@ -49,6 +113,9 @@ impl Regs {
     pub fn set16(&mut self, reg: Reg16, val: u16) {
         match reg {
             Reg16::AB => [self.ra, self.rb] = val.to_be_bytes(),
+            Reg16::CD => [self.rc, self.rd] = val.to_be_bytes(),
+            Reg16::EF => [self.re, self.rf] = val.to_be_bytes(),
+            Reg16::GH => [self.rg, self.rh] = val.to_be_bytes(),
         }
     }
 
@@ -58,6 +125,12 @@ impl Regs {
         match reg {
             Reg8::A => self.ra = val,
             Reg8::B => self.rb = val,
+            Reg8::C => self.rc = val,
+            Reg8::D => self.rd = val,
+            Reg8::E => self.re = val,
+            Reg8::F => self.rf = val,
+            Reg8::G => self.rg = val,
+            Reg8::H => self.rh = val,
         }
     }
 }
@@ -86,6 +159,6 @@ mod tests {
         regs.set16(AB, 0xBEEF);
         assert_eq!(regs.get16(AB), 0xBEEF, "wrong AB");
         assert_eq!(regs.get8(A), 0xBE, "wrong A");
-        assert_eq!(regs.get8(B), 0xEF, "wrong A");
+        assert_eq!(regs.get8(B), 0xEF, "wrong B");
     }
 }

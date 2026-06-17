@@ -1,7 +1,7 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
-    instructions::{INSTRUCTIONS, Instruction, Length},
+    instructions::{INSTRUCTIONS, Instruction, Length::*},
     regs::Regs,
     system::{Bus, Device, State},
 };
@@ -37,13 +37,13 @@ impl Device for Cpu {
                 // We've fetched an instruction; what kind is it?
                 Target::Opcode => {
                     self.ins = INSTRUCTIONS.get(&bus.data).unwrap_or_default();
-                    match self.ins.length {
-                        Length::OneByte => {
+                    match self.ins.bytes {
+                        One => {
                             // No operands needed, so execute it
                             bus.defer_write(vec![State::Mem(false)]);
                             Phase::Execute
                         }
-                        Length::TwoBytes | Length::ThreeBytes => {
+                        Two | Three => {
                             // 1 or 2 operands needed; fetch the first
                             self.target = Target::Operand;
                             Phase::Fetch
@@ -53,7 +53,7 @@ impl Device for Cpu {
                 // We've fetched an operand; check if we still need another.
                 Target::Operand => {
                     self.op_lo = bus.data;
-                    if self.ins.length == Length::ThreeBytes {
+                    if self.ins.bytes == Three {
                         // Yes, fetch the second operand
                         self.target = Target::Operand2;
                         Phase::Fetch
@@ -132,6 +132,7 @@ impl Display for Phase {
     }
 }
 
+#[expect(clippy::exhaustive_enums, reason = "this actually is exhaustive")]
 /// The target of the next fetch operation.
 #[derive(Debug, Default, PartialEq)]
 pub enum Target {
@@ -147,7 +148,7 @@ pub enum Target {
 #[cfg(test)]
 mod tests {
     use crate::{
-        instructions::Opcode::{LdABN, LdAN, Nop},
+        instructions::Opcode::*,
         regs::{Reg8::A, Reg16::AB},
     };
 
@@ -179,7 +180,7 @@ mod tests {
         assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = LdAN as u8; // ld a, N
+        bus.data = LdImmByteA as u8; // ld a, N
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
@@ -207,7 +208,7 @@ mod tests {
         assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = LdABN as u8; // ld ab, N
+        bus.data = LdImmWordAB as u8; // ld ab, NN
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);

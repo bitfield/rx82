@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use rx82::{
-    instructions::Opcode::{LdAN, Nop},
+    instructions::Opcode::{LdImmByteA, Nop},
     system::{State, System},
 };
 
@@ -11,7 +11,7 @@ use rx82::{
 fn program_executes_correctly() -> Result<()> {
     let mut sys = System::default();
     sys.debug = true;
-    sys.mem.load(0x0000, &[LdAN as u8, 0xFF, Nop as u8])?;
+    sys.mem.load(0x0000, &[LdImmByteA as u8, 0xFF, Nop as u8])?;
     let ticks = vec![
         (
             "initial",
@@ -25,7 +25,7 @@ fn program_executes_correctly() -> Result<()> {
             "after wait at 0x0000",
             &[
                 State::Addr(0x0000),
-                State::Data(LdAN as u8),
+                State::Data(LdImmByteA as u8),
                 State::Mem(true),
             ],
         ),
@@ -33,7 +33,7 @@ fn program_executes_correctly() -> Result<()> {
             "after decode nop",
             &[
                 State::Addr(0x0000),
-                State::Data(LdAN as u8),
+                State::Data(LdImmByteA as u8),
                 State::Mem(true),
             ],
         ),
@@ -41,7 +41,7 @@ fn program_executes_correctly() -> Result<()> {
             "after fetch operand at 0x0001",
             &[
                 State::Addr(0x0001),
-                State::Data(LdAN as u8),
+                State::Data(LdImmByteA as u8),
                 State::Mem(true),
             ],
         ),
