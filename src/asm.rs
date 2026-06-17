@@ -51,17 +51,26 @@ impl<'source> Assembler<'source> {
                         bail!("expected register, got {next:?}")
                     };
                     let opcode = match reg.as_str() {
-                        "a" => LdAN as u8,
-                        "b" => LdBN as u8,
+                        "a" => LdAN,
+                        "b" => LdBN,
+                        "ab" => LdABN,
                         _ => bail!("invalid register {reg}"),
                     };
                     let Some(Token::Comma) = self.next_token() else {
                         bail!("expected comma")
                     };
-                    let Some(Token::HexLiteral(operand)) = self.next_token() else {
-                        bail!("expected hex literal")
-                    };
-                    vec![opcode, operand]
+                    if ["a", "b"].contains(&reg.as_str()) {
+                        let Some(Token::ByteLiteral(operand)) = self.next_token() else {
+                            bail!("expected byte literal")
+                        };
+                        vec![opcode as u8, operand]
+                    } else {
+                        let Some(Token::WordLiteral(operand)) = self.next_token() else {
+                            bail!("expected word literal")
+                        };
+                        let [op_lo, op_hi] = operand.to_le_bytes();
+                        vec![opcode as u8, op_lo, op_hi]
+                    }
                 }
                 unexpected => bail!("unexpected token {unexpected:?}"),
             });
@@ -136,10 +145,18 @@ impl<'source> Assembler<'source> {
         self.chomp("0x");
         let literal: String =
             iter::from_fn(|| self.chars.next_if(|ch| !ch.is_whitespace())).collect();
-        self.debug_print(format!("hex literal '{literal}'"));
         Some(match u8::from_str_radix(&literal, 16) {
-            Ok(val) => Token::HexLiteral(val),
-            Err(_) => Token::Illegal(literal),
+            Ok(val) => {
+                self.debug_print(format!("byte literal '{literal}'"));
+                Token::ByteLiteral(val)
+            }
+            Err(_) => match u16::from_str_radix(&literal, 16) {
+                Ok(val) => {
+                    self.debug_print(format!("word literal '{literal}'"));
+                    Token::WordLiteral(val)
+                }
+                Err(_) => Token::Illegal(literal),
+            },
         })
     }
 
@@ -148,7 +165,7 @@ impl<'source> Assembler<'source> {
     pub fn read_identifier(&mut self) -> Option<Token> {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
         Some(match ident.as_str() {
-            "a" | "b" => {
+            "a" | "b" | "ab" => {
                 self.debug_print(format!("register '{ident}'"));
                 Token::Register(ident)
             }
@@ -182,11 +199,12 @@ impl<'source> Assembler<'source> {
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Comma,
-    HexLiteral(u8),
+    ByteLiteral(u8),
     Identifier(String),
     Illegal(String),
     Keyword(String),
     Register(String),
+    WordLiteral(u16),
 }
 
 /// Disassembles a single instruction from `slice`.
@@ -203,6 +221,13 @@ pub fn disassemble(slice: &[u8]) -> String {
         Length::OneByte => ins.name.to_owned(),
         Length::TwoBytes if let Some(operand) = data.next() => {
             format!("{}, {:#04X}", ins.name, operand)
+        }
+        Length::ThreeBytes if let (Some(op_lo), Some(op_hi)) = (data.next(), data.next()) => {
+            format!(
+                "{}, {:#06X}",
+                ins.name,
+                u16::from_le_bytes([*op_lo, *op_hi])
+            )
         }
         _ => "???".to_owned(),
     }
@@ -221,6 +246,10 @@ mod tests {
         assert_eq!(assemble("halt").unwrap(), &[Halt as u8]);
         assert_eq!(assemble("ld a, 0xFF").unwrap(), &[LdAN as u8, 0xFF]);
         assert_eq!(assemble("ld b, 0xFF").unwrap(), &[LdBN as u8, 0xFF]);
+        assert_eq!(
+            assemble("ld ab, 0xBEEF").unwrap(),
+            &[LdABN as u8, 0xEF, 0xBE]
+        );
     }
 
     #[test]
@@ -229,6 +258,7 @@ mod tests {
         assert_eq!(disassemble(&[Halt as u8]), "halt");
         assert_eq!(disassemble(&[LdAN as u8, 0xFF]), "ld a, 0xFF");
         assert_eq!(disassemble(&[LdBN as u8, 0xFF]), "ld b, 0xFF");
+        assert_eq!(disassemble(&[LdABN as u8, 0xEF, 0xBE]), "ld ab, 0xBEEF");
         assert_eq!(disassemble(&[0xFF]), "???");
     }
 }
