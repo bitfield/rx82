@@ -1,7 +1,7 @@
-use std::{fs, path::PathBuf};
-
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+
+use std::{fs, path::PathBuf};
 
 use rx82::{asm::Assembler, monitor::Monitor};
 
@@ -44,7 +44,7 @@ fn main() -> Result<()> {
     match cli.command {
         Command::Asm { debug, path } => {
             let source = fs::read_to_string(&path)?;
-            let mut asm = Assembler::new(&source);
+            let mut asm = Assembler::from(source.as_str());
             asm.debug = debug;
             let data = asm.assemble()?;
             let mut bin_path = path.clone();
@@ -69,7 +69,7 @@ fn main() -> Result<()> {
         }
         Command::Run { debug, path } => {
             let source = fs::read_to_string(&path)?;
-            let data = Assembler::new(&source).assemble()?;
+            let data = Assembler::from(source.as_str()).assemble()?;
             let mut mon = Monitor::default();
             mon.sys.mem.load(0x0000, &data)?;
             mon.debug = debug;

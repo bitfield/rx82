@@ -144,7 +144,7 @@ pub struct System {
     /// The system bus.
     pub bus: Bus,
     /// The system clock.
-    pub clock: Clock,
+    pub clock: Box<dyn Device>,
     /// The system CPU.
     pub cpu: Cpu,
     /// Enable debug snapshots.
@@ -165,7 +165,7 @@ impl Default for System {
     fn default() -> Self {
         Self {
             bus: Bus::default(),
-            clock: Clock::default(),
+            clock: Box::new(Clock::default()),
             cpu: Cpu::default(),
             debug: false,
             devices: Vec::new(),
@@ -179,10 +179,10 @@ impl Default for System {
 impl System {
     /// Prints the current CPU state and the next instruction in memory.
     #[inline]
-    pub fn debug_cpu(&self) {
-        println!("  PC  A  B  C  D  E  F  G  H NEXT");
+    pub fn debug_print(&self) {
+        println!("  PC  A  B  C  D  E  F  G  H | NEXT");
         println!(
-            "{:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {}",
+            "{:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} | {}",
             self.cpu.pc,
             self.cpu.regs.get8(A),
             self.cpu.regs.get8(B),
@@ -251,34 +251,59 @@ impl System {
         if self.history.is_empty() {
             return;
         }
-        let mut tick = String::from("TICK ");
-        let mut header = String::from("─────");
-        let mut phase = String::from("CPU  ");
-        let mut addr = String::from("ADDR ");
-        let mut data = String::from("DATA ");
-        let mut mem = String::from("/MEM ");
-        for snapshot in &self.history {
-            write!(tick, " {:04X}", snapshot.tick).unwrap();
-            write!(header, "─────").unwrap();
-            write!(phase, " {}", snapshot.phase).unwrap();
-            write!(addr, " {:04X}", snapshot.bus.addr).unwrap();
-            write!(data, " ──{:02X}", snapshot.bus.data).unwrap();
-            write!(
-                mem,
-                "{}",
-                if snapshot.bus.mem {
-                    " ████"
-                } else {
-                    " ────"
-                }
-            )
-            .unwrap();
+        for chunk in self.history.chunks(16) {
+            let mut tick = String::from("TICK ");
+            let mut header = String::from("─────");
+            let mut phase = String::from("CPU  ");
+            let mut addr = String::from("ADDR ");
+            let mut data = String::from("DATA ");
+            let mut mem = String::from("/MEM ");
+            for snapshot in chunk {
+                write!(tick, " {:04X}", snapshot.tick).unwrap();
+                write!(header, "─────").unwrap();
+                write!(phase, " {}", snapshot.phase).unwrap();
+                write!(addr, " {:04X}", snapshot.bus.addr).unwrap();
+                write!(data, " ──{:02X}", snapshot.bus.data).unwrap();
+                write!(
+                    mem,
+                    "{}",
+                    if snapshot.bus.mem {
+                        " ████"
+                    } else {
+                        " ────"
+                    }
+                )
+                .unwrap();
+            }
+            println!("{tick}");
+            println!("{header}");
+            println!("{phase}");
+            println!("{addr}");
+            println!("{data}");
+            println!("{mem}");
+            println!();
         }
-        println!("{tick}");
-        println!("{header}");
-        println!("{phase}");
-        println!("{addr}");
-        println!("{data}");
-        println!("{mem}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::instructions::Opcode::{Halt, Nop};
+
+    use super::*;
+
+    #[expect(clippy::unwrap_used, reason = "test")]
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
+    #[test]
+    fn trace_formatting_copes_with_long_lines() {
+        let mut sys = System {
+            debug: true,
+            ..System::default()
+        };
+        let mut nops = vec![Nop as u8; 7];
+        nops.push(Halt as u8);
+        sys.run_program(&nops).unwrap();
+        sys.trace();
+        // panic!("uncomment me to check trace formatting");
     }
 }

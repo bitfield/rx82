@@ -1,31 +1,48 @@
-use core::{
-    iter::{self, Peekable},
-    str::Chars,
-};
-
 use anyhow::{Result, bail};
 
+use core::fmt::{Debug, Display};
+use core::{
+    fmt::Formatter,
+    iter::{self, Peekable},
+    str::Chars,
+    str::FromStr as _,
+};
+
 use crate::instructions::{INSTRUCTIONS, Length::*, Opcode::*};
+use crate::regs::{Reg8, Reg16};
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
 
+/// 8-bit register names.
+pub const REG8: &[&str] = &["a", "b", "c", "d", "e", "f", "g", "h"];
+
+/// 16-bit register pair names.
+pub const REG16: &[&str] = &["ab", "cd", "ef", "gh"];
+
 /// Assembles a given program.
 #[non_exhaustive]
-pub struct Assembler<'source> {
+pub struct Assembler<'src> {
     /// Stores the source code being assembled.
-    pub chars: Peekable<Chars<'source>>,
+    pub chars: Peekable<Chars<'src>>,
+    /// Generated object code.
+    pub code: Vec<u8>,
     /// Enables verbose debugging.
     pub debug: bool,
 }
 
-impl<'source> Assembler<'source> {
-    /// Consumes the next source character.
+impl<'src> From<&'src str> for Assembler<'src> {
     #[inline]
-    pub fn advance(&mut self) {
-        self.chars.next();
+    fn from(source: &'src str) -> Self {
+        Self {
+            chars: source.chars().peekable(),
+            code: Vec::new(),
+            debug: false,
+        }
     }
+}
 
+impl Assembler<'_> {
     #[expect(
         clippy::wildcard_enum_match_arm,
         reason = "any unexpected token is illegal here"
@@ -35,56 +52,25 @@ impl<'source> Assembler<'source> {
     ///
     /// # Errors
     ///
-    /// If the source is invalid.
+    /// * Unexpected end of file
+    /// * Invalid register name
+    /// * Unexpected token
     #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
-        let mut code = Vec::new();
         while let Some(token) = self.next_token() {
-            code.extend(match token {
-                Token::Keyword(kw) if kw == "halt" => vec![Halt as u8],
-                Token::Keyword(kw) if kw == "nop" => vec![Nop as u8],
-                Token::Keyword(kw) if kw == "ld" => {
-                    let Some(next) = self.next_token() else {
-                        bail!("unexpected end of file")
-                    };
-                    let Token::Register(reg) = next else {
-                        bail!("expected register, got {next:?}")
-                    };
-                    let opcode = match reg.as_str() {
-                        "a" => LdImmByteA,
-                        "b" => LdImmByteB,
-                        "c" => LdImmByteC,
-                        "d" => LdImmByteD,
-                        "e" => LdImmByteE,
-                        "f" => LdImmByteF,
-                        "g" => LdImmByteG,
-                        "h" => LdImmByteH,
-                        "ab" => LdImmWordAB,
-                        "cd" => LdImmWordCD,
-                        "ef" => LdImmWordEF,
-                        "gh" => LdImmWordGH,
-                        _ => bail!("invalid register {reg}"),
-                    };
-                    let Some(Token::Comma) = self.next_token() else {
-                        bail!("expected comma")
-                    };
-                    if ["ab", "cd", "ef", "gh"].contains(&reg.as_str()) {
-                        let Some(Token::WordLiteral(operand)) = self.next_token() else {
-                            bail!("expected word operand for 16-bit immediate 'ld {reg}'")
-                        };
-                        let [op_lo, op_hi] = operand.to_le_bytes();
-                        vec![opcode as u8, op_lo, op_hi]
-                    } else {
-                        let Some(Token::ByteLiteral(operand)) = self.next_token() else {
-                            bail!("expected byte operand for 8-bit immediate 'ld {reg}'")
-                        };
-                        vec![opcode as u8, operand]
-                    }
-                }
+            match token {
+                Token::Keyword(kw) if kw == "halt" => self.code.push(Halt as u8),
+                Token::Keyword(kw) if kw == "nop" => self.code.push(Nop as u8),
+                Token::Keyword(kw) if kw == "ld" => match self.next_token() {
+                    Some(Token::Register8(reg)) => self.gen_ld_imm8(reg)?,
+                    Some(Token::Register16(reg)) => self.gen_ld_imm16(reg)?,
+                    Some(other) => bail!("expected register name, got {other:?}"),
+                    None => bail!("unexpected end of file"),
+                },
                 unexpected => bail!("unexpected token {unexpected:?}"),
-            });
+            }
         }
-        Ok(code)
+        Ok(self.code.clone())
     }
 
     /// Skips the given string (or as much of it as is present in the source).
@@ -96,32 +82,79 @@ impl<'source> Assembler<'source> {
         Some(())
     }
 
+    /// Assembles the source code, with debugging output.
+    ///
+    /// # Errors
+    ///
+    /// If the source is invalid.
+    #[inline]
+    pub fn debug_assemble(&mut self) -> Result<Vec<u8>> {
+        self.debug = true;
+        self.assemble()
+    }
+
     /// Prints a message if debug mode is on.
     #[inline]
-    pub fn debug_print(&self, msg: impl AsRef<str>) {
+    pub fn debug_token(&self, token: &Token) {
         if self.debug {
-            println!("asm: {}", msg.as_ref());
+            println!("token: {token}");
         }
     }
 
-    /// Creates a new `Assembler` that will assemble `source`.
-    #[must_use]
+    /// Generate a 16-bit load register immediate instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing comma after register name
+    /// * Missing word literal operand
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     #[inline]
-    pub fn new(source: &'source str) -> Self {
-        Self {
-            chars: source.chars().peekable(),
-            debug: false,
-        }
+    pub fn gen_ld_imm16(&mut self, reg: Reg16) -> Result<()> {
+        let opcode = match reg {
+            Reg16::AB => LdImmWordAB,
+            Reg16::CD => LdImmWordCD,
+            Reg16::EF => LdImmWordEF,
+            Reg16::GH => LdImmWordGH,
+        };
+        self.code.push(opcode as u8);
+        let Some(Token::Comma) = self.next_token() else {
+            bail!("expected comma")
+        };
+        let Some(Token::WordLiteral(operand)) = self.next_token() else {
+            bail!("expected word operand for 16-bit immediate 'ld {reg}'")
+        };
+        self.code.extend(operand.to_le_bytes());
+        Ok(())
     }
 
-    /// Creates a new debug `Assembler` to assemble `source`.
-    #[must_use]
+    /// Generate an 8-bit load register immediate instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing comma after register name
+    /// * Missing byte literal operand
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     #[inline]
-    pub fn new_with_debug(source: &'source str) -> Self {
-        Self {
-            chars: source.chars().peekable(),
-            debug: true,
-        }
+    pub fn gen_ld_imm8(&mut self, reg: Reg8) -> Result<()> {
+        let opcode = match reg {
+            Reg8::A => LdImmByteA,
+            Reg8::B => LdImmByteB,
+            Reg8::C => LdImmByteC,
+            Reg8::D => LdImmByteD,
+            Reg8::E => LdImmByteE,
+            Reg8::F => LdImmByteF,
+            Reg8::G => LdImmByteG,
+            Reg8::H => LdImmByteH,
+        };
+        self.code.push(opcode as u8);
+        let Some(Token::Comma) = self.next_token() else {
+            bail!("expected comma")
+        };
+        let Some(Token::ByteLiteral(operand)) = self.next_token() else {
+            bail!("expected byte operand for 8-bit immediate 'ld {reg}'")
+        };
+        self.code.push(operand);
+        Ok(())
     }
 
     /// Scans and returns the next token from the source code.
@@ -130,12 +163,14 @@ impl<'source> Assembler<'source> {
         self.skip_whitespace();
         if let Some(next_char) = self.chars.peek() {
             let next = *next_char;
-            match next {
+            let token = match next {
                 '0' => self.read_hex_literal(),
                 ',' => self.read_comma(),
                 ch if ch.is_alphabetic() => self.read_identifier(),
                 ch => self.read_illegal(ch),
-            }
+            };
+            self.debug_token(&token);
+            Some(token)
         } else {
             None
         }
@@ -143,57 +178,43 @@ impl<'source> Assembler<'source> {
 
     /// Reads a comma token.
     #[inline]
-    pub fn read_comma(&mut self) -> Option<Token> {
-        self.advance();
-        Some(Token::Comma)
+    pub fn read_comma(&mut self) -> Token {
+        self.chars.next();
+        Token::Comma
     }
 
     /// Reads a hex literal token.
     #[inline]
-    pub fn read_hex_literal(&mut self) -> Option<Token> {
+    pub fn read_hex_literal(&mut self) -> Token {
         self.chomp("0x");
         let literal: String =
             iter::from_fn(|| self.chars.next_if(|ch| !ch.is_whitespace())).collect();
-        Some(match u8::from_str_radix(&literal, 16) {
-            Ok(val) => {
-                self.debug_print(format!("byte literal '{literal}'"));
-                Token::ByteLiteral(val)
-            }
+        match u8::from_str_radix(&literal, 16) {
+            Ok(val) => Token::ByteLiteral(val),
             Err(_) => match u16::from_str_radix(&literal, 16) {
-                Ok(val) => {
-                    self.debug_print(format!("word literal '{literal}'"));
-                    Token::WordLiteral(val)
-                }
+                Ok(val) => Token::WordLiteral(val),
                 Err(_) => Token::Illegal(literal),
             },
-        })
+        }
     }
 
     /// Reads an identifier, register name, or keyword.
     #[inline]
-    pub fn read_identifier(&mut self) -> Option<Token> {
+    pub fn read_identifier(&mut self) -> Token {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
-        Some(match ident.as_str() {
-            "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "ab" | "cd" | "ef" | "gh" => {
-                self.debug_print(format!("register '{ident}'"));
-                Token::Register(ident)
-            }
-            kw if KEYWORDS.contains(&kw) => {
-                self.debug_print(format!("keyword '{ident}'"));
-                Token::Keyword(ident)
-            }
-            _ => {
-                self.debug_print(format!("identifier '{ident}'"));
-                Token::Identifier(ident)
-            }
-        })
+        match ident.as_str() {
+            _ if let Ok(reg) = Reg8::from_str(&ident) => Token::Register8(reg),
+            _ if let Ok(reg) = Reg16::from_str(&ident) => Token::Register16(reg),
+            kw if KEYWORDS.contains(&kw) => Token::Keyword(ident),
+            _ => Token::Identifier(ident),
+        }
     }
 
     /// Reads an illegal token.
     #[inline]
-    pub fn read_illegal(&mut self, ch: char) -> Option<Token> {
-        self.advance();
-        Some(Token::Illegal(ch.to_string()))
+    pub fn read_illegal(&mut self, ch: char) -> Token {
+        self.chars.next();
+        Token::Illegal(ch.to_string())
     }
 
     /// Advances to the next non-whitespace character.
@@ -212,8 +233,23 @@ pub enum Token {
     Identifier(String),
     Illegal(String),
     Keyword(String),
-    Register(String),
+    Register16(Reg16),
+    Register8(Reg8),
+    RegisterName(String),
     WordLiteral(u16),
+}
+
+impl Display for Token {
+    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
+    #[expect(clippy::wildcard_enum_match_arm, reason = "debug formatting is okay")]
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match *self {
+            Token::ByteLiteral(byte) => write!(f, "ByteLiteral({byte:#04X})"),
+            Token::WordLiteral(word) => write!(f, "WordLiteral({word:#06X})"),
+            _ => Debug::fmt(self, f),
+        }
+    }
 }
 
 /// Disassembles a single instruction from `slice`.
@@ -269,22 +305,22 @@ mod tests {
             ("ld ef, 0xBEEF", &[LdImmWordEF as u8, 0xEF, 0xBE]),
             ("ld gh, 0xBEEF", &[LdImmWordGH as u8, 0xEF, 0xBE]),
         ];
-        let assemble = |source| Assembler::new_with_debug(source).assemble();
         for &(source, object) in cases {
-            let generated = assemble(source)
+            let generated = Assembler::from(source)
+                .debug_assemble()
                 .context(format!("assembling '{source}'"))
                 .unwrap();
             assert_eq!(
                 &generated,
                 object,
-                "wrong object code for '{source}': want {}, got {}",
+                "wrong assembly for '{source}': want {}, got {}",
                 as_hex(object),
                 as_hex(&generated),
             );
             assert_eq!(
                 &disassemble(object),
                 source,
-                "wrong source for object code {}",
+                "wrong disassembly for {}",
                 as_hex(object)
             );
         }

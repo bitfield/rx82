@@ -1,4 +1,9 @@
-use core::fmt::{Display, Formatter};
+use anyhow::bail;
+
+use core::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 /// The 8-bit registers.
 #[expect(
@@ -6,7 +11,7 @@ use core::fmt::{Display, Formatter};
     reason = "R8 uses single-letter register names"
 )]
 #[non_exhaustive]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Reg8 {
     A,
     B,
@@ -39,9 +44,28 @@ impl Display for Reg8 {
     }
 }
 
+impl FromStr for Reg8 {
+    type Err = anyhow::Error;
+
+    #[inline]
+    fn from_str(value: &str) -> Result<Self, anyhow::Error> {
+        match value {
+            "a" => Ok(Reg8::A),
+            "b" => Ok(Reg8::B),
+            "c" => Ok(Reg8::C),
+            "d" => Ok(Reg8::D),
+            "e" => Ok(Reg8::E),
+            "f" => Ok(Reg8::F),
+            "g" => Ok(Reg8::G),
+            "h" => Ok(Reg8::H),
+            reg => bail!("invalid register {reg}"),
+        }
+    }
+}
+
 /// The 16-bit register pairs.
 #[non_exhaustive]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Reg16 {
     AB,
     CD,
@@ -63,6 +87,21 @@ impl Display for Reg16 {
                 Reg16::GH => "gh",
             }
         )
+    }
+}
+
+impl FromStr for Reg16 {
+    type Err = anyhow::Error;
+
+    #[inline]
+    fn from_str(value: &str) -> Result<Self, anyhow::Error> {
+        match value {
+            "ab" => Ok(Reg16::AB),
+            "cd" => Ok(Reg16::CD),
+            "ef" => Ok(Reg16::EF),
+            "gh" => Ok(Reg16::GH),
+            reg => bail!("invalid register {reg}"),
+        }
     }
 }
 

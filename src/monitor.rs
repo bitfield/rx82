@@ -1,6 +1,6 @@
-use std::io::{Write as _, stdin, stdout};
-
 use anyhow::Result;
+
+use std::io::{Write as _, stdin, stdout};
 
 use crate::{
     cpu::{Phase, Target},
@@ -35,7 +35,7 @@ impl Monitor {
                 && self.sys.cpu.phase == Phase::Fetch
                 && self.sys.cpu.target == Target::Opcode
             {
-                self.sys.debug_cpu();
+                self.sys.debug_print();
                 wait_for_newline()?;
             }
             self.sys.cpu.halt = false;

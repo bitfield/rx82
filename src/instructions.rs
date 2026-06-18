@@ -229,6 +229,7 @@ pub enum Length {
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum Opcode {
+    Nop,
     Halt,
     LdImmByteA,
     LdImmByteB,
@@ -242,7 +243,6 @@ pub enum Opcode {
     LdImmWordCD,
     LdImmWordEF,
     LdImmWordGH,
-    Nop,
 }
 
 #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
@@ -266,6 +266,7 @@ fn test_reg_load_immediate_word(sys: &mut System, opcode: Opcode, reg: Reg16) ->
     );
     Ok(())
 }
+
 #[cfg(test)]
 mod tests {
     use anyhow::Context as _;
