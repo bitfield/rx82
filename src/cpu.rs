@@ -29,6 +29,7 @@ pub struct Cpu {
 }
 
 impl Device for Cpu {
+    #[expect(clippy::unreachable, reason = "illegal state")]
     /// Performs the current phase, and sets the next phase.
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
@@ -68,12 +69,25 @@ impl Device for Cpu {
                     bus.defer_write(vec![State::Mem(false)]);
                     Phase::Execute
                 }
+                Target::Write(_, _) => unreachable!("reached decode phase after memory write"),
             },
             Phase::Execute => {
-                // Execute this instruction, then fetch the next
+                // Execute this instruction
                 (self.ins.execute)(self);
-                self.target = Target::Opcode;
-                Phase::Fetch
+                if let Target::Write(addr, val) = self.target {
+                    // Write the result
+                    bus.defer_write(vec![
+                        State::Addr(addr),
+                        State::Data(val),
+                        State::Mem(true),
+                        State::Write(true),
+                    ]);
+                    Phase::Wait
+                } else {
+                    // Fetch the next instruction
+                    self.target = Target::Opcode;
+                    Phase::Fetch
+                }
             }
             Phase::Fetch => {
                 if self.halt {
@@ -81,12 +95,22 @@ impl Device for Cpu {
                     Phase::Fetch
                 } else {
                     // Issue a memory read and await the result
-                    bus.defer_write(vec![State::Addr(self.pc), State::Mem(true)]);
+                    bus.defer_write(vec![
+                        State::Addr(self.pc),
+                        State::Mem(true),
+                        State::Write(false),
+                    ]);
                     self.pc = self.pc.wrapping_add(1);
                     Phase::Wait
                 }
             }
-            Phase::Wait => Phase::Decode,
+            Phase::Wait => match self.target {
+                Target::Write(_, _) => {
+                    self.target = Target::Opcode;
+                    Phase::Fetch
+                }
+                Target::Opcode | Target::Operand | Target::Operand2 => Phase::Decode,
+            },
         }
     }
 }
@@ -133,7 +157,7 @@ impl Display for Phase {
 }
 
 #[expect(clippy::exhaustive_enums, reason = "this actually is exhaustive")]
-/// The target of the next fetch operation.
+/// The target of the next fetch or wait phase.
 #[derive(Debug, Default, PartialEq)]
 pub enum Target {
     /// An opcode.
@@ -143,6 +167,8 @@ pub enum Target {
     Operand,
     /// A second 1-byte operand (or high byte of a 2-byte operand).
     Operand2,
+    /// Waiting for a memory write to complete.
+    Write(u16, u8),
 }
 
 #[cfg(test)]
@@ -233,6 +259,46 @@ mod tests {
         assert_eq!(cpu.phase, Phase::Execute);
         cpu.tick(&mut bus);
         assert_eq!(cpu.regs.get16(AB), 0xBEEF);
+        assert_eq!(cpu.pc, 0x0003);
+    }
+
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
+    #[test]
+    fn cpu_states_are_correct_for_mem_write_instruction() {
+        let mut cpu = Cpu::default();
+        let mut bus = Bus::default();
+        cpu.regs.set8(A, 0xFF);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Opcode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = LdMemByteA as u8; // ld (NN), a
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand);
+        assert_eq!(cpu.pc, 0x0001);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xEF;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand2);
+        assert_eq!(cpu.pc, 0x0002);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xBE;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Execute);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        assert_eq!(cpu.target, Target::Write(0xBEEF, 0xFF));
+        cpu.tick(&mut bus);
         assert_eq!(cpu.pc, 0x0003);
     }
 

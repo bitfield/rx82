@@ -1,22 +1,25 @@
-For 'memtest' we need:
-[ ] cd register
-[ ] 'ld cd, NN'
-[ ] memory write
-[ ] Store immediate indirect ('ld (cd), NN')
-[ ] 16-bit compare immediate ('cmp cd, NN')
+For `memcpy` we need:
+[X] cd register
+[X] load register direct 'ld cd, NN'
+[ ] store register direct (`ld (NN), A`)
 [ ] Zero flag
-[ ] Relative jump on zero and non-zero ('jrz E', 'jrnz E')
+[ ] inc/dec reg pair (`inc cd`)
+[ ] Unconditional relative jump (`jr`)
+[ ] Relative jump on zero (`jrz E`)
 [ ] Labels
-[ ] Indirect inc/dec ('dec (cd)')
-[ ] inc/dec cd
 
-For 'hello' we further need:
-[ ] 'ld b'
-[ ] load register indirect ('ld a, (cd)')
+For `memtest` we need:
+[ ] memory write
+[ ] 16-bit compare immediate (`cmp cd, NN`)
+[ ] Relative jump on non-zero (`jrnz E`)
+[ ] Indirect inc/dec (`dec (cd)`)
+
+For `hello` we further need:
+[ ] `ld b`
+[ ] load register indirect (`ld a, (cd)`)
 [ ] 8- and 16-bit inc and dec
-[ ] 'cmp b, N'
+[ ] `cmp b, N`
 [ ] Unconditional relative jump
-[ ] Assembler '.data' directive
-[ ] 'and a, N'
-[ ] store register direct ('ld NN, A')
+[ ] Assembler `.data` directive
+[ ] `and a, N`
 [ ] simple UART / TTY output

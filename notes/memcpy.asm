@@ -3,7 +3,7 @@
     ld gh, 0x0100 ; bytes to copy
     
 LOOP:
-    cmp gh, 0     ; done?
+    cmp gh, 0x0000
     jrz DONE
     ld a, (cd)
     ld (ef), a
@@ -14,3 +14,4 @@ LOOP:
 
 DONE:
     halt
+    

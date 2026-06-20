@@ -62,6 +62,7 @@ impl Assembler<'_> {
                 Token::Keyword(kw) if kw == "halt" => self.code.push(Halt as u8),
                 Token::Keyword(kw) if kw == "nop" => self.code.push(Nop as u8),
                 Token::Keyword(kw) if kw == "ld" => match self.next_token() {
+                    Some(Token::ParenOpen) => self.gen_ld_mem8()?,
                     Some(Token::Register8(reg)) => self.gen_ld_imm8(reg)?,
                     Some(Token::Register16(reg)) => self.gen_ld_imm16(reg)?,
                     Some(other) => bail!("expected register name, got {other:?}"),
@@ -157,6 +158,45 @@ impl Assembler<'_> {
         Ok(())
     }
 
+    /// Generate an 8-bit load memory from register instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing address operand
+    /// * Missing closing parenthesis after address
+    /// * Missing comma before register name
+    /// * Invalid register name
+    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
+    #[inline]
+    pub fn gen_ld_mem8(&mut self) -> Result<()> {
+        let Token::WordLiteral(addr) = self.read_hex_literal_addr() else {
+            bail!("expected address")
+        };
+        self.debug_token(&Token::WordLiteral(addr));
+        let Some(Token::ParenClose) = self.next_token() else {
+            bail!("expected closing parenthesis")
+        };
+        let Some(Token::Comma) = self.next_token() else {
+            bail!("expected comma")
+        };
+        let Some(Token::Register8(reg)) = self.next_token() else {
+            bail!("expected register name")
+        };
+        let opcode = match reg {
+            Reg8::A => LdMemByteA,
+            Reg8::B => LdMemByteB,
+            Reg8::C => LdMemByteC,
+            Reg8::D => LdMemByteD,
+            Reg8::E => LdMemByteE,
+            Reg8::F => LdMemByteF,
+            Reg8::G => LdMemByteG,
+            Reg8::H => LdMemByteH,
+        };
+        self.code.push(opcode as u8);
+        self.code.extend(addr.to_le_bytes());
+        Ok(())
+    }
+
     /// Scans and returns the next token from the source code.
     #[inline]
     pub fn next_token(&mut self) -> Option<Token> {
@@ -165,7 +205,9 @@ impl Assembler<'_> {
             let next = *next_char;
             let token = match next {
                 '0' => self.read_hex_literal(),
-                ',' => self.read_comma(),
+                ',' => self.read_token(Token::Comma),
+                '(' => self.read_token(Token::ParenOpen),
+                ')' => self.read_token(Token::ParenClose),
                 ch if ch.is_alphabetic() => self.read_identifier(),
                 ch => self.read_illegal(ch),
             };
@@ -176,25 +218,30 @@ impl Assembler<'_> {
         }
     }
 
-    /// Reads a comma token.
-    #[inline]
-    pub fn read_comma(&mut self) -> Token {
-        self.chars.next();
-        Token::Comma
-    }
-
     /// Reads a hex literal token.
     #[inline]
     pub fn read_hex_literal(&mut self) -> Token {
         self.chomp("0x");
         let literal: String =
-            iter::from_fn(|| self.chars.next_if(|ch| !ch.is_whitespace())).collect();
+            iter::from_fn(|| self.chars.next_if(char::is_ascii_hexdigit)).collect();
         match u8::from_str_radix(&literal, 16) {
             Ok(val) => Token::ByteLiteral(val),
             Err(_) => match u16::from_str_radix(&literal, 16) {
                 Ok(val) => Token::WordLiteral(val),
                 Err(_) => Token::Illegal(literal),
             },
+        }
+    }
+
+    /// Reads a hex literal address token.
+    #[inline]
+    pub fn read_hex_literal_addr(&mut self) -> Token {
+        self.chomp("0x");
+        let literal: String =
+            iter::from_fn(|| self.chars.next_if(char::is_ascii_hexdigit)).collect();
+        match u16::from_str_radix(&literal, 16) {
+            Ok(val) => Token::WordLiteral(val),
+            Err(_) => Token::Illegal(literal),
         }
     }
 
@@ -217,6 +264,13 @@ impl Assembler<'_> {
         Token::Illegal(ch.to_string())
     }
 
+    /// Reads a given token.
+    #[inline]
+    pub fn read_token(&mut self, token: Token) -> Token {
+        self.chars.next();
+        token
+    }
+
     /// Advances to the next non-whitespace character.
     #[inline]
     pub fn skip_whitespace(&mut self) {
@@ -233,6 +287,8 @@ pub enum Token {
     Identifier(String),
     Illegal(String),
     Keyword(String),
+    ParenClose,
+    ParenOpen,
     Register16(Reg16),
     Register8(Reg8),
     RegisterName(String),
@@ -256,24 +312,18 @@ impl Display for Token {
 #[inline]
 pub fn disassemble(slice: &[u8]) -> String {
     let mut data = slice.iter();
-    let unknown = "???".to_owned();
     let Some(opcode) = data.next() else {
-        return unknown;
+        return "-".to_owned();
     };
+    let unknown = format!("??? ({opcode:#04X})");
     let Some(ins) = INSTRUCTIONS.get(opcode) else {
         return unknown;
     };
     match ins.bytes {
-        One => ins.name.to_owned(),
-        Two if let Some(operand) = data.next() => {
-            format!("{}, {:#04X}", ins.name, operand)
-        }
-        Three if let (Some(op_lo), Some(op_hi)) = (data.next(), data.next()) => {
-            format!(
-                "{}, {:#06X}",
-                ins.name,
-                u16::from_le_bytes([*op_lo, *op_hi])
-            )
+        One => (ins.display)(0, 0),
+        Two if let Some(&operand) = data.next() => (ins.display)(operand, 0),
+        Three if let (Some(&op_lo), Some(&op_hi)) = (data.next(), data.next()) => {
+            (ins.display)(op_lo, op_hi)
         }
         Two | Three => unknown,
     }
@@ -304,6 +354,14 @@ mod tests {
             ("ld cd, 0xBEEF", &[LdImmWordCD as u8, 0xEF, 0xBE]),
             ("ld ef, 0xBEEF", &[LdImmWordEF as u8, 0xEF, 0xBE]),
             ("ld gh, 0xBEEF", &[LdImmWordGH as u8, 0xEF, 0xBE]),
+            ("ld (0x00AF), a", &[LdMemByteA as u8, 0xAF, 0x00]),
+            // ("ld (0x00AF), b", &[LdMemByteB as u8, 0xAF, 0x00]),
+            // ("ld (0x00AF), c", &[LdMemByteC as u8, 0xAF, 0x00]),
+            // ("ld (0x00AF), d", &[LdMemByteD as u8, 0xAF, 0x00]),
+            // ("ld (0x00AF), e", &[LdMemByteE as u8, 0xAF, 0x00]),
+            // ("ld (0x00AF), f", &[LdMemByteF as u8, 0xAF, 0x00]),
+            // ("ld (0x00AF), g", &[LdMemByteG as u8, 0xAF, 0x00]),
+            // ("ld (0x00AF), h", &[LdMemByteH as u8, 0xAF, 0x00]),
         ];
         for &(source, object) in cases {
             let generated = Assembler::from(source)

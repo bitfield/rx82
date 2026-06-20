@@ -19,9 +19,15 @@ impl Device for Memory {
     /// Responds to a memory request if the [`Bus::mem`] line is active.
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
-        if bus.mem {
-            let data = self.get(bus.addr);
-            bus.defer_write(vec![State::Data(data)]);
+        match (bus.mem, bus.write) {
+            (true, false) => {
+                let data = self.get(bus.addr);
+                bus.defer_write(vec![State::Data(data)]);
+            }
+            (true, true) => {
+                self.set(bus.addr, bus.data);
+            }
+            _ => {}
         }
     }
 }

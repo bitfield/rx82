@@ -25,6 +25,8 @@ pub struct Bus {
     pub mem: bool,
     /// A possible pending write to the bus state during the current cycle.
     pending_write: Option<Vec<State>>,
+    /// CPU 'write request' line.
+    pub write: bool,
 }
 
 impl Bus {
@@ -54,6 +56,11 @@ impl Bus {
                     "/MEM line {} {msg}",
                     if self.mem { "active" } else { "inactive" }
                 ),
+                State::Write(wr) => ensure!(
+                    self.write == wr,
+                    "/WR line {} {msg}",
+                    if self.write { "active" } else { "inactive" }
+                ),
             }
         }
         Ok(())
@@ -78,6 +85,7 @@ impl Bus {
                     State::Addr(addr) => self.addr = addr,
                     State::Data(data) => self.data = data,
                     State::Mem(mem) => self.mem = mem,
+                    State::Write(wr) => self.write = wr,
                 }
             }
         }
@@ -118,8 +126,10 @@ pub enum State {
     Addr(u16),
     /// Data bus value.
     Data(u8),
-    /// `MEM` line state.
+    /// `/MEM` line state.
     Mem(bool),
+    /// `/WR` line state.
+    Write(bool),
 }
 
 /// The RX82 system as a whole.

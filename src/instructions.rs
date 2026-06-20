@@ -3,7 +3,7 @@ use anyhow::{Result, ensure};
 use std::{collections::HashMap, sync::LazyLock};
 
 use crate::{
-    cpu::Cpu,
+    cpu::{Cpu, Target},
     regs::{
         Reg8::{self, *},
         Reg16::{self, *},
@@ -23,6 +23,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "nop",
                 bytes: One,
+                display: |_, _| "nop".to_owned(),
                 execute: |_| {},
                 test: |_| Ok(()),
             },
@@ -32,6 +33,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "halt",
                 bytes: One,
+                display: |_, _| "halt".to_owned(),
                 execute: |cpu: &mut Cpu| cpu.halt = true,
                 test: |sys: &mut System| -> Result<()> {
                     sys.run_program(&[Halt as u8])?;
@@ -46,6 +48,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld a",
                 bytes: Two,
+                display: |op, _| format!("ld a, {op:#04X}"),
                 execute: |cpu: &mut Cpu| cpu.regs.set8(A, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_byte(sys, LdImmByteA, A)
@@ -57,6 +60,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld b",
                 bytes: Two,
+                display: |op, _| format!("ld b, {op:#04X}"),
                 execute: |cpu: &mut Cpu| cpu.regs.set8(B, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_byte(sys, LdImmByteB, B)
@@ -68,6 +72,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld c",
                 bytes: Two,
+                display: |op, _| format!("ld c, {op:#04X}"),
                 execute: |cpu: &mut Cpu| cpu.regs.set8(C, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_byte(sys, LdImmByteC, C)
@@ -79,6 +84,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld d",
                 bytes: Two,
+                display: |op, _| format!("ld d, {op:#04X}"),
                 execute: |cpu: &mut Cpu| cpu.regs.set8(D, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_byte(sys, LdImmByteD, D)
@@ -90,6 +96,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld e",
                 bytes: Two,
+                display: |op, _| format!("ld e, {op:#04X}"),
                 execute: |cpu: &mut Cpu| cpu.regs.set8(E, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_byte(sys, LdImmByteE, E)
@@ -101,6 +108,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld f",
                 bytes: Two,
+                display: |op, _| format!("ld f, {op:#04X}"),
                 execute: |cpu: &mut Cpu| cpu.regs.set8(F, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_byte(sys, LdImmByteF, F)
@@ -112,6 +120,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld g",
                 bytes: Two,
+                display: |op, _| format!("ld g, {op:#04X}"),
                 execute: |cpu: &mut Cpu| cpu.regs.set8(G, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_byte(sys, LdImmByteG, G)
@@ -123,6 +132,7 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld h",
                 bytes: Two,
+                display: |op, _| format!("ld h, {op:#04X}"),
                 execute: |cpu: &mut Cpu| cpu.regs.set8(H, cpu.op_lo),
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_byte(sys, LdImmByteH, H)
@@ -134,6 +144,9 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld ab",
                 bytes: Three,
+                display: |op_lo, op_hi| {
+                    format!("ld ab, {:#06X}", u16::from_le_bytes([op_lo, op_hi]))
+                },
                 execute: |cpu: &mut Cpu| {
                     cpu.regs.set8(A, cpu.op_hi);
                     cpu.regs.set8(B, cpu.op_lo);
@@ -148,6 +161,9 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld cd",
                 bytes: Three,
+                display: |op_lo, op_hi| {
+                    format!("ld cd, {:#06X}", u16::from_le_bytes([op_lo, op_hi]))
+                },
                 execute: |cpu: &mut Cpu| {
                     cpu.regs.set8(C, cpu.op_hi);
                     cpu.regs.set8(D, cpu.op_lo);
@@ -162,6 +178,9 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld ef",
                 bytes: Three,
+                display: |op_lo, op_hi| {
+                    format!("ld ef, {:#06X}", u16::from_le_bytes([op_lo, op_hi]))
+                },
                 execute: |cpu: &mut Cpu| {
                     cpu.regs.set8(E, cpu.op_hi);
                     cpu.regs.set8(F, cpu.op_lo);
@@ -176,6 +195,9 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
             Instruction {
                 name: "ld gh",
                 bytes: Three,
+                display: |op_lo, op_hi| {
+                    format!("ld gh, {:#06X}", u16::from_le_bytes([op_lo, op_hi]))
+                },
                 execute: |cpu: &mut Cpu| {
                     cpu.regs.set8(G, cpu.op_hi);
                     cpu.regs.set8(H, cpu.op_lo);
@@ -183,6 +205,22 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
                 test: |sys: &mut System| -> Result<()> {
                     test_reg_load_immediate_word(sys, LdImmWordGH, GH)
                 },
+            },
+        ),
+        (
+            LdMemByteA as u8,
+            Instruction {
+                name: "ld (NN), a",
+                bytes: Three,
+                display: |op_lo, op_hi| {
+                    format!("ld ({:#06X}), a", u16::from_le_bytes([op_lo, op_hi]))
+                },
+
+                execute: |cpu: &mut Cpu| {
+                    let addr = u16::from_le_bytes([cpu.op_lo, cpu.op_hi]);
+                    cpu.target = Target::Write(addr, cpu.regs.get8(A));
+                },
+                test: |sys: &mut System| -> Result<()> { test_mem_load_byte(sys, LdMemByteA) },
             },
         ),
     ])
@@ -194,6 +232,8 @@ pub static INSTRUCTIONS: LazyLock<HashMap<u8, Instruction>> = LazyLock::new(|| {
 pub struct Instruction {
     /// Number of bytes the instruction requires in memory.
     pub bytes: Length,
+    /// Format the instruction for display.
+    pub display: fn(u8, u8) -> String,
     /// The closure that executes this instruction.
     pub execute: fn(&mut Cpu),
     /// The instruction's symbolic name.
@@ -209,6 +249,7 @@ impl Default for &Instruction {
         &Instruction {
             name: "nop",
             bytes: One,
+            display: |_, _| "nop".to_owned(),
             execute: |_| {},
             test: |_| Ok(()),
         }
@@ -243,6 +284,26 @@ pub enum Opcode {
     LdImmWordCD,
     LdImmWordEF,
     LdImmWordGH,
+    LdMemByteA,
+    LdMemByteB,
+    LdMemByteC,
+    LdMemByteD,
+    LdMemByteE,
+    LdMemByteF,
+    LdMemByteG,
+    LdMemByteH,
+}
+
+#[expect(clippy::single_call_fn, reason = "temporary scaffolding")]
+#[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
+fn test_mem_load_byte(sys: &mut System, opcode: Opcode) -> Result<()> {
+    sys.run_program(&[LdImmByteA as u8, 0xFF, opcode as u8, 0xEF, 0xBE, Halt as u8])?;
+    let val = sys.mem.get(0xBEEF);
+    ensure!(
+        val == 0xFF,
+        "wrong mem value after load mem: want 0xFF, got {val:#04X}"
+    );
+    Ok(())
 }
 
 #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
