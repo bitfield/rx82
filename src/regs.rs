@@ -21,6 +21,7 @@ pub enum Reg8 {
     F,
     G,
     H,
+    Invalid(u8),
 }
 
 impl Display for Reg8 {
@@ -39,6 +40,7 @@ impl Display for Reg8 {
                 Reg8::F => "f",
                 Reg8::G => "g",
                 Reg8::H => "h",
+                Reg8::Invalid(_) => "???",
             }
         )
     }
@@ -59,6 +61,41 @@ impl FromStr for Reg8 {
             "g" => Ok(Reg8::G),
             "h" => Ok(Reg8::H),
             reg => bail!("invalid register {reg}"),
+        }
+    }
+}
+
+impl From<Reg8> for u8 {
+    #[expect(clippy::unreachable, reason = "this is an internal error")]
+    #[inline]
+    fn from(reg: Reg8) -> Self {
+        match reg {
+            Reg8::A => 0x00,
+            Reg8::B => 0x01,
+            Reg8::C => 0x02,
+            Reg8::D => 0x03,
+            Reg8::E => 0x04,
+            Reg8::F => 0x05,
+            Reg8::G => 0x06,
+            Reg8::H => 0x07,
+            Reg8::Invalid(_) => unreachable!("tried to encode invalid register name"),
+        }
+    }
+}
+
+impl From<u8> for Reg8 {
+    #[inline]
+    fn from(id: u8) -> Self {
+        match id {
+            0x00 => Reg8::A,
+            0x01 => Reg8::B,
+            0x02 => Reg8::C,
+            0x03 => Reg8::D,
+            0x04 => Reg8::E,
+            0x05 => Reg8::F,
+            0x06 => Reg8::G,
+            0x07 => Reg8::H,
+            _ => Reg8::Invalid(id),
         }
     }
 }
@@ -132,6 +169,7 @@ impl Regs {
     }
 
     /// Returns the byte in register `reg`.
+    #[expect(clippy::unreachable, reason = "this is an internal error")]
     #[inline]
     #[must_use]
     pub fn get8(&self, reg: Reg8) -> u8 {
@@ -144,6 +182,7 @@ impl Regs {
             Reg8::F => self.rf,
             Reg8::G => self.rg,
             Reg8::H => self.rh,
+            Reg8::Invalid(_) => unreachable!("tried to read invalid register"),
         }
     }
 
@@ -159,6 +198,7 @@ impl Regs {
     }
 
     /// Sets register `reg` to the byte `val`.
+    #[expect(clippy::unreachable, reason = "this is an internal error")]
     #[inline]
     pub fn set8(&mut self, reg: Reg8, val: u8) {
         match reg {
@@ -170,6 +210,7 @@ impl Regs {
             Reg8::F => self.rf = val,
             Reg8::G => self.rg = val,
             Reg8::H => self.rh = val,
+            Reg8::Invalid(_) => unreachable!("tried to set invalid register"),
         }
     }
 }

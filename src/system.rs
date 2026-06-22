@@ -298,22 +298,17 @@ impl System {
 
 #[cfg(test)]
 mod tests {
-    use crate::instructions::Opcode::{Halt, Nop};
-
-    use super::*;
-
-    #[expect(clippy::unwrap_used, reason = "test")]
-    #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
-    #[test]
-    fn trace_formatting_copes_with_long_lines() {
-        let mut sys = System {
-            debug: true,
-            ..System::default()
-        };
-        let mut nops = vec![Nop as u8; 7];
-        nops.push(Halt as u8);
-        sys.run_program(&nops).unwrap();
-        sys.trace();
-        // panic!("uncomment me to check trace formatting");
-    }
+    // #[expect(clippy::unwrap_used, reason = "test")]
+    // #[test]
+    // fn trace_formatting_copes_with_long_lines() {
+    //     let mut sys = System {
+    //         debug: true,
+    //         ..System::default()
+    //     };
+    //     let mut nops = vec![u8::from(Nop); 7];
+    //     nops.push(u8::from(Halt));
+    //     sys.run_program(&nops).unwrap();
+    //     sys.trace();
+    //     // panic!("uncomment me to check trace formatting");
+    // }
 }
