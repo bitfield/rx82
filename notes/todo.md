@@ -1,7 +1,7 @@
 For `memcpy` we need:
 [X] cd register
 [X] load register direct 'ld cd, NN'
-[ ] store register direct (`ld (NN), A`)
+[X] store register direct (`ld NN, A`)
 [ ] Zero flag
 [ ] inc/dec reg pair (`inc cd`)
 [ ] Unconditional relative jump (`jr`)
@@ -9,13 +9,13 @@ For `memcpy` we need:
 [ ] Labels
 
 For `memtest` we need:
-[ ] memory write
+[X] memory write
 [ ] 16-bit compare immediate (`cmp cd, NN`)
 [ ] Relative jump on non-zero (`jrnz E`)
 [ ] Indirect inc/dec (`dec (cd)`)
 
 For `hello` we further need:
-[ ] `ld b`
+[X] `ld b`
 [ ] load register indirect (`ld a, (cd)`)
 [ ] 8- and 16-bit inc and dec
 [ ] `cmp b, N`

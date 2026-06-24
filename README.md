@@ -107,10 +107,19 @@ The input format recognised by the R8 assembler is very similar to that of most 
     ld cd, 0xBEEF
     ld ef, 0xCAFE
     ld gh, 0xBABE
+    ld 0xFFFF, a
     halt
 ```
 
 Whitespace is ignored, and only `0x`-prefixed hexadecimal numbers are recognised as literals.
+
+## Opcodes
+
+| HI/LO |  00      |  01      |  02      |  03      |  04      |  05      |  06      |  07      |  08       |  09       |  0A       |  0B       |  0C   |  0D   |  0E   |  0F   |
+| :---: | :---:    | :---:    | :---:    | :---:    | :---:    | :---:    | :---:    | :---:    | :---:     | :---:     | :---:     | :---:     | :---: | :---: | :---: | :---: |
+| 00    | halt     | nop      | --       | --       | --       | --       | --       | --       | --        | --        | --        | --        | --    | --    | --    | --    |
+| 01    | ld a, N  | ld b, N  | ld c, N  | ld d, N  | ld e, N  | ld f, N  | ld g, N  | ld h, N  | ld ab, NN | ld cd, NN | ld ef, NN | ld gh, NN | --    | --    | --    | --    |
+| 02    | ld NN, a | ld NN, b | ld NN, c | ld NN, d | ld NN, e | ld NN, f | ld NN, g | ld NN, h | --        | --        | --        | --        | --    | --    | --    | --    |
 
 # Changelog
 

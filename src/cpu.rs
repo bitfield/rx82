@@ -29,7 +29,6 @@ pub struct Cpu {
 }
 
 impl Device for Cpu {
-    #[expect(clippy::unreachable, reason = "illegal state")]
     /// Performs the current phase, and sets the next phase.
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
@@ -148,7 +147,6 @@ pub enum Phase {
 }
 
 impl Display for Phase {
-    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
@@ -268,45 +266,44 @@ mod tests {
         assert_eq!(cpu.pc, 0x0003);
     }
 
-    // #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
-    // #[test]
-    // fn cpu_states_are_correct_for_mem_write_instruction() {
-    //     let mut cpu = Cpu::default();
-    //     let mut bus = Bus::default();
-    //     cpu.regs.set8(A, 0xFF);
-    //     assert_eq!(cpu.phase, Phase::Fetch);
-    //     assert_eq!(cpu.target, Target::Opcode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     bus.data = LdMemByteA as u8; // ld (NN), a
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Decode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Fetch);
-    //     assert_eq!(cpu.target, Target::Operand);
-    //     assert_eq!(cpu.pc, 0x0001);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     bus.data = 0xEF;
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Decode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Fetch);
-    //     assert_eq!(cpu.target, Target::Operand2);
-    //     assert_eq!(cpu.pc, 0x0002);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     bus.data = 0xBE;
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Decode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Execute);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     assert_eq!(cpu.target, Target::Write(0xBEEF, 0xFF));
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.pc, 0x0003);
-    // }
+    #[test]
+    fn cpu_states_are_correct_for_mem_write_instruction() {
+        let mut cpu = Cpu::default();
+        let mut bus = Bus::default();
+        cpu.regs.set8(A, 0xFF);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Opcode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = u8::from(StoreRegDirect(A)); // ld NN, a
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand);
+        assert_eq!(cpu.pc, 0x0001);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xEF;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand2);
+        assert_eq!(cpu.pc, 0x0002);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xBE;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Execute);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        assert_eq!(cpu.target, Target::Write(0xBEEF, 0xFF));
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.pc, 0x0003);
+    }
 
     #[test]
     fn reset_resets_cpu() {

@@ -8,6 +8,7 @@ use core::{
     str::FromStr as _,
 };
 
+use crate::instructions::Instruction::StoreRegDirect;
 use crate::{
     instructions::Instruction,
     regs::{Reg8, Reg16},
@@ -15,12 +16,6 @@ use crate::{
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
-
-/// 8-bit register names.
-pub const REG8: &[&str] = &["a", "b", "c", "d", "e", "f", "g", "h"];
-
-/// 16-bit register pair names.
-pub const REG16: &[&str] = &["ab", "cd", "ef", "gh"];
 
 /// Assembles a given program.
 #[non_exhaustive]
@@ -63,7 +58,7 @@ impl Assembler<'_> {
                 Token::Keyword(kw) if kw == "halt" => self.code.push(u8::from(Instruction::Halt)),
                 Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Instruction::Nop)),
                 Token::Keyword(kw) if kw == "ld" => match self.next_token() {
-                    // Some(Token::ParenOpen) => self.gen_ld_mem8()?,
+                    Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr)?,
                     Some(Token::Register8(reg)) => self.gen_ld_imm8(reg)?,
                     Some(Token::Register16(reg)) => self.gen_ld_imm16(reg)?,
                     Some(other) => bail!("expected register name, got {other:?}"),
@@ -82,25 +77,6 @@ impl Assembler<'_> {
             _ = self.chars.next_if(|&got| want == got)?;
         }
         Some(())
-    }
-
-    /// Assembles the source code, with debugging output.
-    ///
-    /// # Errors
-    ///
-    /// If the source is invalid.
-    #[inline]
-    pub fn debug_assemble(&mut self) -> Result<Vec<u8>> {
-        self.debug = true;
-        self.assemble()
-    }
-
-    /// Prints a message if debug mode is on.
-    #[inline]
-    pub fn debug_token(&self, token: &Token) {
-        if self.debug {
-            println!("token: {token}");
-        }
     }
 
     /// Generate a 16-bit load register immediate instruction.
@@ -140,44 +116,24 @@ impl Assembler<'_> {
         Ok(())
     }
 
-    // Generate an 8-bit load memory from register instruction.
-
-    // # Errors
-
-    // * Missing address operand
-    // * Missing closing parenthesis after address
-    // * Missing comma before register name
-    // * Invalid register name
-    // #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
-    // #[inline]
-    // pub fn gen_ld_mem8(&mut self) -> Result<()> {
-    //     let Token::WordLiteral(addr) = self.read_hex_literal_addr() else {
-    //         bail!("expected address")
-    //     };
-    //     self.debug_token(&Token::WordLiteral(addr));
-    //     let Some(Token::ParenClose) = self.next_token() else {
-    //         bail!("expected closing parenthesis")
-    //     };
-    //     let Some(Token::Comma) = self.next_token() else {
-    //         bail!("expected comma")
-    //     };
-    //     let Some(Token::Register8(reg)) = self.next_token() else {
-    //         bail!("expected register name")
-    //     };
-    //     let opcode = match reg {
-    //         Reg8::A => LdMemByteA,
-    //         Reg8::B => LdMemByteB,
-    //         Reg8::C => LdMemByteC,
-    //         Reg8::D => LdMemByteD,
-    //         Reg8::E => LdMemByteE,
-    //         Reg8::F => LdMemByteF,
-    //         Reg8::G => LdMemByteG,
-    //         Reg8::H => LdMemByteH,
-    //     };
-    //     self.code.push(opcode as u8);
-    //     self.code.extend(addr.to_le_bytes());
-    //     Ok(())
-    // }
+    /// Generate a store register direct instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing comma before register name
+    /// * Invalid register name
+    #[inline]
+    pub fn gen_store_direct(&mut self, addr: u16) -> Result<()> {
+        let Some(Token::Comma) = self.next_token() else {
+            bail!("expected comma")
+        };
+        let Some(Token::Register8(reg)) = self.next_token() else {
+            bail!("expected register name")
+        };
+        self.code.push(u8::from(StoreRegDirect(reg)));
+        self.code.extend(addr.to_le_bytes());
+        Ok(())
+    }
 
     /// Scans and returns the next token from the source code.
     #[inline]
@@ -188,12 +144,12 @@ impl Assembler<'_> {
             let token = match next {
                 '0' => self.read_hex_literal(),
                 ',' => self.read_token(Token::Comma),
-                '(' => self.read_token(Token::ParenOpen),
-                ')' => self.read_token(Token::ParenClose),
                 ch if ch.is_alphabetic() => self.read_identifier(),
                 ch => self.read_illegal(ch),
             };
-            self.debug_token(&token);
+            if self.debug {
+                println!("token: {token}");
+            }
             Some(token)
         } else {
             None
@@ -206,24 +162,16 @@ impl Assembler<'_> {
         self.chomp("0x");
         let literal: String =
             iter::from_fn(|| self.chars.next_if(char::is_ascii_hexdigit)).collect();
-        match u8::from_str_radix(&literal, 16) {
-            Ok(val) => Token::ByteLiteral(val),
-            Err(_) => match u16::from_str_radix(&literal, 16) {
+        match literal.len() {
+            4 => match u16::from_str_radix(&literal, 16) {
                 Ok(val) => Token::WordLiteral(val),
                 Err(_) => Token::Illegal(literal),
             },
-        }
-    }
-
-    /// Reads a hex literal address token.
-    #[inline]
-    pub fn read_hex_literal_addr(&mut self) -> Token {
-        self.chomp("0x");
-        let literal: String =
-            iter::from_fn(|| self.chars.next_if(char::is_ascii_hexdigit)).collect();
-        match u16::from_str_radix(&literal, 16) {
-            Ok(val) => Token::WordLiteral(val),
-            Err(_) => Token::Illegal(literal),
+            2 => match u8::from_str_radix(&literal, 16) {
+                Ok(val) => Token::ByteLiteral(val),
+                Err(_) => Token::Illegal(literal),
+            },
+            _ => Token::Illegal(literal),
         }
     }
 
@@ -269,8 +217,6 @@ pub enum Token {
     Identifier(String),
     Illegal(String),
     Keyword(String),
-    ParenClose,
-    ParenOpen,
     Register16(Reg16),
     Register8(Reg8),
     RegisterName(String),
@@ -278,7 +224,6 @@ pub enum Token {
 }
 
 impl Display for Token {
-    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
     #[expect(clippy::wildcard_enum_match_arm, reason = "debug formatting is okay")]
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -308,6 +253,7 @@ pub fn disassemble(slice: &[u8]) -> String {
         Nop => "nop".into(),
         LoadRegImm8(reg) => format!("ld {reg}, {}", format_maybe_byte(op_lo)),
         LoadRegImm16(reg) => format!("ld {reg}, {}", format_maybe_word(op_lo, op_hi)),
+        StoreRegDirect(reg) => format!("ld {}, {reg}", format_maybe_word(op_lo, op_hi)),
     }
 }
 
@@ -320,7 +266,6 @@ fn format_maybe_byte(maybe_op: Option<&u8>) -> String {
     }
 }
 
-#[expect(clippy::single_call_fn, reason = "will be used more")]
 fn format_maybe_word(maybe_lo: Option<&u8>, maybe_hi: Option<&u8>) -> String {
     if let (Some(&lo), Some(&hi)) = (maybe_lo, maybe_hi) {
         format!("{:#06X}", u16::from_le_bytes([lo, hi]))
@@ -341,6 +286,12 @@ mod tests {
         use Instruction::*;
         use Reg8::*;
         use Reg16::*;
+        let assemble = |source| {
+            let mut asm = Assembler::from(source);
+            asm.debug = true;
+            asm.assemble()
+        };
+
         let cases: &[(&str, &[u8])] = &[
             ("nop", &[u8::from(Nop)]),
             ("halt", &[u8::from(Halt)]),
@@ -356,18 +307,17 @@ mod tests {
             ("ld cd, 0xBEEF", &[u8::from(LoadRegImm16(CD)), 0xEF, 0xBE]),
             ("ld ef, 0xBEEF", &[u8::from(LoadRegImm16(EF)), 0xEF, 0xBE]),
             ("ld gh, 0xBEEF", &[u8::from(LoadRegImm16(GH)), 0xEF, 0xBE]),
-            // ("ld (0x00AF), a", &[LdMemByteA as u8, 0xAF, 0x00]),
-            // ("ld (0x00AF), b", &[LdMemByteB as u8, 0xAF, 0x00]),
-            // ("ld (0x00AF), c", &[LdMemByteC as u8, 0xAF, 0x00]),
-            // ("ld (0x00AF), d", &[LdMemByteD as u8, 0xAF, 0x00]),
-            // ("ld (0x00AF), e", &[LdMemByteE as u8, 0xAF, 0x00]),
-            // ("ld (0x00AF), f", &[LdMemByteF as u8, 0xAF, 0x00]),
-            // ("ld (0x00AF), g", &[LdMemByteG as u8, 0xAF, 0x00]),
-            // ("ld (0x00AF), h", &[LdMemByteH as u8, 0xAF, 0x00]),
+            ("ld 0x00AF, a", &[u8::from(StoreRegDirect(A)), 0xAF, 0x00]),
+            ("ld 0x00AF, b", &[u8::from(StoreRegDirect(B)), 0xAF, 0x00]),
+            ("ld 0x00AF, c", &[u8::from(StoreRegDirect(C)), 0xAF, 0x00]),
+            ("ld 0x00AF, d", &[u8::from(StoreRegDirect(D)), 0xAF, 0x00]),
+            ("ld 0x00AF, e", &[u8::from(StoreRegDirect(E)), 0xAF, 0x00]),
+            ("ld 0x00AF, f", &[u8::from(StoreRegDirect(F)), 0xAF, 0x00]),
+            ("ld 0x00AF, g", &[u8::from(StoreRegDirect(G)), 0xAF, 0x00]),
+            ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
         ];
         for &(source, object) in cases {
-            let generated = Assembler::from(source)
-                .debug_assemble()
+            let generated = assemble(source)
                 .context(format!("assembling '{source}'"))
                 .unwrap();
             assert_eq!(

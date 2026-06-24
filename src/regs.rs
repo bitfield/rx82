@@ -25,7 +25,6 @@ pub enum Reg8 {
 }
 
 impl Display for Reg8 {
-    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
@@ -66,7 +65,6 @@ impl FromStr for Reg8 {
 }
 
 impl From<Reg8> for u8 {
-    #[expect(clippy::unreachable, reason = "this is an internal error")]
     #[inline]
     fn from(reg: Reg8) -> Self {
         match reg {
@@ -112,7 +110,6 @@ pub enum Reg16 {
 }
 
 impl Display for Reg16 {
-    #[expect(clippy::absolute_paths, reason = "disambiguate from anyhow::Result")]
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
@@ -145,7 +142,6 @@ impl FromStr for Reg16 {
 }
 
 impl From<Reg16> for u8 {
-    #[expect(clippy::unreachable, reason = "this is an internal error")]
     #[inline]
     fn from(reg: Reg16) -> Self {
         match reg {
@@ -186,7 +182,6 @@ pub struct Regs {
 
 impl Regs {
     /// Returns the word in register pair `reg`.
-    #[expect(clippy::unreachable, reason = "this is an internal error")]
     #[inline]
     #[must_use]
     pub fn get16(&self, reg: Reg16) -> u16 {
@@ -200,7 +195,6 @@ impl Regs {
     }
 
     /// Returns the byte in register `reg`.
-    #[expect(clippy::unreachable, reason = "this is an internal error")]
     #[inline]
     #[must_use]
     pub fn get8(&self, reg: Reg8) -> u8 {
@@ -218,7 +212,6 @@ impl Regs {
     }
 
     /// Sets register pair `reg` to the word `val`.
-    #[expect(clippy::unreachable, reason = "this is an internal error")]
     #[inline]
     pub fn set16(&mut self, reg: Reg16, val: u16) {
         match reg {
@@ -231,7 +224,6 @@ impl Regs {
     }
 
     /// Sets register `reg` to the byte `val`.
-    #[expect(clippy::unreachable, reason = "this is an internal error")]
     #[inline]
     pub fn set8(&mut self, reg: Reg8, val: u8) {
         match reg {
