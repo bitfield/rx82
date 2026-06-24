@@ -65,7 +65,7 @@ impl Assembler<'_> {
                 Token::Keyword(kw) if kw == "ld" => match self.next_token() {
                     // Some(Token::ParenOpen) => self.gen_ld_mem8()?,
                     Some(Token::Register8(reg)) => self.gen_ld_imm8(reg)?,
-                    // Some(Token::Register16(reg)) => self.gen_ld_imm16(reg)?,
+                    Some(Token::Register16(reg)) => self.gen_ld_imm16(reg)?,
                     Some(other) => bail!("expected register name, got {other:?}"),
                     None => bail!("unexpected end of file"),
                 },
@@ -103,31 +103,24 @@ impl Assembler<'_> {
         }
     }
 
-    // Generate a 16-bit load register immediate instruction.
-
-    // # Errors
-
-    // * Missing comma after register name
-    // * Missing word literal operand
-    // #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
-    // #[inline]
-    // pub fn gen_ld_imm16(&mut self, reg: Reg16) -> Result<()> {
-    //     let opcode = match reg {
-    //         Reg16::AB => LdImmWordAB,
-    //         Reg16::CD => LdImmWordCD,
-    //         Reg16::EF => LdImmWordEF,
-    //         Reg16::GH => LdImmWordGH,
-    //     };
-    //     self.code.push(opcode as u8);
-    //     let Some(Token::Comma) = self.next_token() else {
-    //         bail!("expected comma")
-    //     };
-    //     let Some(Token::WordLiteral(operand)) = self.next_token() else {
-    //         bail!("expected word operand for 16-bit immediate 'ld {reg}'")
-    //     };
-    //     self.code.extend(operand.to_le_bytes());
-    //     Ok(())
-    // }
+    /// Generate a 16-bit load register immediate instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing comma after register name
+    /// * Missing word literal operand
+    #[inline]
+    pub fn gen_ld_imm16(&mut self, reg: Reg16) -> Result<()> {
+        self.code.push(u8::from(Instruction::LoadRegImm16(reg)));
+        let Some(Token::Comma) = self.next_token() else {
+            bail!("expected comma")
+        };
+        let Some(Token::WordLiteral(operand)) = self.next_token() else {
+            bail!("expected word operand for 16-bit immediate 'ld {reg}'")
+        };
+        self.code.extend(operand.to_le_bytes());
+        Ok(())
+    }
 
     /// Generate an 8-bit load register immediate instruction.
     ///
@@ -298,7 +291,6 @@ impl Display for Token {
 }
 
 /// Disassembles a single instruction from `slice`.
-#[expect(unused, reason = "will be used later")]
 #[inline]
 #[must_use]
 pub fn disassemble(slice: &[u8]) -> String {
@@ -314,14 +306,24 @@ pub fn disassemble(slice: &[u8]) -> String {
         Halt => "halt".into(),
         Illegal(bad_opcode) => format!("??? ({bad_opcode:#04X})"),
         Nop => "nop".into(),
-        LoadRegImm8(reg) => format!("ld {reg}, {}", format_maybe_operand(op_lo)),
+        LoadRegImm8(reg) => format!("ld {reg}, {}", format_maybe_byte(op_lo)),
+        LoadRegImm16(reg) => format!("ld {reg}, {}", format_maybe_word(op_lo, op_hi)),
     }
 }
 
 #[expect(clippy::single_call_fn, reason = "will be used more")]
-fn format_maybe_operand(maybe_op: Option<&u8>) -> String {
+fn format_maybe_byte(maybe_op: Option<&u8>) -> String {
     if let Some(op) = maybe_op {
         format!("{op:#04X}")
+    } else {
+        "??? (no operand)".to_owned()
+    }
+}
+
+#[expect(clippy::single_call_fn, reason = "will be used more")]
+fn format_maybe_word(maybe_lo: Option<&u8>, maybe_hi: Option<&u8>) -> String {
+    if let (Some(&lo), Some(&hi)) = (maybe_lo, maybe_hi) {
+        format!("{:#06X}", u16::from_le_bytes([lo, hi]))
     } else {
         "??? (no operand)".to_owned()
     }
@@ -338,6 +340,7 @@ mod tests {
     fn assembler_assembles_and_disassembles_instructions_correctly() {
         use Instruction::*;
         use Reg8::*;
+        use Reg16::*;
         let cases: &[(&str, &[u8])] = &[
             ("nop", &[u8::from(Nop)]),
             ("halt", &[u8::from(Halt)]),
@@ -349,10 +352,10 @@ mod tests {
             ("ld f, 0xFF", &[u8::from(LoadRegImm8(F)), 0xFF]),
             ("ld g, 0xFF", &[u8::from(LoadRegImm8(G)), 0xFF]),
             ("ld h, 0xFF", &[u8::from(LoadRegImm8(H)), 0xFF]),
-            // ("ld ab, 0xBEEF", &[LdImmWordAB as u8, 0xEF, 0xBE]),
-            // ("ld cd, 0xBEEF", &[LdImmWordCD as u8, 0xEF, 0xBE]),
-            // ("ld ef, 0xBEEF", &[LdImmWordEF as u8, 0xEF, 0xBE]),
-            // ("ld gh, 0xBEEF", &[LdImmWordGH as u8, 0xEF, 0xBE]),
+            ("ld ab, 0xBEEF", &[u8::from(LoadRegImm16(AB)), 0xEF, 0xBE]),
+            ("ld cd, 0xBEEF", &[u8::from(LoadRegImm16(CD)), 0xEF, 0xBE]),
+            ("ld ef, 0xBEEF", &[u8::from(LoadRegImm16(EF)), 0xEF, 0xBE]),
+            ("ld gh, 0xBEEF", &[u8::from(LoadRegImm16(GH)), 0xEF, 0xBE]),
             // ("ld (0x00AF), a", &[LdMemByteA as u8, 0xAF, 0x00]),
             // ("ld (0x00AF), b", &[LdMemByteB as u8, 0xAF, 0x00]),
             // ("ld (0x00AF), c", &[LdMemByteC as u8, 0xAF, 0x00]),
@@ -387,8 +390,8 @@ mod tests {
     fn disassembler_copes_with_invalid_code() {
         // Load immediate without a following operand
         assert_eq!(disassemble(&[0x10]), "ld a, ??? (no operand)");
-        // Opcode encoding invalid register ID
-        assert_eq!(disassemble(&[0x1F, 0xFF]), "ld ???, 0xFF");
+        // Invalid opcode
+        assert_eq!(disassemble(&[0x1C, 0xFF]), "??? (0x1C)");
     }
 
     fn as_hex(data: &[u8]) -> String {

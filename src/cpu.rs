@@ -181,7 +181,10 @@ pub enum Target {
 
 #[cfg(test)]
 mod tests {
-    use crate::regs::Reg16::AB;
+    use crate::{
+        instructions::Instruction::*,
+        regs::{Reg8::*, Reg16::*},
+    };
 
     use super::*;
 
@@ -202,70 +205,68 @@ mod tests {
         assert_eq!(cpu.pc, 0x0001);
     }
 
-    // #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
-    // #[test]
-    // fn cpu_states_are_correct_for_2_byte_instruction() {
-    //     let mut cpu = Cpu::default();
-    //     let mut bus = Bus::default();
-    //     assert_eq!(cpu.phase, Phase::Fetch);
-    //     assert_eq!(cpu.target, Target::Opcode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     bus.data = LdImmByteA as u8; // ld a, N
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Decode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Fetch);
-    //     assert_eq!(cpu.target, Target::Operand);
-    //     assert_eq!(cpu.pc, 0x0001);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     bus.data = 0xFF;
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Decode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Execute);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.regs.get8(A), 0xFF);
-    //     assert_eq!(cpu.pc, 0x0002);
-    // }
+    #[test]
+    fn cpu_states_are_correct_for_2_byte_instruction() {
+        let mut cpu = Cpu::default();
+        let mut bus = Bus::default();
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Opcode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = u8::from(LoadRegImm8(A)); // ld a, N
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand);
+        assert_eq!(cpu.pc, 0x0001);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xFF;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Execute);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.regs.get8(A), 0xFF);
+        assert_eq!(cpu.pc, 0x0002);
+    }
 
-    // #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
-    // #[test]
-    // fn cpu_states_are_correct_for_3_byte_instruction() {
-    //     let mut cpu = Cpu::default();
-    //     let mut bus = Bus::default();
-    //     assert_eq!(cpu.phase, Phase::Fetch);
-    //     assert_eq!(cpu.target, Target::Opcode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     bus.data = LdImmWordAB as u8; // ld ab, NN
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Decode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Fetch);
-    //     assert_eq!(cpu.target, Target::Operand);
-    //     assert_eq!(cpu.pc, 0x0001);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     bus.data = 0xEF;
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Decode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Fetch);
-    //     assert_eq!(cpu.target, Target::Operand2);
-    //     assert_eq!(cpu.pc, 0x0002);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Wait);
-    //     bus.data = 0xBE;
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Decode);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.phase, Phase::Execute);
-    //     cpu.tick(&mut bus);
-    //     assert_eq!(cpu.regs.get16(AB), 0xBEEF);
-    //     assert_eq!(cpu.pc, 0x0003);
-    // }
+    #[test]
+    fn cpu_states_are_correct_for_3_byte_instruction() {
+        let mut cpu = Cpu::default();
+        let mut bus = Bus::default();
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Opcode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = u8::from(LoadRegImm16(AB)); // ld ab, NN
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand);
+        assert_eq!(cpu.pc, 0x0001);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xEF;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Fetch);
+        assert_eq!(cpu.target, Target::Operand2);
+        assert_eq!(cpu.pc, 0x0002);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Wait);
+        bus.data = 0xBE;
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Decode);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.phase, Phase::Execute);
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.regs.get16(AB), 0xBEEF);
+        assert_eq!(cpu.pc, 0x0003);
+    }
 
     // #[expect(clippy::as_conversions, reason = "Opcode is repr(u8)")]
     // #[test]

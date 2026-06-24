@@ -1,4 +1,7 @@
-use crate::{cpu::Cpu, regs::Reg8};
+use crate::{
+    cpu::Cpu,
+    regs::{Reg8, Reg16},
+};
 
 // (
 //     LdImmWordAB as u8,
@@ -93,6 +96,7 @@ use crate::{cpu::Cpu, regs::Reg8};
 pub enum Instruction {
     Halt,
     Illegal(u8),
+    LoadRegImm16(Reg16),
     LoadRegImm8(Reg8),
     #[default]
     Nop,
@@ -108,7 +112,11 @@ impl From<u8> for Instruction {
                 0x1 => Nop,
                 _ => Illegal(opcode),
             },
-            0x1 => LoadRegImm8(Reg8::from(opcode & 0x0F)),
+            0x1 => match opcode & 0x0F {
+                0x00..=0x07 => LoadRegImm8(Reg8::from(opcode & 0x0F)),
+                0x08..=0x0B => LoadRegImm16(Reg16::from(opcode & 0x0F)),
+                _ => Illegal(opcode),
+            },
             _ => Illegal(opcode),
         }
     }
@@ -126,6 +134,11 @@ impl From<Instruction> for u8 {
                 opcode |= u8::from(reg);
                 opcode
             }
+            LoadRegImm16(reg) => {
+                let mut opcode = 0x10;
+                opcode |= u8::from(reg);
+                opcode
+            }
             Nop => 0x01,
         }
     }
@@ -139,6 +152,9 @@ impl Instruction {
             Halt => cpu.halt = true,
             Illegal(_) | Nop => {}
             LoadRegImm8(reg) => cpu.regs.set8(reg, cpu.op_lo),
+            LoadRegImm16(reg) => cpu
+                .regs
+                .set16(reg, u16::from_le_bytes([cpu.op_lo, cpu.op_hi])),
         }
     }
 
@@ -149,6 +165,7 @@ impl Instruction {
         match *self {
             Halt | Illegal(_) | Nop => Operands::Zero,
             LoadRegImm8(_) => Operands::One,
+            LoadRegImm16(_) => Operands::Two,
         }
     }
 }
@@ -188,9 +205,12 @@ pub enum Operands {
 #[cfg(test)]
 #[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
-    use crate::system::System;
+    use crate::{
+        regs::{Reg8::*, Reg16::*},
+        system::System,
+    };
 
-    use super::{Instruction::*, Reg8::*};
+    use super::Instruction::*;
 
     #[test]
     fn halt() {
@@ -207,6 +227,15 @@ mod tests {
             .unwrap();
         assert_eq!(sys.cpu.regs.get8(A), 0xFF, "wrong A");
         assert_eq!(sys.cpu.pc, 0x0003, "wrong PC");
+    }
+
+    #[test]
+    fn ld_reg_imm16() {
+        let mut sys = System::default();
+        sys.run_program(&[u8::from(LoadRegImm16(AB)), 0x00C0, u8::from(Halt)])
+            .unwrap();
+        assert_eq!(sys.cpu.regs.get16(AB), 0x00C0, "wrong AB");
+        assert_eq!(sys.cpu.pc, 0x0004, "wrong PC");
     }
 
     #[test]

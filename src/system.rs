@@ -298,17 +298,20 @@ impl System {
 
 #[cfg(test)]
 mod tests {
-    // #[expect(clippy::unwrap_used, reason = "test")]
-    // #[test]
-    // fn trace_formatting_copes_with_long_lines() {
-    //     let mut sys = System {
-    //         debug: true,
-    //         ..System::default()
-    //     };
-    //     let mut nops = vec![u8::from(Nop); 7];
-    //     nops.push(u8::from(Halt));
-    //     sys.run_program(&nops).unwrap();
-    //     sys.trace();
-    //     // panic!("uncomment me to check trace formatting");
-    // }
+    use super::*;
+    use crate::instructions::Instruction::*;
+
+    #[expect(clippy::unwrap_used, reason = "test")]
+    #[test]
+    fn trace_formatting_copes_with_long_lines() {
+        let mut sys = System {
+            debug: true,
+            ..System::default()
+        };
+        let mut nops = vec![u8::from(Nop); 7];
+        nops.push(u8::from(Halt));
+        sys.run_program(&nops).unwrap();
+        sys.trace();
+        // panic!("uncomment me to check trace formatting");
+    }
 }
