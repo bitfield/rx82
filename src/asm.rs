@@ -8,9 +8,9 @@ use core::{
     str::FromStr as _,
 };
 
-use crate::instructions::Instruction::StoreRegDirect;
+use crate::instructions::InstructionKind::StoreRegDirect;
 use crate::{
-    instructions::Instruction,
+    instructions::InstructionKind,
     regs::{Reg8, Reg16},
 };
 
@@ -55,8 +55,10 @@ impl Assembler<'_> {
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         while let Some(token) = self.next_token() {
             match token {
-                Token::Keyword(kw) if kw == "halt" => self.code.push(u8::from(Instruction::Halt)),
-                Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Instruction::Nop)),
+                Token::Keyword(kw) if kw == "halt" => {
+                    self.code.push(u8::from(InstructionKind::Halt));
+                }
+                Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(InstructionKind::Nop)),
                 Token::Keyword(kw) if kw == "ld" => match self.next_token() {
                     Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr)?,
                     Some(Token::Register8(reg)) => self.gen_ld_imm8(reg)?,
@@ -87,7 +89,7 @@ impl Assembler<'_> {
     /// * Missing word literal operand
     #[inline]
     pub fn gen_ld_imm16(&mut self, reg: Reg16) -> Result<()> {
-        self.code.push(u8::from(Instruction::LoadRegImm16(reg)));
+        self.code.push(u8::from(InstructionKind::LoadRegImm16(reg)));
         let Some(Token::Comma) = self.next_token() else {
             bail!("expected comma")
         };
@@ -105,7 +107,7 @@ impl Assembler<'_> {
     /// * Missing byte literal operand
     #[inline]
     pub fn gen_ld_imm8(&mut self, reg: Reg8) -> Result<()> {
-        self.code.push(u8::from(Instruction::LoadRegImm8(reg)));
+        self.code.push(u8::from(InstructionKind::LoadRegImm8(reg)));
         let Some(Token::Comma) = self.next_token() else {
             bail!("expected comma")
         };
@@ -239,21 +241,23 @@ impl Display for Token {
 #[inline]
 #[must_use]
 pub fn disassemble(slice: &[u8]) -> String {
-    use crate::instructions::Instruction::*;
+    use crate::instructions::InstructionKind::*;
     let mut data = slice.iter();
     let Some(&opcode) = data.next() else {
         return "-".to_owned();
     };
     let op_lo = data.next();
     let op_hi = data.next();
-    let ins = Instruction::from(opcode);
-    match ins {
-        Halt => "halt".into(),
-        Illegal(bad_opcode) => format!("??? ({bad_opcode:#04X})"),
-        Nop => "nop".into(),
-        LoadRegImm8(reg) => format!("ld {reg}, {}", format_maybe_byte(op_lo)),
-        LoadRegImm16(reg) => format!("ld {reg}, {}", format_maybe_word(op_lo, op_hi)),
-        StoreRegDirect(reg) => format!("ld {}, {reg}", format_maybe_word(op_lo, op_hi)),
+    if let Ok(ins) = InstructionKind::try_from(opcode) {
+        match ins {
+            Halt => "halt".into(),
+            Nop => "nop".into(),
+            LoadRegImm8(reg) => format!("ld {reg}, {}", format_maybe_byte(op_lo)),
+            LoadRegImm16(reg) => format!("ld {reg}, {}", format_maybe_word(op_lo, op_hi)),
+            StoreRegDirect(reg) => format!("ld {}, {reg}", format_maybe_word(op_lo, op_hi)),
+        }
+    } else {
+        format!("??? ({opcode:#04X})")
     }
 }
 
@@ -283,7 +287,7 @@ mod tests {
 
     #[test]
     fn assembler_assembles_and_disassembles_instructions_correctly() {
-        use Instruction::*;
+        use InstructionKind::*;
         use Reg8::*;
         use Reg16::*;
         let assemble = |source| {

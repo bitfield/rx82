@@ -1,17 +1,16 @@
     ld cd, 0x1000 ; source address
     ld ef, 0x2000 ; destination address
-    ld gh, 0x0100 ; bytes to copy
-    
+    ld b, 0xFF    ; bytes to copy
+
 LOOP:
-    cmp gh, 0x0000
+    cmp b, 0x00
     jrz DONE
     ld a, (cd)
     ld (ef), a
     inc cd
     inc ef
-    dec gh
+    dec b
     jr LOOP
 
 DONE:
     halt
-    

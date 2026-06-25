@@ -1,9 +1,7 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
-    instructions::{Instruction, Operands},
-    regs::Regs,
-    system::{Bus, Device, State},
+    instructions::{InstructionKind::{self, Nop}, Operands}, regs::Regs, system::{Bus, Device, State},
 };
 
 /// The system CPU.
@@ -13,7 +11,7 @@ pub struct Cpu {
     /// HALT flag.
     pub halt: bool,
     /// The current instruction.
-    pub ins: Instruction,
+    pub ins: InstructionKind,
     /// The current operand (high byte).
     pub op_hi: u8,
     /// The current operand (low byte).
@@ -37,7 +35,7 @@ impl Device for Cpu {
                 // We've fetched an instruction; what kind is it?
                 Target::Opcode => {
                     let opcode = bus.data;
-                    self.ins = Instruction::from(opcode);
+                    self.ins = InstructionKind::try_from(opcode).unwrap_or(Nop);
                     match self.ins.operands() {
                         Operands::Zero => {
                             // No operands needed, so execute it
@@ -180,7 +178,7 @@ pub enum Target {
 #[cfg(test)]
 mod tests {
     use crate::{
-        instructions::Instruction::*,
+        instructions::InstructionKind::*,
         regs::{Reg8::*, Reg16::*},
     };
 
@@ -188,7 +186,7 @@ mod tests {
 
     #[test]
     fn cpu_states_are_correct_for_1_byte_instruction() {
-        use Instruction::*;
+        use InstructionKind::*;
         let mut cpu = Cpu::default();
         let mut bus = Bus::default();
         assert_eq!(cpu.phase, Phase::Fetch);

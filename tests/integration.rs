@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use rx82::{
-    instructions::Instruction::*,
+    instructions::InstructionKind::*,
     regs::Reg8::*,
     system::{State, System},
 };

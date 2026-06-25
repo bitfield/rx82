@@ -1,14 +1,15 @@
+use anyhow::anyhow;
+
 use crate::{
     cpu::Cpu,
     regs::{Reg8, Reg16},
 };
 
-/// Instruction types.
+/// Instruction kinds.
 #[non_exhaustive]
 #[derive(Clone, Debug, Default)]
-pub enum Instruction {
+pub enum InstructionKind {
     Halt,
-    Illegal(u8),
     LoadRegImm16(Reg16),
     LoadRegImm8(Reg8),
     #[default]
@@ -16,37 +17,38 @@ pub enum Instruction {
     StoreRegDirect(Reg8),
 }
 
-impl From<u8> for Instruction {
+impl TryFrom<u8> for InstructionKind {
+    type Error = anyhow::Error;
+
     #[inline]
-    fn from(opcode: u8) -> Self {
-        use Instruction::*;
+    fn try_from(opcode: u8) -> Result<Self, Self::Error> {
+        use InstructionKind::*;
         match opcode >> 4 {
             0x0 => match opcode & 0x0F {
-                0x0 => Halt,
-                0x1 => Nop,
-                _ => Illegal(opcode),
+                0x0 => Ok(Halt),
+                0x1 => Ok(Nop),
+                _ => Err(anyhow!("invalid opcode {opcode}")),
             },
             0x1 => match opcode & 0x0F {
-                0x00..=0x07 => LoadRegImm8(Reg8::from(opcode & 0x0F)),
-                0x08..=0x0B => LoadRegImm16(Reg16::from(opcode & 0x0F)),
-                _ => Illegal(opcode),
+                0x00..=0x07 => Ok(LoadRegImm8(Reg8::from(opcode & 0x0F))),
+                0x08..=0x0B => Ok(LoadRegImm16(Reg16::from(opcode & 0x0F))),
+                _ => Err(anyhow!("invalid opcode {opcode}")),
             },
             0x2 => match opcode & 0x0F {
-                0x00..=0x07 => StoreRegDirect(Reg8::from(opcode & 0x0F)),
-                _ => Illegal(opcode),
+                0x00..=0x07 => Ok(StoreRegDirect(Reg8::from(opcode & 0x0F))),
+                _ => Err(anyhow!("invalid opcode {opcode}")),
             },
-            _ => Illegal(opcode),
+            _ => Err(anyhow!("invalid opcode {opcode}")),
         }
     }
 }
 
-impl From<Instruction> for u8 {
+impl From<InstructionKind> for u8 {
     #[inline]
-    fn from(ins: Instruction) -> Self {
-        use Instruction::*;
+    fn from(ins: InstructionKind) -> Self {
+        use InstructionKind::*;
         match ins {
             Halt => 0x00,
-            Illegal(opcode) => opcode,
             LoadRegImm8(reg) => 0x10 | u8::from(reg),
             LoadRegImm16(reg) => 0x10 | u8::from(reg),
             Nop => 0x01,
@@ -55,15 +57,15 @@ impl From<Instruction> for u8 {
     }
 }
 
-impl Instruction {
+impl InstructionKind {
     #[inline]
     pub fn execute(&self, cpu: &mut Cpu) {
         use crate::cpu::Target;
-        use Instruction::*;
+        use InstructionKind::*;
         let op_word = u16::from_le_bytes([cpu.op_lo, cpu.op_hi]);
         match *self {
             Halt => cpu.halt = true,
-            Illegal(_) | Nop => {}
+            Nop => {}
             LoadRegImm8(reg) => cpu.regs.set8(reg, cpu.op_lo),
             LoadRegImm16(reg) => cpu.regs.set16(reg, op_word),
             StoreRegDirect(reg) => {
@@ -75,9 +77,9 @@ impl Instruction {
     #[inline]
     #[must_use]
     pub fn operands(&self) -> Operands {
-        use Instruction::*;
+        use InstructionKind::*;
         match *self {
-            Halt | Illegal(_) | Nop => Operands::Zero,
+            Halt | Nop => Operands::Zero,
             LoadRegImm8(_) => Operands::One,
             LoadRegImm16(_) | StoreRegDirect(_) => Operands::Two,
         }
@@ -101,7 +103,7 @@ mod tests {
         system::System,
     };
 
-    use super::Instruction::*;
+    use super::InstructionKind::*;
 
     #[test]
     fn halt() {

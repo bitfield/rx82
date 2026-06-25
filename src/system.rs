@@ -299,7 +299,7 @@ impl System {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instructions::Instruction::*;
+    use crate::instructions::InstructionKind::*;
 
     #[expect(clippy::unwrap_used, reason = "test")]
     #[test]
