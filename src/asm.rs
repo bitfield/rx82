@@ -8,9 +8,8 @@ use core::{
     str::FromStr as _,
 };
 
-use crate::instructions::InstructionKind::StoreRegDirect;
 use crate::{
-    instructions::InstructionKind,
+    instructions::InstructionKind::*,
     regs::{Reg8, Reg16},
 };
 
@@ -56,9 +55,9 @@ impl Assembler<'_> {
         while let Some(token) = self.next_token() {
             match token {
                 Token::Keyword(kw) if kw == "halt" => {
-                    self.code.push(u8::from(InstructionKind::Halt));
+                    self.code.push(u8::from(Halt));
                 }
-                Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(InstructionKind::Nop)),
+                Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Nop)),
                 Token::Keyword(kw) if kw == "ld" => match self.next_token() {
                     Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr)?,
                     Some(Token::Register8(reg)) => self.gen_ld_imm8(reg)?,
@@ -89,7 +88,7 @@ impl Assembler<'_> {
     /// * Missing word literal operand
     #[inline]
     pub fn gen_ld_imm16(&mut self, reg: Reg16) -> Result<()> {
-        self.code.push(u8::from(InstructionKind::LoadRegImm16(reg)));
+        self.code.push(u8::from(LoadRegImm16(reg)));
         let Some(Token::Comma) = self.next_token() else {
             bail!("expected comma")
         };
@@ -107,7 +106,7 @@ impl Assembler<'_> {
     /// * Missing byte literal operand
     #[inline]
     pub fn gen_ld_imm8(&mut self, reg: Reg8) -> Result<()> {
-        self.code.push(u8::from(InstructionKind::LoadRegImm8(reg)));
+        self.code.push(u8::from(LoadRegImm8(reg)));
         let Some(Token::Comma) = self.next_token() else {
             bail!("expected comma")
         };
@@ -241,7 +240,7 @@ impl Display for Token {
 #[inline]
 #[must_use]
 pub fn disassemble(slice: &[u8]) -> String {
-    use crate::instructions::InstructionKind::*;
+    use crate::instructions::InstructionKind;
     let mut data = slice.iter();
     let Some(&opcode) = data.next() else {
         return "-".to_owned();
@@ -287,15 +286,8 @@ mod tests {
 
     #[test]
     fn assembler_assembles_and_disassembles_instructions_correctly() {
-        use InstructionKind::*;
         use Reg8::*;
         use Reg16::*;
-        let assemble = |source| {
-            let mut asm = Assembler::from(source);
-            asm.debug = true;
-            asm.assemble()
-        };
-
         let cases: &[(&str, &[u8])] = &[
             ("nop", &[u8::from(Nop)]),
             ("halt", &[u8::from(Halt)]),
@@ -321,7 +313,10 @@ mod tests {
             ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
         ];
         for &(source, object) in cases {
-            let generated = assemble(source)
+            let mut asm = Assembler::from(source);
+            asm.debug = true;
+            let generated = asm
+                .assemble()
                 .context(format!("assembling '{source}'"))
                 .unwrap();
             assert_eq!(

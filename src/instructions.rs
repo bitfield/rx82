@@ -49,9 +49,9 @@ impl From<InstructionKind> for u8 {
 }
 
 impl InstructionKind {
+    /// Executes the instruction.
     #[inline]
     pub fn execute(&self, cpu: &mut Cpu) {
-        use crate::cpu::Target;
         use InstructionKind::*;
         let op_word = u16::from_le_bytes([cpu.op_lo, cpu.op_hi]);
         match *self {
@@ -59,12 +59,11 @@ impl InstructionKind {
             Nop => {}
             LoadRegImm8(reg) => cpu.regs.set8(reg, cpu.op_lo),
             LoadRegImm16(reg) => cpu.regs.set16(reg, op_word),
-            StoreRegDirect(reg) => {
-                cpu.target = Target::Write(op_word, cpu.regs.get8(reg));
-            }
+            StoreRegDirect(reg) => cpu.write_mem(op_word, reg),
         }
     }
 
+    /// Returns the number of operands this instruction takes.
     #[inline]
     #[must_use]
     pub fn operands(&self) -> Operands {

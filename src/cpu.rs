@@ -1,7 +1,12 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
-    instructions::{InstructionKind::{self, Nop}, Operands}, regs::Regs, system::{Bus, Device, State},
+    instructions::{
+        InstructionKind::{self, Nop},
+        Operands,
+    },
+    regs::{Reg8, Regs},
+    system::{Bus, Device, State},
 };
 
 /// The system CPU.
@@ -31,101 +36,143 @@ impl Device for Cpu {
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         self.phase = match self.phase {
-            Phase::Decode => match self.target {
-                // We've fetched an instruction; what kind is it?
-                Target::Opcode => {
-                    let opcode = bus.data;
-                    self.ins = InstructionKind::try_from(opcode).unwrap_or(Nop);
-                    match self.ins.operands() {
-                        Operands::Zero => {
-                            // No operands needed, so execute it
-                            bus.defer_write(vec![State::Mem(false)]);
-                            Phase::Execute
-                        }
-                        Operands::One | Operands::Two => {
-                            // 1 or 2 operands needed; fetch the first
-                            self.target = Target::Operand;
-                            Phase::Fetch
-                        }
-                    }
-                }
-                // We've fetched an operand; check if we still need another.
-                Target::Operand => {
-                    self.op_lo = bus.data;
-                    match self.ins.operands() {
-                        Operands::Two => {
-                            // Yes, fetch the second operand
-                            self.target = Target::Operand2;
-                            Phase::Fetch
-                        }
-                        Operands::One => {
-                            // No, execute this instruction
-                            bus.defer_write(vec![State::Mem(false)]);
-                            Phase::Execute
-                        }
-                        Operands::Zero => {
-                            unreachable!("fetched operand for zero-operand instruction")
-                        }
-                    }
-                }
-                Target::Operand2 => {
-                    self.op_hi = bus.data;
-                    bus.defer_write(vec![State::Mem(false)]);
-                    Phase::Execute
-                }
-                Target::Write(_, _) => unreachable!("reached decode phase after memory write"),
-            },
-            Phase::Execute => {
-                // Execute this instruction
-                let ins = self.ins.clone();
-                ins.execute(self);
-                if let Target::Write(addr, val) = self.target {
-                    // Write the result
-                    bus.defer_write(vec![
-                        State::Addr(addr),
-                        State::Data(val),
-                        State::Mem(true),
-                        State::Write(true),
-                    ]);
-                    Phase::Wait
-                } else {
-                    // Fetch the next instruction
-                    self.target = Target::Opcode;
-                    Phase::Fetch
-                }
-            }
-            Phase::Fetch => {
-                if self.halt {
-                    // Just keep looping in this state
-                    Phase::Fetch
-                } else {
-                    // Issue a memory read and await the result
-                    bus.defer_write(vec![
-                        State::Addr(self.pc),
-                        State::Mem(true),
-                        State::Write(false),
-                    ]);
-                    self.pc = self.pc.wrapping_add(1);
-                    Phase::Wait
-                }
-            }
-            Phase::Wait => match self.target {
-                Target::Write(_, _) => {
-                    self.target = Target::Opcode;
-                    Phase::Fetch
-                }
-                Target::Opcode | Target::Operand | Target::Operand2 => Phase::Decode,
-            },
+            Phase::Decode => self.decode(bus),
+            Phase::Execute => self.execute(bus),
+            Phase::Fetch => self.fetch(bus),
+            Phase::Wait => self.wait(),
         }
     }
 }
 
 impl Cpu {
+    /// Performs the 'decode' phase.
+    ///
+    /// If the decoded value is an instruction that has no operands, the next phase will be 'execute'.
+    /// If the instruction needs operands, the next phase will be 'fetch'.
+    ///
+    /// If the decoded value is an operand, and no more operands are needed, the next
+    /// phase will be 'execute'. If more operands are needed, the next phase will be
+    /// 'fetch'.
+    #[inline]
+    pub fn decode(&mut self, bus: &mut Bus) -> Phase {
+        match self.target {
+            // We've fetched an instruction; what kind is it?
+            Target::Opcode => {
+                let opcode = bus.data;
+                self.ins = InstructionKind::try_from(opcode).unwrap_or(Nop);
+                match self.ins.operands() {
+                    Operands::Zero => {
+                        // No operands needed, so execute it
+                        bus.defer_write(vec![State::Mem(false)]);
+                        Phase::Execute
+                    }
+                    Operands::One | Operands::Two => {
+                        // 1 or 2 operands needed; fetch the first
+                        self.target = Target::Operand;
+                        Phase::Fetch
+                    }
+                }
+            }
+            // We've fetched an operand; check if we still need another.
+            Target::Operand => {
+                self.op_lo = bus.data;
+                match self.ins.operands() {
+                    Operands::Two => {
+                        // Yes, fetch the second operand
+                        self.target = Target::Operand2;
+                        Phase::Fetch
+                    }
+                    Operands::One => {
+                        // No, execute this instruction
+                        bus.defer_write(vec![State::Mem(false)]);
+                        Phase::Execute
+                    }
+                    Operands::Zero => {
+                        unreachable!("fetched operand for zero-operand instruction")
+                    }
+                }
+            }
+            Target::Operand2 => {
+                self.op_hi = bus.data;
+                bus.defer_write(vec![State::Mem(false)]);
+                Phase::Execute
+            }
+            Target::Write(_, _) => unreachable!("reached decode phase after memory write"),
+        }
+    }
+
+    /// Performs the 'execute' phase.
+    ///
+    /// If the instruction is a memory write, the next phase will be 'wait'. Otherwise
+    /// the next phase will be 'fetch'.
+    #[inline]
+    pub fn execute(&mut self, bus: &mut Bus) -> Phase {
+        // Execute this instruction
+        let ins = self.ins.clone();
+        ins.execute(self);
+        if let Target::Write(addr, val) = self.target {
+            // Write the result
+            bus.defer_write(vec![
+                State::Addr(addr),
+                State::Data(val),
+                State::Mem(true),
+                State::Write(true),
+            ]);
+            Phase::Wait
+        } else {
+            // Fetch the next instruction
+            self.target = Target::Opcode;
+            Phase::Fetch
+        }
+    }
+
+    /// Performs the 'fetch' phase.
+    ///
+    /// If the CPU is halted, the next phase will be 'fetch'. Otherwise, a memory
+    /// request is asserted to the bus, and the next phase will be 'wait'.
+    #[inline]
+    pub fn fetch(&mut self, bus: &mut Bus) -> Phase {
+        if self.halt {
+            // Just keep looping in this state
+            Phase::Fetch
+        } else {
+            // Issue a memory read and await the result
+            bus.defer_write(vec![
+                State::Addr(self.pc),
+                State::Mem(true),
+                State::Write(false),
+            ]);
+            self.pc = self.pc.wrapping_add(1);
+            Phase::Wait
+        }
+    }
+
     /// Resets the CPU to its power-on state: all registers zero, PC zero, not halted,
     /// phase 'fetch' and target 'opcode'.
     #[inline]
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// Performs the 'wait for memory' phase.
+    ///
+    /// If the current target is an opcode or operand, the next phase will be 'decode'.
+    /// If the target is a memory write, the next phase will be 'fetch'.
+    #[inline]
+    pub fn wait(&mut self) -> Phase {
+        match self.target {
+            Target::Write(_, _) => {
+                self.target = Target::Opcode;
+                Phase::Fetch
+            }
+            Target::Opcode | Target::Operand | Target::Operand2 => Phase::Decode,
+        }
+    }
+
+    /// Sets the next sequencer target to write `reg` to memory at `addr`.
+    #[inline]
+    pub fn write_mem(&mut self, addr: u16, reg: Reg8) {
+        self.target = Target::Write(addr, self.regs.get8(reg));
     }
 }
 
