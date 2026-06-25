@@ -1,4 +1,4 @@
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 
 use core::{
     fmt::{Display, Formatter},
@@ -21,7 +21,6 @@ pub enum Reg8 {
     F,
     G,
     H,
-    Invalid(u8),
 }
 
 impl Display for Reg8 {
@@ -39,7 +38,6 @@ impl Display for Reg8 {
                 Reg8::F => "f",
                 Reg8::G => "g",
                 Reg8::H => "h",
-                Reg8::Invalid(_) => "???",
             }
         )
     }
@@ -76,24 +74,25 @@ impl From<Reg8> for u8 {
             Reg8::F => 0x05,
             Reg8::G => 0x06,
             Reg8::H => 0x07,
-            Reg8::Invalid(_) => unreachable!("tried to encode invalid register name"),
         }
     }
 }
 
-impl From<u8> for Reg8 {
+impl TryFrom<u8> for Reg8 {
+    type Error = anyhow::Error;
+
     #[inline]
-    fn from(id: u8) -> Self {
+    fn try_from(id: u8) -> Result<Self, Self::Error> {
         match id {
-            0x00 => Reg8::A,
-            0x01 => Reg8::B,
-            0x02 => Reg8::C,
-            0x03 => Reg8::D,
-            0x04 => Reg8::E,
-            0x05 => Reg8::F,
-            0x06 => Reg8::G,
-            0x07 => Reg8::H,
-            _ => Reg8::Invalid(id),
+            0x00 => Ok(Reg8::A),
+            0x01 => Ok(Reg8::B),
+            0x02 => Ok(Reg8::C),
+            0x03 => Ok(Reg8::D),
+            0x04 => Ok(Reg8::E),
+            0x05 => Ok(Reg8::F),
+            0x06 => Ok(Reg8::G),
+            0x07 => Ok(Reg8::H),
+            _ => Err(anyhow!("invalid register id {id:#04X}")),
         }
     }
 }
@@ -207,7 +206,6 @@ impl Regs {
             Reg8::F => self.rf,
             Reg8::G => self.rg,
             Reg8::H => self.rh,
-            Reg8::Invalid(_) => unreachable!("tried to read invalid register"),
         }
     }
 
@@ -235,7 +233,6 @@ impl Regs {
             Reg8::F => self.rf = val,
             Reg8::G => self.rg = val,
             Reg8::H => self.rh = val,
-            Reg8::Invalid(_) => unreachable!("tried to set invalid register"),
         }
     }
 }
