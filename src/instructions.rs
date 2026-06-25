@@ -31,7 +31,7 @@ impl TryFrom<u8> for InstructionKind {
             },
             0x1 => match opcode & 0x0F {
                 0x00..=0x07 => Ok(LoadRegImm8(Reg8::try_from(opcode & 0x0F)?)),
-                0x08..=0x0B => Ok(LoadRegImm16(Reg16::from(opcode & 0x0F))),
+                0x08..=0x0B => Ok(LoadRegImm16(Reg16::try_from(opcode & 0x0F)?)),
                 _ => Err(anyhow!("invalid opcode {opcode}")),
             },
             0x2 => match opcode & 0x0F {

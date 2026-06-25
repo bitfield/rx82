@@ -105,7 +105,6 @@ pub enum Reg16 {
     CD,
     EF,
     GH,
-    Invalid(u8),
 }
 
 impl Display for Reg16 {
@@ -119,7 +118,6 @@ impl Display for Reg16 {
                 Reg16::CD => "cd",
                 Reg16::EF => "ef",
                 Reg16::GH => "gh",
-                Reg16::Invalid(_) => "???",
             }
         )
     }
@@ -148,20 +146,21 @@ impl From<Reg16> for u8 {
             Reg16::CD => 0x09,
             Reg16::EF => 0x0A,
             Reg16::GH => 0x0B,
-            Reg16::Invalid(_) => unreachable!("tried to encode invalid register name"),
         }
     }
 }
 
-impl From<u8> for Reg16 {
+impl TryFrom<u8> for Reg16 {
+    type Error = anyhow::Error;
+
     #[inline]
-    fn from(id: u8) -> Self {
+    fn try_from(id: u8) -> Result<Self, Self::Error> {
         match id {
-            0x08 => Reg16::AB,
-            0x09 => Reg16::CD,
-            0x0A => Reg16::EF,
-            0x0B => Reg16::GH,
-            _ => Reg16::Invalid(id),
+            0x08 => Ok(Reg16::AB),
+            0x09 => Ok(Reg16::CD),
+            0x0A => Ok(Reg16::EF),
+            0x0B => Ok(Reg16::GH),
+            _ => Err(anyhow!("invalid register id {id:#04X}")),
         }
     }
 }
@@ -189,7 +188,6 @@ impl Regs {
             Reg16::CD => u16::from_be_bytes([self.rc, self.rd]),
             Reg16::EF => u16::from_be_bytes([self.re, self.rf]),
             Reg16::GH => u16::from_be_bytes([self.rg, self.rh]),
-            Reg16::Invalid(_) => unreachable!("tried to read invalid register"),
         }
     }
 
@@ -217,7 +215,6 @@ impl Regs {
             Reg16::CD => [self.rc, self.rd] = val.to_be_bytes(),
             Reg16::EF => [self.re, self.rf] = val.to_be_bytes(),
             Reg16::GH => [self.rg, self.rh] = val.to_be_bytes(),
-            Reg16::Invalid(_) => unreachable!("tried to set invalid register"),
         }
     }
 
