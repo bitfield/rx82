@@ -23,21 +23,12 @@ impl TryFrom<u8> for InstructionKind {
     #[inline]
     fn try_from(opcode: u8) -> Result<Self, Self::Error> {
         use InstructionKind::*;
-        match opcode >> 4 {
-            0x0 => match opcode & 0x0F {
-                0x0 => Ok(Halt),
-                0x1 => Ok(Nop),
-                _ => Err(anyhow!("invalid opcode {opcode}")),
-            },
-            0x1 => match opcode & 0x0F {
-                0x00..=0x07 => Ok(LoadRegImm8(Reg8::try_from(opcode & 0x0F)?)),
-                0x08..=0x0B => Ok(LoadRegImm16(Reg16::try_from(opcode & 0x0F)?)),
-                _ => Err(anyhow!("invalid opcode {opcode}")),
-            },
-            0x2 => match opcode & 0x0F {
-                0x00..=0x07 => Ok(StoreRegDirect(Reg8::try_from(opcode & 0x0F)?)),
-                _ => Err(anyhow!("invalid opcode {opcode}")),
-            },
+        match opcode {
+            0x00 => Ok(Halt),
+            0x01 => Ok(Nop),
+            0x10..=0x17 => Ok(LoadRegImm8(Reg8::try_from(opcode & 0x0F)?)),
+            0x18..=0x1B => Ok(LoadRegImm16(Reg16::try_from(opcode & 0x0F)?)),
+            0x20..=0x27 => Ok(StoreRegDirect(Reg8::try_from(opcode & 0x0F)?)),
             _ => Err(anyhow!("invalid opcode {opcode}")),
         }
     }
