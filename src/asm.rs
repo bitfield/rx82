@@ -54,9 +54,7 @@ impl Assembler<'_> {
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         while let Some(token) = self.next_token() {
             match token {
-                Token::Keyword(kw) if kw == "halt" => {
-                    self.code.push(u8::from(Halt));
-                }
+                Token::Keyword(kw) if kw == "halt" => self.code.push(u8::from(Halt)),
                 Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Nop)),
                 Token::Keyword(kw) if kw == "ld" => match self.next_token() {
                     Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr)?,
@@ -234,6 +232,20 @@ impl Display for Token {
             _ => Debug::fmt(self, f),
         }
     }
+}
+
+/// Assembles `source`, panicking on any error.
+///
+/// Useful for writing tests.
+/// 
+/// # Panics
+/// 
+/// If the program fails to assemble.
+#[expect(clippy::unwrap_used, reason = "for testing")]
+#[inline]
+#[must_use]
+pub fn asm(source: &str) -> Vec<u8> {
+    Assembler::from(source).assemble().unwrap()
 }
 
 /// Disassembles a single instruction from `slice`.

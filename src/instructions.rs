@@ -23,12 +23,13 @@ impl TryFrom<u8> for InstructionKind {
     #[inline]
     fn try_from(opcode: u8) -> Result<Self, Self::Error> {
         use InstructionKind::*;
+        let reg_id = opcode & 0x0F;
         match opcode {
             0x00 => Ok(Halt),
             0x01 => Ok(Nop),
-            0x10..=0x17 => Ok(LoadRegImm8(Reg8::try_from(opcode & 0x0F)?)),
-            0x18..=0x1B => Ok(LoadRegImm16(Reg16::try_from(opcode & 0x0F)?)),
-            0x20..=0x27 => Ok(StoreRegDirect(Reg8::try_from(opcode & 0x0F)?)),
+            0x10..=0x17 => Ok(LoadRegImm8(Reg8::try_from(reg_id)?)),
+            0x18..=0x1B => Ok(LoadRegImm16(Reg16::try_from(reg_id)?)),
+            0x20..=0x27 => Ok(StoreRegDirect(Reg8::try_from(reg_id)?)),
             _ => Err(anyhow!("invalid opcode {opcode}")),
         }
     }
@@ -41,7 +42,7 @@ impl From<InstructionKind> for u8 {
         match ins {
             Halt => 0x00,
             LoadRegImm8(reg) => 0x10 | u8::from(reg),
-            LoadRegImm16(reg) => 0x10 | u8::from(reg),
+            LoadRegImm16(reg) => 0x18 | u8::from(reg),
             Nop => 0x01,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
         }
@@ -89,19 +90,13 @@ pub enum Operands {
 #[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
     use crate::{
-        regs::{Reg8::*, Reg16::*},
-        system::System,
+        asm::asm, regs::{Reg8::*, Reg16::*}, system::System,
     };
-
-    use super::InstructionKind::*;
 
     #[test]
     fn halt() {
         let mut sys = System::default();
-        sys.run_program(&[
-            u8::from(Halt), // halt
-        ])
-        .unwrap();
+        sys.run_program(&asm("halt")).unwrap();
         assert!(sys.cpu.halt, "not halted");
         assert_eq!(sys.cpu.pc, 0x0001, "wrong PC");
     }
@@ -109,12 +104,7 @@ mod tests {
     #[test]
     fn ld_reg_imm8() {
         let mut sys = System::default();
-        sys.run_program(&[
-            u8::from(LoadRegImm8(A)),
-            0xFF,           // ld a, 0xFF
-            u8::from(Halt), // halt
-        ])
-        .unwrap();
+        sys.run_program(&asm("ld a, 0xFF")).unwrap();
         assert_eq!(sys.cpu.regs.get8(A), 0xFF, "wrong A");
         assert_eq!(sys.cpu.pc, 0x0003, "wrong PC");
     }
@@ -122,12 +112,7 @@ mod tests {
     #[test]
     fn ld_reg_imm16() {
         let mut sys = System::default();
-        sys.run_program(&[
-            u8::from(LoadRegImm16(AB)),
-            0x00C0,         // ld ab, 0x00C0
-            u8::from(Halt), // halt
-        ])
-        .unwrap();
+        sys.run_program(&asm("ld ab, 0x00C0")).unwrap();
         assert_eq!(sys.cpu.regs.get16(AB), 0x00C0, "wrong AB");
         assert_eq!(sys.cpu.pc, 0x0004, "wrong PC");
     }
@@ -135,11 +120,7 @@ mod tests {
     #[test]
     fn nop() {
         let mut sys = System::default();
-        sys.run_program(&[
-            u8::from(Nop),  // nop
-            u8::from(Halt), // halt
-        ])
-        .unwrap();
+        sys.run_program(&asm("nop")).unwrap();
         assert_eq!(sys.cpu.pc, 0x0002, "wrong PC");
     }
 
@@ -147,13 +128,7 @@ mod tests {
     fn store_reg_direct() {
         let mut sys = System::default();
         sys.cpu.regs.set8(A, 0xFF);
-        sys.run_program(&[
-            u8::from(StoreRegDirect(A)),
-            0xEF,
-            0xBE,           // ld 0xBEEF, a
-            u8::from(Halt), // halt
-        ])
-        .unwrap();
+        sys.run_program(&asm("ld 0xBEEF, a")).unwrap();
         let val = sys.mem.get(0xBEEF);
         assert_eq!(val, 0xFF, "wrong mem value");
     }
