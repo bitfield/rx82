@@ -7,7 +7,7 @@ use crate::{
     clock::Clock,
     cpu::{Cpu, Phase},
     memory::Memory,
-    regs::Reg8::*,
+    regs::Reg::*,
 };
 
 /// The system bus.

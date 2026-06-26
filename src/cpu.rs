@@ -5,7 +5,7 @@ use crate::{
         InstructionKind::{self, Nop},
         Operands,
     },
-    regs::{Reg8, Regs},
+    regs::{Reg, Regs},
     system::{Bus, Device, State},
 };
 
@@ -171,7 +171,7 @@ impl Cpu {
 
     /// Sets the next sequencer target to write `reg` to memory at `addr`.
     #[inline]
-    pub fn write_mem(&mut self, addr: u16, reg: Reg8) {
+    pub fn write_mem(&mut self, addr: u16, reg: Reg) {
         self.target = Target::Write(addr, self.regs.get8(reg));
     }
 }
@@ -224,10 +224,7 @@ pub enum Target {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        instructions::InstructionKind::*,
-        regs::{Reg8::*, Reg16::*},
-    };
+    use crate::{instructions::InstructionKind::*, regs::Reg::*};
 
     use super::*;
 
@@ -256,7 +253,7 @@ mod tests {
         assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = u8::from(LoadRegImm8(A)); // ld a, N
+        bus.data = u8::from(LoadRegImm(A)); // ld a, N
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
@@ -283,7 +280,7 @@ mod tests {
         assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = u8::from(LoadRegImm16(AB)); // ld ab, NN
+        bus.data = u8::from(LoadRegImm(AB)); // ld ab, NN
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);

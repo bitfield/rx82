@@ -6,13 +6,11 @@ use core::{
 };
 
 /// The 8-bit registers.
-#[expect(
-    clippy::min_ident_chars,
-    reason = "R8 uses single-letter register names"
-)]
+#[expect(clippy::min_ident_chars, reason = "the actual names")]
+#[expect(clippy::arbitrary_source_item_ordering, reason = "logical order")]
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Reg8 {
+pub enum Reg {
     A,
     B,
     C,
@@ -21,145 +19,97 @@ pub enum Reg8 {
     F,
     G,
     H,
-}
-
-impl Display for Reg8 {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match *self {
-                Reg8::A => "a",
-                Reg8::B => "b",
-                Reg8::C => "c",
-                Reg8::D => "d",
-                Reg8::E => "e",
-                Reg8::F => "f",
-                Reg8::G => "g",
-                Reg8::H => "h",
-            }
-        )
-    }
-}
-
-impl FromStr for Reg8 {
-    type Err = anyhow::Error;
-
-    #[inline]
-    fn from_str(value: &str) -> Result<Self, anyhow::Error> {
-        match value {
-            "a" => Ok(Reg8::A),
-            "b" => Ok(Reg8::B),
-            "c" => Ok(Reg8::C),
-            "d" => Ok(Reg8::D),
-            "e" => Ok(Reg8::E),
-            "f" => Ok(Reg8::F),
-            "g" => Ok(Reg8::G),
-            "h" => Ok(Reg8::H),
-            reg => bail!("invalid register {reg}"),
-        }
-    }
-}
-
-impl From<Reg8> for u8 {
-    #[inline]
-    fn from(reg: Reg8) -> Self {
-        match reg {
-            Reg8::A => 0x00,
-            Reg8::B => 0x01,
-            Reg8::C => 0x02,
-            Reg8::D => 0x03,
-            Reg8::E => 0x04,
-            Reg8::F => 0x05,
-            Reg8::G => 0x06,
-            Reg8::H => 0x07,
-        }
-    }
-}
-
-impl TryFrom<u8> for Reg8 {
-    type Error = anyhow::Error;
-
-    #[inline]
-    fn try_from(id: u8) -> Result<Self, Self::Error> {
-        match id {
-            0x00 => Ok(Reg8::A),
-            0x01 => Ok(Reg8::B),
-            0x02 => Ok(Reg8::C),
-            0x03 => Ok(Reg8::D),
-            0x04 => Ok(Reg8::E),
-            0x05 => Ok(Reg8::F),
-            0x06 => Ok(Reg8::G),
-            0x07 => Ok(Reg8::H),
-            _ => Err(anyhow!("invalid register id {id:#04X}")),
-        }
-    }
-}
-
-/// The 16-bit register pairs.
-#[non_exhaustive]
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Reg16 {
     AB,
     CD,
     EF,
     GH,
 }
 
-impl Display for Reg16 {
+impl Display for Reg {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "{}",
             match *self {
-                Reg16::AB => "ab",
-                Reg16::CD => "cd",
-                Reg16::EF => "ef",
-                Reg16::GH => "gh",
+                Reg::A => "a",
+                Reg::B => "b",
+                Reg::C => "c",
+                Reg::D => "d",
+                Reg::E => "e",
+                Reg::F => "f",
+                Reg::G => "g",
+                Reg::H => "h",
+                Reg::AB => "ab",
+                Reg::CD => "cd",
+                Reg::EF => "ef",
+                Reg::GH => "gh",
             }
         )
     }
 }
 
-impl FromStr for Reg16 {
+impl FromStr for Reg {
     type Err = anyhow::Error;
 
     #[inline]
     fn from_str(value: &str) -> Result<Self, anyhow::Error> {
         match value {
-            "ab" => Ok(Reg16::AB),
-            "cd" => Ok(Reg16::CD),
-            "ef" => Ok(Reg16::EF),
-            "gh" => Ok(Reg16::GH),
+            "a" => Ok(Reg::A),
+            "b" => Ok(Reg::B),
+            "c" => Ok(Reg::C),
+            "d" => Ok(Reg::D),
+            "e" => Ok(Reg::E),
+            "f" => Ok(Reg::F),
+            "g" => Ok(Reg::G),
+            "h" => Ok(Reg::H),
+            "ab" => Ok(Reg::AB),
+            "cd" => Ok(Reg::CD),
+            "ef" => Ok(Reg::EF),
+            "gh" => Ok(Reg::GH),
             reg => bail!("invalid register {reg}"),
         }
     }
 }
 
-impl From<Reg16> for u8 {
+impl From<Reg> for u8 {
     #[inline]
-    fn from(reg: Reg16) -> Self {
+    fn from(reg: Reg) -> Self {
         match reg {
-            Reg16::AB => 0x08,
-            Reg16::CD => 0x09,
-            Reg16::EF => 0x0A,
-            Reg16::GH => 0x0B,
+            Reg::A => 0x00,
+            Reg::B => 0x01,
+            Reg::C => 0x02,
+            Reg::D => 0x03,
+            Reg::E => 0x04,
+            Reg::F => 0x05,
+            Reg::G => 0x06,
+            Reg::H => 0x07,
+            Reg::AB => 0x08,
+            Reg::CD => 0x09,
+            Reg::EF => 0x0A,
+            Reg::GH => 0x0B,
         }
     }
 }
 
-impl TryFrom<u8> for Reg16 {
+impl TryFrom<u8> for Reg {
     type Error = anyhow::Error;
 
     #[inline]
     fn try_from(id: u8) -> Result<Self, Self::Error> {
         match id {
-            0x08 => Ok(Reg16::AB),
-            0x09 => Ok(Reg16::CD),
-            0x0A => Ok(Reg16::EF),
-            0x0B => Ok(Reg16::GH),
+            0x00 => Ok(Reg::A),
+            0x01 => Ok(Reg::B),
+            0x02 => Ok(Reg::C),
+            0x03 => Ok(Reg::D),
+            0x04 => Ok(Reg::E),
+            0x05 => Ok(Reg::F),
+            0x06 => Ok(Reg::G),
+            0x07 => Ok(Reg::H),
+            0x08 => Ok(Reg::AB),
+            0x09 => Ok(Reg::CD),
+            0x0A => Ok(Reg::EF),
+            0x0B => Ok(Reg::GH),
             _ => Err(anyhow!("invalid register id {id:#04X}")),
         }
     }
@@ -182,61 +132,69 @@ impl Regs {
     /// Returns the word in register pair `reg`.
     #[inline]
     #[must_use]
-    pub fn get16(&self, reg: Reg16) -> u16 {
+    pub fn get16(&self, reg: Reg) -> u16 {
+        use Reg::*;
         match reg {
-            Reg16::AB => u16::from_be_bytes([self.ra, self.rb]),
-            Reg16::CD => u16::from_be_bytes([self.rc, self.rd]),
-            Reg16::EF => u16::from_be_bytes([self.re, self.rf]),
-            Reg16::GH => u16::from_be_bytes([self.rg, self.rh]),
+            Reg::AB => u16::from_be_bytes([self.ra, self.rb]),
+            Reg::CD => u16::from_be_bytes([self.rc, self.rd]),
+            Reg::EF => u16::from_be_bytes([self.re, self.rf]),
+            Reg::GH => u16::from_be_bytes([self.rg, self.rh]),
+            A | B | C | D | E | F | G | H => unreachable!("called `get16` on 8-bit register {reg}"),
         }
     }
 
     /// Returns the byte in register `reg`.
     #[inline]
     #[must_use]
-    pub fn get8(&self, reg: Reg8) -> u8 {
+    pub fn get8(&self, reg: Reg) -> u8 {
+        use Reg::*;
         match reg {
-            Reg8::A => self.ra,
-            Reg8::B => self.rb,
-            Reg8::C => self.rc,
-            Reg8::D => self.rd,
-            Reg8::E => self.re,
-            Reg8::F => self.rf,
-            Reg8::G => self.rg,
-            Reg8::H => self.rh,
+            A => self.ra,
+            B => self.rb,
+            C => self.rc,
+            D => self.rd,
+            E => self.re,
+            F => self.rf,
+            G => self.rg,
+            H => self.rh,
+            AB | CD | EF | GH => unreachable!("called `get8` on 16-bit register pair {reg}"),
         }
     }
 
     /// Sets register pair `reg` to the word `val`.
     #[inline]
-    pub fn set16(&mut self, reg: Reg16, val: u16) {
+    pub fn set16(&mut self, reg: Reg, val: u16) {
+        use Reg::*;
         match reg {
-            Reg16::AB => [self.ra, self.rb] = val.to_be_bytes(),
-            Reg16::CD => [self.rc, self.rd] = val.to_be_bytes(),
-            Reg16::EF => [self.re, self.rf] = val.to_be_bytes(),
-            Reg16::GH => [self.rg, self.rh] = val.to_be_bytes(),
+            AB => [self.ra, self.rb] = val.to_be_bytes(),
+            CD => [self.rc, self.rd] = val.to_be_bytes(),
+            EF => [self.re, self.rf] = val.to_be_bytes(),
+            GH => [self.rg, self.rh] = val.to_be_bytes(),
+            A | B | C | D | E | F | G | H => unreachable!("called `set16` on 8-bit register {reg}"),
         }
     }
 
     /// Sets register `reg` to the byte `val`.
     #[inline]
-    pub fn set8(&mut self, reg: Reg8, val: u8) {
+    pub fn set8(&mut self, reg: Reg, val: u8) {
+        use Reg::*;
         match reg {
-            Reg8::A => self.ra = val,
-            Reg8::B => self.rb = val,
-            Reg8::C => self.rc = val,
-            Reg8::D => self.rd = val,
-            Reg8::E => self.re = val,
-            Reg8::F => self.rf = val,
-            Reg8::G => self.rg = val,
-            Reg8::H => self.rh = val,
+            A => self.ra = val,
+            B => self.rb = val,
+            C => self.rc = val,
+            D => self.rd = val,
+            E => self.re = val,
+            F => self.rf = val,
+            G => self.rg = val,
+            H => self.rh = val,
+            AB | CD | EF | GH => unreachable!("called `set8` on 16-bit register pair {reg}"),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::regs::{Reg8::*, Reg16::AB};
+    use crate::regs::{Reg::AB, Reg::*};
 
     use super::*;
 

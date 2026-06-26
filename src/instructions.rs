@@ -1,20 +1,16 @@
 use anyhow::anyhow;
 
-use crate::{
-    cpu::Cpu,
-    regs::{Reg8, Reg16},
-};
+use crate::{cpu::Cpu, regs::Reg};
 
 /// Instruction kinds.
 #[non_exhaustive]
 #[derive(Clone, Debug, Default)]
 pub enum InstructionKind {
     Halt,
-    LoadRegImm16(Reg16),
-    LoadRegImm8(Reg8),
+    LoadRegImm(Reg),
     #[default]
     Nop,
-    StoreRegDirect(Reg8),
+    StoreRegDirect(Reg),
 }
 
 impl TryFrom<u8> for InstructionKind {
@@ -27,9 +23,8 @@ impl TryFrom<u8> for InstructionKind {
         match opcode {
             0x00 => Ok(Halt),
             0x01 => Ok(Nop),
-            0x10..=0x17 => Ok(LoadRegImm8(Reg8::try_from(reg_id)?)),
-            0x18..=0x1B => Ok(LoadRegImm16(Reg16::try_from(reg_id)?)),
-            0x20..=0x27 => Ok(StoreRegDirect(Reg8::try_from(reg_id)?)),
+            0x10..=0x1B => Ok(LoadRegImm(Reg::try_from(reg_id)?)),
+            0x20..=0x27 => Ok(StoreRegDirect(Reg::try_from(reg_id)?)),
             _ => Err(anyhow!("invalid opcode {opcode}")),
         }
     }
@@ -41,8 +36,7 @@ impl From<InstructionKind> for u8 {
         use InstructionKind::*;
         match ins {
             Halt => 0x00,
-            LoadRegImm8(reg) => 0x10 | u8::from(reg),
-            LoadRegImm16(reg) => 0x18 | u8::from(reg),
+            LoadRegImm(reg) => 0x10 | u8::from(reg),
             Nop => 0x01,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
         }
@@ -53,13 +47,16 @@ impl InstructionKind {
     /// Executes the instruction.
     #[inline]
     pub fn execute(&self, cpu: &mut Cpu) {
+        use crate::regs::Reg::*;
         use InstructionKind::*;
         let op_word = u16::from_le_bytes([cpu.op_lo, cpu.op_hi]);
         match *self {
             Halt => cpu.halt = true,
             Nop => {}
-            LoadRegImm8(reg) => cpu.regs.set8(reg, cpu.op_lo),
-            LoadRegImm16(reg) => cpu.regs.set16(reg, op_word),
+            LoadRegImm(reg) => match reg {
+                A | B | C | D | E | F | G | H => cpu.regs.set8(reg, cpu.op_lo),
+                AB | CD | EF | GH => cpu.regs.set16(reg, op_word),
+            },
             StoreRegDirect(reg) => cpu.write_mem(op_word, reg),
         }
     }
@@ -68,11 +65,15 @@ impl InstructionKind {
     #[inline]
     #[must_use]
     pub fn operands(&self) -> Operands {
+        use crate::regs::Reg::*;
         use InstructionKind::*;
         match *self {
             Halt | Nop => Operands::Zero,
-            LoadRegImm8(_) => Operands::One,
-            LoadRegImm16(_) | StoreRegDirect(_) => Operands::Two,
+            LoadRegImm(reg) => match reg {
+                A | B | C | D | E | F | G | H => Operands::One,
+                AB | CD | EF | GH => Operands::Two,
+            },
+            StoreRegDirect(_) => Operands::Two,
         }
     }
 }
@@ -89,9 +90,7 @@ pub enum Operands {
 #[cfg(test)]
 #[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
-    use crate::{
-        asm::asm, regs::{Reg8::*, Reg16::*}, system::System,
-    };
+    use crate::{asm::asm, regs::Reg::*, system::System};
 
     #[test]
     fn halt() {

@@ -8,10 +8,7 @@ use core::{
     str::FromStr as _,
 };
 
-use crate::{
-    instructions::InstructionKind::*,
-    regs::{Reg8, Reg16},
-};
+use crate::{instructions::InstructionKind::*, regs::Reg};
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
@@ -58,8 +55,7 @@ impl Assembler<'_> {
                 Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Nop)),
                 Token::Keyword(kw) if kw == "ld" => match self.next_token() {
                     Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr)?,
-                    Some(Token::Register8(reg)) => self.gen_ld_imm8(reg)?,
-                    Some(Token::Register16(reg)) => self.gen_ld_imm16(reg)?,
+                    Some(Token::Register(reg)) => self.gen_ld_imm(reg)?,
                     Some(other) => bail!("expected register name, got {other:?}"),
                     None => bail!("unexpected end of file"),
                 },
@@ -78,40 +74,33 @@ impl Assembler<'_> {
         Some(())
     }
 
-    /// Generate a 16-bit load register immediate instruction.
+    /// Generate a load register immediate instruction.
     ///
     /// # Errors
-    ///
     /// * Missing comma after register name
-    /// * Missing word literal operand
+    /// * Missing or wrong size operand
     #[inline]
-    pub fn gen_ld_imm16(&mut self, reg: Reg16) -> Result<()> {
-        self.code.push(u8::from(LoadRegImm16(reg)));
+    pub fn gen_ld_imm(&mut self, reg: Reg) -> Result<()> {
+        use crate::regs::Reg::*;
+        self.code.push(u8::from(LoadRegImm(reg)));
         let Some(Token::Comma) = self.next_token() else {
             bail!("expected comma")
         };
-        let Some(Token::WordLiteral(operand)) = self.next_token() else {
-            bail!("expected word operand for 16-bit immediate 'ld {reg}'")
-        };
-        self.code.extend(operand.to_le_bytes());
-        Ok(())
-    }
+        match reg {
+            A | B | C | D | E | F | G | H => {
+                let Some(Token::ByteLiteral(operand)) = self.next_token() else {
+                    bail!("expected byte operand for 8-bit immediate 'ld {reg}'")
+                };
+                self.code.push(operand);
+            }
+            AB | CD | EF | GH => {
+                let Some(Token::WordLiteral(operand)) = self.next_token() else {
+                    bail!("expected word operand for 16-bit immediate 'ld {reg}'")
+                };
+                self.code.extend(operand.to_le_bytes());
+            }
+        }
 
-    /// Generate an 8-bit load register immediate instruction.
-    ///
-    /// # Errors
-    /// * Missing comma after register name
-    /// * Missing byte literal operand
-    #[inline]
-    pub fn gen_ld_imm8(&mut self, reg: Reg8) -> Result<()> {
-        self.code.push(u8::from(LoadRegImm8(reg)));
-        let Some(Token::Comma) = self.next_token() else {
-            bail!("expected comma")
-        };
-        let Some(Token::ByteLiteral(operand)) = self.next_token() else {
-            bail!("expected byte operand for 8-bit immediate 'ld {reg}'")
-        };
-        self.code.push(operand);
         Ok(())
     }
 
@@ -126,7 +115,7 @@ impl Assembler<'_> {
         let Some(Token::Comma) = self.next_token() else {
             bail!("expected comma")
         };
-        let Some(Token::Register8(reg)) = self.next_token() else {
+        let Some(Token::Register(reg)) = self.next_token() else {
             bail!("expected register name")
         };
         self.code.push(u8::from(StoreRegDirect(reg)));
@@ -179,8 +168,8 @@ impl Assembler<'_> {
     pub fn read_identifier(&mut self) -> Token {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
         match ident.as_str() {
-            _ if let Ok(reg) = Reg8::from_str(&ident) => Token::Register8(reg),
-            _ if let Ok(reg) = Reg16::from_str(&ident) => Token::Register16(reg),
+            _ if let Ok(reg) = Reg::from_str(&ident) => Token::Register(reg),
+            _ if let Ok(reg) = Reg::from_str(&ident) => Token::Register(reg),
             kw if KEYWORDS.contains(&kw) => Token::Keyword(ident),
             _ => Token::Identifier(ident),
         }
@@ -216,8 +205,7 @@ pub enum Token {
     Identifier(String),
     Illegal(String),
     Keyword(String),
-    Register16(Reg16),
-    Register8(Reg8),
+    Register(Reg),
     RegisterName(String),
     WordLiteral(u16),
 }
@@ -237,9 +225,9 @@ impl Display for Token {
 /// Assembles `source`, panicking on any error.
 ///
 /// Useful for writing tests.
-/// 
+///
 /// # Panics
-/// 
+///
 /// If the program fails to assemble.
 #[expect(clippy::unwrap_used, reason = "for testing")]
 #[inline]
@@ -252,7 +240,7 @@ pub fn asm(source: &str) -> Vec<u8> {
 #[inline]
 #[must_use]
 pub fn disassemble(slice: &[u8]) -> String {
-    use crate::instructions::InstructionKind;
+    use crate::{instructions::InstructionKind, regs::Reg::*};
     let mut data = slice.iter();
     let Some(&opcode) = data.next() else {
         return "-".to_owned();
@@ -263,8 +251,13 @@ pub fn disassemble(slice: &[u8]) -> String {
         match ins {
             Halt => "halt".into(),
             Nop => "nop".into(),
-            LoadRegImm8(reg) => format!("ld {reg}, {}", format_maybe_byte(op_lo)),
-            LoadRegImm16(reg) => format!("ld {reg}, {}", format_maybe_word(op_lo, op_hi)),
+            LoadRegImm(reg) => format!(
+                "ld {reg}, {}",
+                match reg {
+                    A | B | C | D | E | F | G | H => format_maybe_byte(op_lo),
+                    AB | CD | EF | GH => format_maybe_word(op_lo, op_hi),
+                }
+            ),
             StoreRegDirect(reg) => format!("ld {}, {reg}", format_maybe_word(op_lo, op_hi)),
         }
     } else {
@@ -298,23 +291,22 @@ mod tests {
 
     #[test]
     fn assembler_assembles_and_disassembles_instructions_correctly() {
-        use Reg8::*;
-        use Reg16::*;
+        use Reg::*;
         let cases: &[(&str, &[u8])] = &[
             ("nop", &[u8::from(Nop)]),
             ("halt", &[u8::from(Halt)]),
-            ("ld a, 0xFF", &[u8::from(LoadRegImm8(A)), 0xFF]),
-            ("ld b, 0xFF", &[u8::from(LoadRegImm8(B)), 0xFF]),
-            ("ld c, 0xFF", &[u8::from(LoadRegImm8(C)), 0xFF]),
-            ("ld d, 0xFF", &[u8::from(LoadRegImm8(D)), 0xFF]),
-            ("ld e, 0xFF", &[u8::from(LoadRegImm8(E)), 0xFF]),
-            ("ld f, 0xFF", &[u8::from(LoadRegImm8(F)), 0xFF]),
-            ("ld g, 0xFF", &[u8::from(LoadRegImm8(G)), 0xFF]),
-            ("ld h, 0xFF", &[u8::from(LoadRegImm8(H)), 0xFF]),
-            ("ld ab, 0xBEEF", &[u8::from(LoadRegImm16(AB)), 0xEF, 0xBE]),
-            ("ld cd, 0xBEEF", &[u8::from(LoadRegImm16(CD)), 0xEF, 0xBE]),
-            ("ld ef, 0xBEEF", &[u8::from(LoadRegImm16(EF)), 0xEF, 0xBE]),
-            ("ld gh, 0xBEEF", &[u8::from(LoadRegImm16(GH)), 0xEF, 0xBE]),
+            ("ld a, 0xFF", &[u8::from(LoadRegImm(A)), 0xFF]),
+            ("ld b, 0xFF", &[u8::from(LoadRegImm(B)), 0xFF]),
+            ("ld c, 0xFF", &[u8::from(LoadRegImm(C)), 0xFF]),
+            ("ld d, 0xFF", &[u8::from(LoadRegImm(D)), 0xFF]),
+            ("ld e, 0xFF", &[u8::from(LoadRegImm(E)), 0xFF]),
+            ("ld f, 0xFF", &[u8::from(LoadRegImm(F)), 0xFF]),
+            ("ld g, 0xFF", &[u8::from(LoadRegImm(G)), 0xFF]),
+            ("ld h, 0xFF", &[u8::from(LoadRegImm(H)), 0xFF]),
+            ("ld ab, 0xBEEF", &[u8::from(LoadRegImm(AB)), 0xEF, 0xBE]),
+            ("ld cd, 0xBEEF", &[u8::from(LoadRegImm(CD)), 0xEF, 0xBE]),
+            ("ld ef, 0xBEEF", &[u8::from(LoadRegImm(EF)), 0xEF, 0xBE]),
+            ("ld gh, 0xBEEF", &[u8::from(LoadRegImm(GH)), 0xEF, 0xBE]),
             ("ld 0x00AF, a", &[u8::from(StoreRegDirect(A)), 0xAF, 0x00]),
             ("ld 0x00AF, b", &[u8::from(StoreRegDirect(B)), 0xAF, 0x00]),
             ("ld 0x00AF, c", &[u8::from(StoreRegDirect(C)), 0xAF, 0x00]),

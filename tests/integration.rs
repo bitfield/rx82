@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use rx82::{
     instructions::InstructionKind::*,
-    regs::Reg8::*,
+    regs::Reg::*,
     system::{State, System},
 };
 
@@ -14,7 +14,7 @@ fn program_executes_correctly() -> Result<()> {
     sys.mem.load(
         0x0000,
         &[
-            u8::from(LoadRegImm8(A)),
+            u8::from(LoadRegImm(A)),
             0xFF,          // ld a, 0xFF
             u8::from(Nop), // nop
         ],
