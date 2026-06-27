@@ -13,6 +13,8 @@ use crate::{
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct Cpu {
+    /// Flags.
+    pub flags: Flags,
     /// HALT flag.
     pub halt: bool,
     /// The current instruction.
@@ -147,11 +149,30 @@ impl Cpu {
         }
     }
 
+    /// Returns the value of `flag`.
+    #[inline]
+    #[must_use]
+    pub fn flag(&self, flag: Flag) -> bool {
+        match flag {
+            Flag::Zero => self.flags.zero,
+        }
+    }
+
     /// Resets the CPU to its power-on state: all registers zero, PC zero, not halted,
     /// phase 'fetch' and target 'opcode'.
     #[inline]
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// Sets or clears the zero flag according to the value of the affected register.
+    #[inline]
+    pub fn update_zero_flag(&mut self, reg: Reg) {
+        use crate::regs::Reg::*;
+        match reg {
+            A | B | C | D | E | F | G | H => self.flags.zero = self.regs.get8(reg) == 0,
+            AB | CD | EF | GH => self.flags.zero = self.regs.get16(reg) == 0,
+        }
     }
 
     /// Performs the 'wait for memory' phase.
@@ -174,6 +195,19 @@ impl Cpu {
     pub fn write_mem(&mut self, addr: u16, reg: Reg) {
         self.target = Target::Write(addr, self.regs.get8(reg));
     }
+}
+
+/// The names of the CPU's flags.
+#[non_exhaustive]
+#[derive(Copy, Clone)]
+pub enum Flag {
+    Zero,
+}
+
+/// The state of CPU's flags.
+#[derive(Debug, Default)]
+pub struct Flags {
+    zero: bool,
 }
 
 /// The phase the CPU will execute next tick.

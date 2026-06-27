@@ -60,15 +60,23 @@ impl InstructionKind {
             Dec(reg) => match reg {
                 A | B | C | D | E | F | G | H => {
                     cpu.regs.set8(reg, cpu.regs.get8(reg).wrapping_sub(1));
+                    cpu.update_zero_flag(reg);
                 }
-                AB | CD | EF | GH => cpu.regs.set16(reg, cpu.regs.get16(reg).wrapping_sub(1)),
+                AB | CD | EF | GH => {
+                    cpu.regs.set16(reg, cpu.regs.get16(reg).wrapping_sub(1));
+                    cpu.update_zero_flag(reg);
+                }
             },
             Halt => cpu.halt = true,
             Inc(reg) => match reg {
                 A | B | C | D | E | F | G | H => {
                     cpu.regs.set8(reg, cpu.regs.get8(reg).wrapping_add(1));
+                    cpu.update_zero_flag(reg);
                 }
-                AB | CD | EF | GH => cpu.regs.set16(reg, cpu.regs.get16(reg).wrapping_add(1)),
+                AB | CD | EF | GH => {
+                    cpu.regs.set16(reg, cpu.regs.get16(reg).wrapping_add(1));
+                    cpu.update_zero_flag(reg);
+                }
             },
             LoadRegImm(reg) => match reg {
                 A | B | C | D | E | F | G | H => cpu.regs.set8(reg, cpu.op_lo),
@@ -162,5 +170,21 @@ mod tests {
         sys.run_program(&asm("ld 0xBEEF, a")).unwrap();
         let val = sys.mem.get(0xBEEF);
         assert_eq!(val, 0xFF, "wrong mem value");
+    }
+
+    #[expect(clippy::bool_assert_comparison, reason = "clarity")]
+    #[test]
+    fn zero_flag() {
+        use crate::cpu::Flag::*;
+        let mut sys = System::default();
+        assert_eq!(sys.cpu.flag(Zero), false, "zero flag wrongly initialised");
+        sys.run_program(&asm("dec a")).unwrap(); // a = -1
+        assert_eq!(sys.cpu.flag(Zero), false, "zero flag set after dec");
+        sys.run_program(&asm("inc a")).unwrap(); // a = 0
+        assert_eq!(sys.cpu.flag(Zero), true, "zero flag clear after inc");
+        sys.run_program(&asm("inc a")).unwrap(); // a = 1
+        assert_eq!(sys.cpu.flag(Zero), false, "zero flag set after inc");
+        sys.run_program(&asm("dec a")).unwrap(); // a = 0
+        assert_eq!(sys.cpu.flag(Zero), true, "zero flag clear after dec");
     }
 }

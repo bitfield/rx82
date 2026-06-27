@@ -306,7 +306,7 @@ mod tests {
     fn assembler_assembles_and_disassembles_instructions_correctly() {
         use Reg::*;
         let cases: &[(&str, &[u8])] = &[
-            ("dec a", &[u8::from(Dec(A))]),
+            ("dec g", &[u8::from(Dec(G))]),
             ("halt", &[u8::from(Halt)]),
             ("inc a", &[u8::from(Inc(A))]),
             ("ld b, 0xFF", &[u8::from(LoadRegImm(B)), 0xFF]),

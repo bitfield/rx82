@@ -1,6 +1,6 @@
 For `countdown` we need:
 [X] decrement register (`dec a`)
-[ ] Zero flag
+[X] Zero flag
 [ ] Relative jump on non-zero (`jrnz E`)
 [ ] Labels
 
