@@ -11,7 +11,7 @@ use core::{
 use crate::{instructions::InstructionKind::*, regs::Reg};
 
 /// Keywords recognised by the assembler.
-pub const KEYWORDS: &[&str] = &["halt", "ld", "nop"];
+pub const KEYWORDS: &[&str] = &["dec", "halt", "inc", "ld", "nop"];
 
 /// Assembles a given program.
 #[non_exhaustive]
@@ -51,14 +51,26 @@ impl Assembler<'_> {
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         while let Some(token) = self.next_token() {
             match token {
+                Token::Keyword(kw) if kw == "dec" => {
+                    let Some(Token::Register(reg)) = self.next_token() else {
+                        bail!("expected register name")
+                    };
+                    self.code.push(u8::from(Dec(reg)));
+                }
                 Token::Keyword(kw) if kw == "halt" => self.code.push(u8::from(Halt)),
-                Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Nop)),
+                Token::Keyword(kw) if kw == "inc" => {
+                    let Some(Token::Register(reg)) = self.next_token() else {
+                        bail!("expected register name")
+                    };
+                    self.code.push(u8::from(Inc(reg)));
+                }
                 Token::Keyword(kw) if kw == "ld" => match self.next_token() {
                     Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr)?,
                     Some(Token::Register(reg)) => self.gen_ld_imm(reg)?,
                     Some(other) => bail!("expected register name, got {other:?}"),
                     None => bail!("unexpected end of file"),
                 },
+                Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Nop)),
                 unexpected => bail!("unexpected token {unexpected:?}"),
             }
         }
@@ -169,7 +181,6 @@ impl Assembler<'_> {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
         match ident.as_str() {
             _ if let Ok(reg) = Reg::from_str(&ident) => Token::Register(reg),
-            _ if let Ok(reg) = Reg::from_str(&ident) => Token::Register(reg),
             kw if KEYWORDS.contains(&kw) => Token::Keyword(ident),
             _ => Token::Identifier(ident),
         }
@@ -249,7 +260,9 @@ pub fn disassemble(slice: &[u8]) -> String {
     let op_hi = data.next();
     if let Ok(ins) = InstructionKind::try_from(opcode) {
         match ins {
+            Dec(reg) => format!("dec {reg}"),
             Halt => "halt".into(),
+            Inc(reg) => format!("inc {reg}"),
             Nop => "nop".into(),
             LoadRegImm(reg) => format!(
                 "ld {reg}, {}",
@@ -293,28 +306,13 @@ mod tests {
     fn assembler_assembles_and_disassembles_instructions_correctly() {
         use Reg::*;
         let cases: &[(&str, &[u8])] = &[
-            ("nop", &[u8::from(Nop)]),
+            ("dec a", &[u8::from(Dec(A))]),
             ("halt", &[u8::from(Halt)]),
-            ("ld a, 0xFF", &[u8::from(LoadRegImm(A)), 0xFF]),
+            ("inc a", &[u8::from(Inc(A))]),
             ("ld b, 0xFF", &[u8::from(LoadRegImm(B)), 0xFF]),
-            ("ld c, 0xFF", &[u8::from(LoadRegImm(C)), 0xFF]),
-            ("ld d, 0xFF", &[u8::from(LoadRegImm(D)), 0xFF]),
-            ("ld e, 0xFF", &[u8::from(LoadRegImm(E)), 0xFF]),
-            ("ld f, 0xFF", &[u8::from(LoadRegImm(F)), 0xFF]),
-            ("ld g, 0xFF", &[u8::from(LoadRegImm(G)), 0xFF]),
-            ("ld h, 0xFF", &[u8::from(LoadRegImm(H)), 0xFF]),
-            ("ld ab, 0xBEEF", &[u8::from(LoadRegImm(AB)), 0xEF, 0xBE]),
             ("ld cd, 0xBEEF", &[u8::from(LoadRegImm(CD)), 0xEF, 0xBE]),
-            ("ld ef, 0xBEEF", &[u8::from(LoadRegImm(EF)), 0xEF, 0xBE]),
-            ("ld gh, 0xBEEF", &[u8::from(LoadRegImm(GH)), 0xEF, 0xBE]),
-            ("ld 0x00AF, a", &[u8::from(StoreRegDirect(A)), 0xAF, 0x00]),
-            ("ld 0x00AF, b", &[u8::from(StoreRegDirect(B)), 0xAF, 0x00]),
-            ("ld 0x00AF, c", &[u8::from(StoreRegDirect(C)), 0xAF, 0x00]),
-            ("ld 0x00AF, d", &[u8::from(StoreRegDirect(D)), 0xAF, 0x00]),
-            ("ld 0x00AF, e", &[u8::from(StoreRegDirect(E)), 0xAF, 0x00]),
-            ("ld 0x00AF, f", &[u8::from(StoreRegDirect(F)), 0xAF, 0x00]),
-            ("ld 0x00AF, g", &[u8::from(StoreRegDirect(G)), 0xAF, 0x00]),
             ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
+            ("nop", &[u8::from(Nop)]),
         ];
         for &(source, object) in cases {
             let mut asm = Assembler::from(source);

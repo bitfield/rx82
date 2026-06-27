@@ -6,7 +6,9 @@ use crate::{cpu::Cpu, regs::Reg};
 #[non_exhaustive]
 #[derive(Clone, Debug, Default)]
 pub enum InstructionKind {
+    Dec(Reg),
     Halt,
+    Inc(Reg),
     LoadRegImm(Reg),
     #[default]
     Nop,
@@ -25,6 +27,8 @@ impl TryFrom<u8> for InstructionKind {
             0x01 => Ok(Nop),
             0x10..=0x1B => Ok(LoadRegImm(Reg::try_from(reg_id)?)),
             0x20..=0x27 => Ok(StoreRegDirect(Reg::try_from(reg_id)?)),
+            0x30..=0x3B => Ok(Inc(Reg::try_from(reg_id)?)),
+            0x40..=0x4B => Ok(Dec(Reg::try_from(reg_id)?)),
             _ => Err(anyhow!("invalid opcode {opcode}")),
         }
     }
@@ -35,7 +39,9 @@ impl From<InstructionKind> for u8 {
     fn from(ins: InstructionKind) -> Self {
         use InstructionKind::*;
         match ins {
+            Dec(reg) => 0x40 | u8::from(reg),
             Halt => 0x00,
+            Inc(reg) => 0x30 | u8::from(reg),
             LoadRegImm(reg) => 0x10 | u8::from(reg),
             Nop => 0x01,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
@@ -51,12 +57,24 @@ impl InstructionKind {
         use InstructionKind::*;
         let op_word = u16::from_le_bytes([cpu.op_lo, cpu.op_hi]);
         match *self {
+            Dec(reg) => match reg {
+                A | B | C | D | E | F | G | H => {
+                    cpu.regs.set8(reg, cpu.regs.get8(reg).wrapping_sub(1));
+                }
+                AB | CD | EF | GH => cpu.regs.set16(reg, cpu.regs.get16(reg).wrapping_sub(1)),
+            },
             Halt => cpu.halt = true,
-            Nop => {}
+            Inc(reg) => match reg {
+                A | B | C | D | E | F | G | H => {
+                    cpu.regs.set8(reg, cpu.regs.get8(reg).wrapping_add(1));
+                }
+                AB | CD | EF | GH => cpu.regs.set16(reg, cpu.regs.get16(reg).wrapping_add(1)),
+            },
             LoadRegImm(reg) => match reg {
                 A | B | C | D | E | F | G | H => cpu.regs.set8(reg, cpu.op_lo),
                 AB | CD | EF | GH => cpu.regs.set16(reg, op_word),
             },
+            Nop => {}
             StoreRegDirect(reg) => cpu.write_mem(op_word, reg),
         }
     }
@@ -68,7 +86,7 @@ impl InstructionKind {
         use crate::regs::Reg::*;
         use InstructionKind::*;
         match *self {
-            Halt | Nop => Operands::Zero,
+            Dec(_) | Halt | Inc(_) | Nop => Operands::Zero,
             LoadRegImm(reg) => match reg {
                 A | B | C | D | E | F | G | H => Operands::One,
                 AB | CD | EF | GH => Operands::Two,
@@ -93,11 +111,25 @@ mod tests {
     use crate::{asm::asm, regs::Reg::*, system::System};
 
     #[test]
+    fn dec() {
+        let mut sys = System::default();
+        sys.run_program(&asm("dec ef")).unwrap();
+        assert_eq!(sys.cpu.regs.get16(EF), 0xFFFF, "wrong EF");
+    }
+
+    #[test]
     fn halt() {
         let mut sys = System::default();
         sys.run_program(&asm("halt")).unwrap();
         assert!(sys.cpu.halt, "not halted");
         assert_eq!(sys.cpu.pc, 0x0001, "wrong PC");
+    }
+
+    #[test]
+    fn inc() {
+        let mut sys = System::default();
+        sys.run_program(&asm("inc d")).unwrap();
+        assert_eq!(sys.cpu.regs.get8(D), 0x01, "wrong D");
     }
 
     #[test]

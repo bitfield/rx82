@@ -1,5 +1,5 @@
 For `countdown` we need:
-[ ] decrement register (`dec a`)
+[X] decrement register (`dec a`)
 [ ] Zero flag
 [ ] Relative jump on non-zero (`jrnz E`)
 [ ] Labels
