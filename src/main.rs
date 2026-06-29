@@ -3,7 +3,10 @@ use clap::{Parser, Subcommand};
 
 use std::{fs, path::PathBuf};
 
-use rx82::{asm::Assembler, monitor::Monitor};
+use rx82::{
+    asm::{Assembler, Disassembler},
+    monitor::Monitor,
+};
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -19,6 +22,11 @@ enum Command {
         #[clap(short, long)]
         debug: bool,
         /// Path to the source file.
+        path: PathBuf,
+    },
+    /// Disassemble a binary file.
+    Dis {
+        /// Path to the binary file.
         path: PathBuf,
     },
     /// Start the interactive monitor.
@@ -50,6 +58,13 @@ fn main() -> Result<()> {
             let mut bin_path = path.clone();
             bin_path.set_extension("bin");
             fs::write(bin_path, data)?;
+            Ok(())
+        }
+        Command::Dis { path } => {
+            let code = fs::read(&path)?;
+            for source in Disassembler::from(code.as_slice()) {
+                println!("    {source}");
+            }
             Ok(())
         }
         Command::Mon {

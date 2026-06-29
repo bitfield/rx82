@@ -50,7 +50,6 @@ To assemble with verbose debugging (probably only of interest to RX82 developers
 rx82 asm --debug my_prog.asm
 ```
 
-
 ## Starting the monitor
 
 To start the monitor in debug (single-step) mode:
@@ -78,12 +77,22 @@ rx82 mon --debug my_prog.bin
 In single-step mode, the monitor displays the current CPU registers and the next instruction in memory, then prompts for a command:
 
 ```txt
-  PC  A  B  C  D  E  F  G  H NEXT
-0003 DE AD 00 00 00 00 00 00 ld cd, 0xBEEF
+  PC  A  B  C  D  E  F  G  H  Z | NEXT
+0000 00 00 00 00 00 00 00 00  0 | ld a, 0x01
 >
 ```
 
 To execute the next CPU instruction, press Enter, or press Ctrl-C to exit.
+
+## Disassembling R8 binary files
+
+Run:
+
+```sh
+rx82 dis my_prog.bin
+```
+
+This will print the disassembled listing.
 
 # RX82 user's manual
 
@@ -95,7 +104,11 @@ The RX82 is a single-board computer with one R8 CPU clocked at 4Mhz, 64KiB of st
 
 The R8 is an 8-bit CPU with some 16-bit features. It has eight 8-bit registers: A, B, C, D, E, F, G, and H. Similar to the Z80, these can also be addressed as four 16-bit register pairs: AB, CD, EF, and GH.
 
-The 16-bit address bus allows the R8 to address up to 64KiB of memory.
+The 16-bit address bus allows the R8 to address up to 64KiB of memory, and the program counter register PC holds the 16-bit address of the next memory location to fetch from.
+
+The processor status register PS contains the following flags:
+
+* **Zero**: Set by any arithmetic operation affecting the user registers giving a zero result (for example, decrementing a register to zero). Cleared by any operation with a non-zero result.
 
 ## R8 assembly language
 
@@ -103,8 +116,10 @@ The input format recognised by the R8 assembler is very similar to that of most 
 
 ```asm
     ld a, 0xDE
+    inc a
     ld b, 0xAD
     ld cd, 0xBEEF
+    dec cd
     ld ef, 0xCAFE
     ld gh, 0xBABE
     ld 0xFFFF, a

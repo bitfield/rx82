@@ -188,6 +188,8 @@ impl Default for System {
 
 impl System {
     /// Prints the current CPU state and the next instruction in memory.
+    #[expect(clippy::expect_used, reason = "slice_from returns a non-empty slice")]
+    #[expect(clippy::missing_panics_doc, reason = "ditto")]
     #[inline]
     pub fn debug_print(&self) {
         println!("  PC  A  B  C  D  E  F  G  H  Z | NEXT");
@@ -203,7 +205,7 @@ impl System {
             self.cpu.regs.get8(G),
             self.cpu.regs.get8(H),
             u8::from(self.cpu.flag(Flag::Zero)),
-            disassemble(self.mem.slice_from(self.cpu.pc))
+            disassemble(self.mem.slice_from(self.cpu.pc)).expect("slice can't be empty")
         );
     }
 

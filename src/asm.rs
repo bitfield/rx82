@@ -1,13 +1,13 @@
 use anyhow::{Result, bail};
 
-use core::fmt::{Debug, Display};
 use core::{
-    fmt::Formatter,
+    fmt::{Debug, Display, Formatter},
     iter::{self, Peekable},
-    str::Chars,
-    str::FromStr as _,
+    slice::Iter,
+    str::{Chars, FromStr as _},
 };
 
+use crate::instructions::InstructionKind;
 use crate::{instructions::InstructionKind::*, regs::Reg};
 
 /// Keywords recognised by the assembler.
@@ -207,6 +207,56 @@ impl Assembler<'_> {
     }
 }
 
+#[non_exhaustive]
+pub struct Disassembler<'code> {
+    pub code: Iter<'code, u8>,
+}
+
+impl<'code> From<&'code [u8]> for Disassembler<'code> {
+    #[inline]
+    fn from(code: &'code [u8]) -> Self {
+        Self { code: code.iter() }
+    }
+}
+
+impl Iterator for Disassembler<'_> {
+    type Item = String;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        use crate::regs::Reg::*;
+        let &opcode = self.code.next()?;
+        Some(if let Ok(ins) = InstructionKind::try_from(opcode) {
+            match ins {
+                Dec(reg) => format!("dec {reg}"),
+                Halt => "halt".into(),
+                Inc(reg) => format!("inc {reg}"),
+                Nop => "nop".into(),
+                LoadRegImm(reg) => {
+                    let op_lo = self.code.next();
+                    format!(
+                        "ld {reg}, {}",
+                        match reg {
+                            A | B | C | D | E | F | G | H => format_maybe_byte(op_lo),
+                            AB | CD | EF | GH => {
+                                let op_hi = self.code.next();
+                                format_maybe_word(op_lo, op_hi)
+                            }
+                        }
+                    )
+                }
+                StoreRegDirect(reg) => {
+                    let op_lo = self.code.next();
+                    let op_hi = self.code.next();
+                    format!("ld {}, {reg}", format_maybe_word(op_lo, op_hi))
+                }
+            }
+        } else {
+            format!("??? ({opcode:#04X})")
+        })
+    }
+}
+
 /// A source code token.
 #[non_exhaustive]
 #[derive(Debug, PartialEq)]
@@ -247,35 +297,14 @@ pub fn asm(source: &str) -> Vec<u8> {
     Assembler::from(source).assemble().unwrap()
 }
 
-/// Disassembles a single instruction from `slice`.
+/// Disassembles a single instruction from `code`.
+///
+/// Useful for writing tests.
 #[inline]
 #[must_use]
-pub fn disassemble(slice: &[u8]) -> String {
-    use crate::{instructions::InstructionKind, regs::Reg::*};
-    let mut data = slice.iter();
-    let Some(&opcode) = data.next() else {
-        return "-".to_owned();
-    };
-    let op_lo = data.next();
-    let op_hi = data.next();
-    if let Ok(ins) = InstructionKind::try_from(opcode) {
-        match ins {
-            Dec(reg) => format!("dec {reg}"),
-            Halt => "halt".into(),
-            Inc(reg) => format!("inc {reg}"),
-            Nop => "nop".into(),
-            LoadRegImm(reg) => format!(
-                "ld {reg}, {}",
-                match reg {
-                    A | B | C | D | E | F | G | H => format_maybe_byte(op_lo),
-                    AB | CD | EF | GH => format_maybe_word(op_lo, op_hi),
-                }
-            ),
-            StoreRegDirect(reg) => format!("ld {}, {reg}", format_maybe_word(op_lo, op_hi)),
-        }
-    } else {
-        format!("??? ({opcode:#04X})")
-    }
+pub fn disassemble(code: &[u8]) -> Option<String> {
+    let mut dis = Disassembler::from(code);
+    dis.next()
 }
 
 #[expect(clippy::single_call_fn, reason = "will be used more")]
@@ -329,7 +358,7 @@ mod tests {
                 as_hex(&generated),
             );
             assert_eq!(
-                &disassemble(object),
+                &disassemble(object).unwrap(),
                 source,
                 "wrong disassembly for {}",
                 as_hex(object)
@@ -338,11 +367,25 @@ mod tests {
     }
 
     #[test]
+    fn disassembler_correctly_disassembles_multiline_programs() {
+        let source = "ld a, 0x01
+dec a
+ld b, 0x02
+inc b
+ld c, 0x03
+dec c
+dec c";
+        let code = Assembler::from(source).assemble().unwrap();
+        let output: Vec<_> = Disassembler::from(code.as_slice()).collect();
+        assert_eq!(output.join("\n"), source);
+    }
+
+    #[test]
     fn disassembler_copes_with_invalid_code() {
         // Load immediate without a following operand
-        assert_eq!(disassemble(&[0x10]), "ld a, ??? (no operand)");
+        assert_eq!(disassemble(&[0x10]).unwrap(), "ld a, ??? (no operand)");
         // Invalid opcode
-        assert_eq!(disassemble(&[0x1C, 0xFF]), "??? (0x1C)");
+        assert_eq!(disassemble(&[0x1C, 0xFF]).unwrap(), "??? (0x1C)");
     }
 
     fn as_hex(data: &[u8]) -> String {

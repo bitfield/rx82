@@ -194,7 +194,7 @@ impl Cpu {
     ///
     /// For 8-bit registers, only `lo` is used; for 16-bit register pairs, both `hi` and
     /// `lo` are used, forming the high and low bytes of the word value, respectively.
-    /// 
+    ///
     /// Flags are not affected.
     #[inline]
     pub fn load(&mut self, reg: Reg, hi: u8, lo: u8) {
