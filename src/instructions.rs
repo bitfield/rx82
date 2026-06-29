@@ -53,37 +53,14 @@ impl InstructionKind {
     /// Executes the instruction.
     #[inline]
     pub fn execute(&self, cpu: &mut Cpu) {
-        use crate::regs::Reg::*;
         use InstructionKind::*;
-        let op_word = u16::from_le_bytes([cpu.op_lo, cpu.op_hi]);
         match *self {
-            Dec(reg) => match reg {
-                A | B | C | D | E | F | G | H => {
-                    cpu.regs.set8(reg, cpu.regs.get8(reg).wrapping_sub(1));
-                    cpu.update_zero_flag(reg);
-                }
-                AB | CD | EF | GH => {
-                    cpu.regs.set16(reg, cpu.regs.get16(reg).wrapping_sub(1));
-                    cpu.update_zero_flag(reg);
-                }
-            },
+            Dec(reg) => cpu.decrement(reg),
             Halt => cpu.halt = true,
-            Inc(reg) => match reg {
-                A | B | C | D | E | F | G | H => {
-                    cpu.regs.set8(reg, cpu.regs.get8(reg).wrapping_add(1));
-                    cpu.update_zero_flag(reg);
-                }
-                AB | CD | EF | GH => {
-                    cpu.regs.set16(reg, cpu.regs.get16(reg).wrapping_add(1));
-                    cpu.update_zero_flag(reg);
-                }
-            },
-            LoadRegImm(reg) => match reg {
-                A | B | C | D | E | F | G | H => cpu.regs.set8(reg, cpu.op_lo),
-                AB | CD | EF | GH => cpu.regs.set16(reg, op_word),
-            },
+            Inc(reg) => cpu.increment(reg),
+            LoadRegImm(reg) => cpu.load(reg, cpu.op_hi, cpu.op_lo),
             Nop => {}
-            StoreRegDirect(reg) => cpu.write_mem(op_word, reg),
+            StoreRegDirect(reg) => cpu.write_mem(u16::from_le_bytes([cpu.op_lo, cpu.op_hi]), reg),
         }
     }
 

@@ -103,6 +103,22 @@ impl Cpu {
         }
     }
 
+    /// Decrements the value in `reg`, updating the zero flag.
+    #[inline]
+    pub fn decrement(&mut self, reg: Reg) {
+        use crate::regs::Reg::*;
+        match reg {
+            A | B | C | D | E | F | G | H => {
+                self.regs.set8(reg, self.regs.get8(reg).wrapping_sub(1));
+                self.flags.zero = self.regs.get8(reg) == 0;
+            }
+            AB | CD | EF | GH => {
+                self.regs.set16(reg, self.regs.get16(reg).wrapping_sub(1));
+                self.flags.zero = self.regs.get16(reg) == 0;
+            }
+        }
+    }
+
     /// Performs the 'execute' phase.
     ///
     /// If the instruction is a memory write, the next phase will be 'wait'. Otherwise
@@ -158,21 +174,42 @@ impl Cpu {
         }
     }
 
+    /// Increments the value in `reg`, updating the zero flag.
+    #[inline]
+    pub fn increment(&mut self, reg: Reg) {
+        use crate::regs::Reg::*;
+        match reg {
+            A | B | C | D | E | F | G | H => {
+                self.regs.set8(reg, self.regs.get8(reg).wrapping_add(1));
+                self.flags.zero = self.regs.get8(reg) == 0;
+            }
+            AB | CD | EF | GH => {
+                self.regs.set16(reg, self.regs.get16(reg).wrapping_add(1));
+                self.flags.zero = self.regs.get16(reg) == 0;
+            }
+        }
+    }
+
+    /// Loads `reg` with the byte value `lo`, or the word value `hi`:`lo`.
+    ///
+    /// For 8-bit registers, only `lo` is used; for 16-bit register pairs, both `hi` and
+    /// `lo` are used, forming the high and low bytes of the word value, respectively.
+    /// 
+    /// Flags are not affected.
+    #[inline]
+    pub fn load(&mut self, reg: Reg, hi: u8, lo: u8) {
+        use crate::regs::Reg::*;
+        match reg {
+            A | B | C | D | E | F | G | H => self.regs.set8(reg, lo),
+            AB | CD | EF | GH => self.regs.set16(reg, u16::from_be_bytes([hi, lo])),
+        }
+    }
+
     /// Resets the CPU to its power-on state: all registers zero, PC zero, not halted,
     /// phase 'fetch' and target 'opcode'.
     #[inline]
     pub fn reset(&mut self) {
         *self = Self::default();
-    }
-
-    /// Sets or clears the zero flag according to the value of the affected register.
-    #[inline]
-    pub fn update_zero_flag(&mut self, reg: Reg) {
-        use crate::regs::Reg::*;
-        match reg {
-            A | B | C | D | E | F | G | H => self.flags.zero = self.regs.get8(reg) == 0,
-            AB | CD | EF | GH => self.flags.zero = self.regs.get16(reg) == 0,
-        }
     }
 
     /// Performs the 'wait for memory' phase.

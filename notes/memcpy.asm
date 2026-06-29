@@ -4,13 +4,13 @@
 
 LOOP:
     cmp b, 0x00
-    jrz DONE
+    beq DONE
     ld a, (cd)
     ld (ef), a
     inc cd
     inc ef
     dec b
-    jr LOOP
+    bra LOOP
 
 DONE:
     halt
