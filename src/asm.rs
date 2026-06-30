@@ -11,7 +11,7 @@ use crate::instructions::InstructionKind;
 use crate::{instructions::InstructionKind::*, regs::Reg};
 
 /// Keywords recognised by the assembler.
-pub const KEYWORDS: &[&str] = &["dec", "halt", "inc", "ld", "nop"];
+pub const KEYWORDS: &[&str] = &["beq", "dec", "halt", "inc", "ld", "nop"];
 
 /// Assembles a given program.
 #[non_exhaustive]
@@ -51,6 +51,12 @@ impl Assembler<'_> {
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         while let Some(token) = self.next_token() {
             match token {
+                Token::Keyword(kw) if kw == "beq" => {
+                    let Some(Token::ByteLiteral(dis)) = self.next_token() else {
+                        bail!("expected displacement")
+                    };
+                    self.code.extend([u8::from(BranchEq), dis]);
+                }
                 Token::Keyword(kw) if kw == "dec" => {
                     let Some(Token::Register(reg)) = self.next_token() else {
                         bail!("expected register name")
@@ -228,6 +234,7 @@ impl Iterator for Disassembler<'_> {
         let &opcode = self.code.next()?;
         Some(if let Ok(ins) = InstructionKind::try_from(opcode) {
             match ins {
+                BranchEq => format!("beq {}", format_maybe_byte(self.code.next())),
                 Dec(reg) => format!("dec {reg}"),
                 Halt => "halt".into(),
                 Inc(reg) => format!("inc {reg}"),
@@ -307,7 +314,6 @@ pub fn disassemble(code: &[u8]) -> Option<String> {
     dis.next()
 }
 
-#[expect(clippy::single_call_fn, reason = "will be used more")]
 fn format_maybe_byte(maybe_op: Option<&u8>) -> String {
     if let Some(op) = maybe_op {
         format!("{op:#04X}")
@@ -335,6 +341,7 @@ mod tests {
     fn assembler_assembles_and_disassembles_instructions_correctly() {
         use Reg::*;
         let cases: &[(&str, &[u8])] = &[
+            ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
             ("dec g", &[u8::from(Dec(G))]),
             ("halt", &[u8::from(Halt)]),
             ("inc a", &[u8::from(Inc(A))]),

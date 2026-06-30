@@ -47,6 +47,15 @@ impl Device for Cpu {
 }
 
 impl Cpu {
+    /// Branches to PC+`dis`.
+    #[expect(clippy::as_conversions, reason = "easiest way to sign-extend")]
+    #[expect(clippy::cast_possible_wrap, reason = "i8 to u16 is sound")]
+    #[expect(clippy::cast_sign_loss, reason = "okay with wrapping_add")]
+    #[inline]
+    pub fn branch(&mut self, dis: u8) {
+        self.pc = self.pc.wrapping_add(dis as i8 as u16); // sign-extend displacement
+    }
+
     /// Performs the 'decode' phase.
     ///
     /// If the decoded value is an instruction that has no operands, the next phase will be 'execute'.
@@ -165,15 +174,6 @@ impl Cpu {
         }
     }
 
-    /// Returns the value of `flag`.
-    #[inline]
-    #[must_use]
-    pub fn flag(&self, flag: Flag) -> bool {
-        match flag {
-            Flag::Zero => self.flags.zero,
-        }
-    }
-
     /// Increments the value in `reg`, updating the zero flag.
     #[inline]
     pub fn increment(&mut self, reg: Reg) {
@@ -234,17 +234,11 @@ impl Cpu {
     }
 }
 
-/// The names of the CPU's flags.
-#[non_exhaustive]
-#[derive(Copy, Clone)]
-pub enum Flag {
-    Zero,
-}
-
 /// The state of CPU's flags.
+#[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct Flags {
-    zero: bool,
+    pub zero: bool,
 }
 
 /// The phase the CPU will execute next tick.

@@ -5,7 +5,7 @@ use core::fmt::Write as _;
 use crate::{
     asm::disassemble,
     clock::Clock,
-    cpu::{Cpu, Flag, Phase},
+    cpu::{Cpu, Phase},
     memory::Memory,
     regs::Reg::*,
 };
@@ -204,7 +204,7 @@ impl System {
             self.cpu.regs.get8(F),
             self.cpu.regs.get8(G),
             self.cpu.regs.get8(H),
-            u8::from(self.cpu.flag(Flag::Zero)),
+            u8::from(self.cpu.flags.zero),
             disassemble(self.mem.slice_from(self.cpu.pc)).expect("slice can't be empty")
         );
     }

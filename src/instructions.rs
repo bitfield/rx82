@@ -6,6 +6,7 @@ use crate::{cpu::Cpu, regs::Reg};
 #[non_exhaustive]
 #[derive(Clone, Debug, Default)]
 pub enum InstructionKind {
+    BranchEq,
     Dec(Reg),
     Halt,
     Inc(Reg),
@@ -29,6 +30,7 @@ impl TryFrom<u8> for InstructionKind {
             0x20..=0x27 => Ok(StoreRegDirect(Reg::try_from(reg_id)?)),
             0x30..=0x3B => Ok(Inc(Reg::try_from(reg_id)?)),
             0x40..=0x4B => Ok(Dec(Reg::try_from(reg_id)?)),
+            0xB0 => Ok(BranchEq),
             _ => Err(anyhow!("invalid opcode {opcode}")),
         }
     }
@@ -39,6 +41,7 @@ impl From<InstructionKind> for u8 {
     fn from(ins: InstructionKind) -> Self {
         use InstructionKind::*;
         match ins {
+            BranchEq => 0xB0,
             Dec(reg) => 0x40 | u8::from(reg),
             Halt => 0x00,
             Inc(reg) => 0x30 | u8::from(reg),
@@ -55,11 +58,12 @@ impl InstructionKind {
     pub fn execute(&self, cpu: &mut Cpu) {
         use InstructionKind::*;
         match *self {
+            BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             Dec(reg) => cpu.decrement(reg),
             Halt => cpu.halt = true,
             Inc(reg) => cpu.increment(reg),
             LoadRegImm(reg) => cpu.load(reg, cpu.op_hi, cpu.op_lo),
-            Nop => {}
+            Nop | BranchEq => {}
             StoreRegDirect(reg) => cpu.write_mem(u16::from_le_bytes([cpu.op_lo, cpu.op_hi]), reg),
         }
     }
@@ -70,13 +74,15 @@ impl InstructionKind {
     pub fn operands(&self) -> Operands {
         use crate::regs::Reg::*;
         use InstructionKind::*;
+        use Operands::*;
         match *self {
-            Dec(_) | Halt | Inc(_) | Nop => Operands::Zero,
+            Dec(_) | Halt | Inc(_) | Nop => Zero,
+            BranchEq => One,
             LoadRegImm(reg) => match reg {
-                A | B | C | D | E | F | G | H => Operands::One,
-                AB | CD | EF | GH => Operands::Two,
+                A | B | C | D | E | F | G | H => One,
+                AB | CD | EF | GH => Two,
             },
-            StoreRegDirect(_) => Operands::Two,
+            StoreRegDirect(_) => Two,
         }
     }
 }
@@ -94,6 +100,27 @@ pub enum Operands {
 #[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
     use crate::{asm::asm, regs::Reg::*, system::System};
+
+    #[test]
+    fn beq() {
+        let mut sys = System::default();
+        sys.cpu.flags.zero = true;
+        sys.run_program(&asm("beq 0x00\nhalt")).unwrap();
+        assert_eq!(sys.cpu.pc, 0x0003, "wrong PC after zero branch");
+        sys.run_program(&asm("beq 0x7F\nhalt")).unwrap();
+        assert_eq!(sys.cpu.pc, 0x0082, "wrong PC after max forward branch");
+        sys.run_program(&asm("beq 0x80\nhalt")).unwrap();
+        assert_eq!(sys.cpu.pc, 0xFF83, "wrong PC after max backward branch");
+        sys.run_program(&asm("beq 0x01")).unwrap();
+        assert_eq!(sys.cpu.pc, 0x0004, "forward branch not taken");
+        sys.run_program(&asm("beq 0x01\nhalt\nbeq 0xFD")).unwrap();
+        assert_eq!(sys.cpu.pc, 0x0003, "backward branch not taken");
+        sys.run_program(&asm("beq 0x01\nhalt\ninc a\nbeq 0xFC"))
+            .unwrap();
+        assert_eq!(sys.cpu.pc, 0x0007, "backward branch taken");
+        sys.run_program(&asm("inc a\nbeq 0x01\nhalt")).unwrap();
+        assert_eq!(sys.cpu.pc, 0x0004, "forward branch taken");
+    }
 
     #[test]
     fn dec() {
@@ -152,16 +179,15 @@ mod tests {
     #[expect(clippy::bool_assert_comparison, reason = "clarity")]
     #[test]
     fn zero_flag() {
-        use crate::cpu::Flag::*;
         let mut sys = System::default();
-        assert_eq!(sys.cpu.flag(Zero), false, "zero flag wrongly initialised");
+        assert_eq!(sys.cpu.flags.zero, false, "zero flag wrongly initialised");
         sys.run_program(&asm("dec a")).unwrap(); // a = -1
-        assert_eq!(sys.cpu.flag(Zero), false, "zero flag set after dec");
+        assert_eq!(sys.cpu.flags.zero, false, "zero flag set after dec");
         sys.run_program(&asm("inc a")).unwrap(); // a = 0
-        assert_eq!(sys.cpu.flag(Zero), true, "zero flag clear after inc");
+        assert_eq!(sys.cpu.flags.zero, true, "zero flag clear after inc");
         sys.run_program(&asm("inc a")).unwrap(); // a = 1
-        assert_eq!(sys.cpu.flag(Zero), false, "zero flag set after inc");
+        assert_eq!(sys.cpu.flags.zero, false, "zero flag set after inc");
         sys.run_program(&asm("dec a")).unwrap(); // a = 0
-        assert_eq!(sys.cpu.flag(Zero), true, "zero flag clear after dec");
+        assert_eq!(sys.cpu.flags.zero, true, "zero flag clear after dec");
     }
 }
