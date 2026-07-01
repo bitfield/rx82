@@ -7,6 +7,7 @@ use crate::{cpu::Cpu, regs::Reg};
 #[derive(Clone, Debug, Default)]
 pub enum InstructionKind {
     BranchEq,
+    BranchNe,
     Dec(Reg),
     Halt,
     Inc(Reg),
@@ -30,7 +31,8 @@ impl TryFrom<u8> for InstructionKind {
             0x20..=0x27 => Ok(StoreRegDirect(Reg::try_from(reg_id)?)),
             0x30..=0x3B => Ok(Inc(Reg::try_from(reg_id)?)),
             0x40..=0x4B => Ok(Dec(Reg::try_from(reg_id)?)),
-            0xB0 => Ok(BranchEq),
+            0xB1 => Ok(BranchEq),
+            0xB2 => Ok(BranchNe),
             _ => Err(anyhow!("invalid opcode {opcode}")),
         }
     }
@@ -41,7 +43,8 @@ impl From<InstructionKind> for u8 {
     fn from(ins: InstructionKind) -> Self {
         use InstructionKind::*;
         match ins {
-            BranchEq => 0xB0,
+            BranchEq => 0xB1,
+            BranchNe => 0xB2,
             Dec(reg) => 0x40 | u8::from(reg),
             Halt => 0x00,
             Inc(reg) => 0x30 | u8::from(reg),
@@ -59,11 +62,12 @@ impl InstructionKind {
         use InstructionKind::*;
         match *self {
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
+            BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
             Dec(reg) => cpu.decrement(reg),
             Halt => cpu.halt = true,
             Inc(reg) => cpu.increment(reg),
             LoadRegImm(reg) => cpu.load(reg, cpu.op_hi, cpu.op_lo),
-            Nop | BranchEq => {}
+            Nop | BranchEq | BranchNe => {}
             StoreRegDirect(reg) => cpu.write_mem(u16::from_le_bytes([cpu.op_lo, cpu.op_hi]), reg),
         }
     }
@@ -77,7 +81,7 @@ impl InstructionKind {
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop => Zero,
-            BranchEq => One,
+            BranchEq | BranchNe => One,
             LoadRegImm(reg) => match reg {
                 A | B | C | D | E | F | G | H => One,
                 AB | CD | EF | GH => Two,
@@ -120,6 +124,16 @@ mod tests {
         assert_eq!(sys.cpu.pc, 0x0007, "backward branch taken");
         sys.run_program(&asm("inc a\nbeq 0x01\nhalt")).unwrap();
         assert_eq!(sys.cpu.pc, 0x0004, "forward branch taken");
+    }
+
+    #[test]
+    fn bne() {
+        let mut sys = System::default();
+        sys.cpu.flags.zero = true;
+        sys.run_program(&asm("bne 0x01\nhalt")).unwrap();
+        assert_eq!(sys.cpu.pc, 0x0003, "branch taken");
+        sys.run_program(&asm("inc a\nbne 0x01\nhalt")).unwrap();
+        assert_eq!(sys.cpu.pc, 0x0005, "branch not taken");
     }
 
     #[test]

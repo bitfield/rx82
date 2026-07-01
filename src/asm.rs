@@ -11,7 +11,7 @@ use crate::instructions::InstructionKind;
 use crate::{instructions::InstructionKind::*, regs::Reg};
 
 /// Keywords recognised by the assembler.
-pub const KEYWORDS: &[&str] = &["beq", "dec", "halt", "inc", "ld", "nop"];
+pub const KEYWORDS: &[&str] = &["beq", "bne", "dec", "halt", "inc", "ld", "nop"];
 
 /// Assembles a given program.
 #[non_exhaustive]
@@ -56,6 +56,12 @@ impl Assembler<'_> {
                         bail!("expected displacement")
                     };
                     self.code.extend([u8::from(BranchEq), dis]);
+                }
+                Token::Keyword(kw) if kw == "bne" => {
+                    let Some(Token::ByteLiteral(dis)) = self.next_token() else {
+                        bail!("expected displacement")
+                    };
+                    self.code.extend([u8::from(BranchNe), dis]);
                 }
                 Token::Keyword(kw) if kw == "dec" => {
                     let Some(Token::Register(reg)) = self.next_token() else {
@@ -235,6 +241,7 @@ impl Iterator for Disassembler<'_> {
         Some(if let Ok(ins) = InstructionKind::try_from(opcode) {
             match ins {
                 BranchEq => format!("beq {}", format_maybe_byte(self.code.next())),
+                BranchNe => format!("bne {}", format_maybe_byte(self.code.next())),
                 Dec(reg) => format!("dec {reg}"),
                 Halt => "halt".into(),
                 Inc(reg) => format!("inc {reg}"),
@@ -342,6 +349,7 @@ mod tests {
         use Reg::*;
         let cases: &[(&str, &[u8])] = &[
             ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
+            ("bne 0x01", &[u8::from(BranchNe), 0x01]),
             ("dec g", &[u8::from(Dec(G))]),
             ("halt", &[u8::from(Halt)]),
             ("inc a", &[u8::from(Inc(A))]),
