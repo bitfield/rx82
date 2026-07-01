@@ -51,6 +51,7 @@ impl Assembler<'_> {
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         while let Some(token) = self.next_token() {
             match token {
+                Token::Comment(_) => {}
                 Token::Keyword(kw) if kw == "beq" => {
                     let Some(Token::ByteLiteral(dis)) = self.next_token() else {
                         bail!("expected displacement")
@@ -156,6 +157,7 @@ impl Assembler<'_> {
             let token = match next {
                 '0' => self.read_hex_literal(),
                 ',' => self.read_token(Token::Comma),
+                ';' => self.read_comment(),
                 ch if ch.is_alphabetic() => self.read_identifier(),
                 ch => self.read_illegal(ch),
             };
@@ -166,6 +168,17 @@ impl Assembler<'_> {
         } else {
             None
         }
+    }
+
+    /// Reads a comment token.
+    #[inline]
+    pub fn read_comment(&mut self) -> Token {
+        self.chars.next();
+        self.skip_whitespace();
+        let comment: String =
+            iter::from_fn(|| self.chars.next_if(|&ch| ch != '\r' && ch != '\n')).collect();
+        self.chars.next_if(|&ch| ch == '\n'); // extra trailing newline on Windows
+        Token::Comment(comment)
     }
 
     /// Reads a hex literal token.
@@ -277,6 +290,7 @@ impl Iterator for Disassembler<'_> {
 pub enum Token {
     ByteLiteral(u8),
     Comma,
+    Comment(String),
     Identifier(String),
     Illegal(String),
     Keyword(String),
@@ -379,6 +393,22 @@ mod tests {
                 as_hex(object)
             );
         }
+    }
+
+    #[test]
+    fn assembler_ignores_comments() {
+        let source = "ld a, 0xFF ; loop count";
+        let mut asm = Assembler::from(source);
+        asm.debug = true;
+        let generated = asm.assemble().unwrap();
+        let object = &[u8::from(LoadRegImm(Reg::A)), 0xFF];
+        assert_eq!(
+            generated,
+            object,
+            "wrong assembly for '{source}': want {}, got {}",
+            as_hex(object),
+            as_hex(&generated),
+        );
     }
 
     #[test]

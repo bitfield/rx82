@@ -157,6 +157,8 @@ pub struct System {
     pub clock: Box<dyn Device>,
     /// The system CPU.
     pub cpu: Cpu,
+    /// Cycle counter.
+    pub cycles: u16,
     /// Enable debug snapshots.
     pub debug: bool,
     /// Any attached devices, such as the [`Clock`].
@@ -165,8 +167,6 @@ pub struct System {
     pub history: Vec<Snapshot>,
     /// The system memory.
     pub mem: Memory,
-    /// Cycle counter.
-    pub ticks: u16,
 }
 
 impl Default for System {
@@ -181,7 +181,7 @@ impl Default for System {
             devices: Vec::new(),
             history: Vec::new(),
             mem: Memory::default(),
-            ticks: Default::default(),
+            cycles: Default::default(),
         }
     }
 }
@@ -243,13 +243,13 @@ impl System {
         self.bus.reconcile();
         if self.debug {
             self.history.push(Snapshot {
-                tick: self.ticks,
+                tick: self.cycles,
                 phase, // at start of this tick
                 bus: self.bus.clone(),
             });
         }
         self.clock.tick(&mut self.bus);
-        self.ticks = self.ticks.wrapping_add(1);
+        self.cycles = self.cycles.wrapping_add(1);
     }
 
     /// Prints a bus timing diagram from the stored history.
