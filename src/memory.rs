@@ -22,7 +22,7 @@ impl Device for Memory {
         match (bus.mem, bus.write) {
             (true, false) => {
                 let data = self.get(bus.addr);
-                bus.defer_write(vec![State::Data(data)]);
+                bus.pending_write.get_or_insert(vec![State::Data(data)]);
             }
             (true, true) => {
                 self.set(bus.addr, bus.data);

@@ -115,14 +115,13 @@ The processor status register PS contains the following flags:
 The input format recognised by the R8 assembler is very similar to that of most Z80 or 6502 assemblers. Here's a simple example program:
 
 ```asm
-    ld a, 0xDE
-    inc a
-    ld b, 0xAD
-    ld cd, 0xBEEF
+; countdown timer
+    ld a, 0x06 ; about 1 second
+    ld cd, 0xFFFF ; inner loop
     dec cd
-    ld ef, 0xCAFE
-    ld gh, 0xBABE
-    ld 0xFFFF, a
+    bne 0xFD
+    dec a
+    bne 0xF7
     halt
 ```
 

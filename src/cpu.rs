@@ -74,7 +74,7 @@ impl Cpu {
                 match self.ins.operands() {
                     Operands::Zero => {
                         // No operands needed, so execute it
-                        bus.defer_write(vec![State::Mem(false)]);
+                        bus.pending_write.get_or_insert(vec![State::Mem(false)]);
                         Phase::Execute
                     }
                     Operands::One | Operands::Two => {
@@ -95,7 +95,7 @@ impl Cpu {
                     }
                     Operands::One => {
                         // No, execute this instruction
-                        bus.defer_write(vec![State::Mem(false)]);
+                        bus.pending_write.get_or_insert(vec![State::Mem(false)]);
                         Phase::Execute
                     }
                     Operands::Zero => {
@@ -105,7 +105,7 @@ impl Cpu {
             }
             Target::Operand2 => {
                 self.op_hi = bus.data;
-                bus.defer_write(vec![State::Mem(false)]);
+                bus.pending_write.get_or_insert(vec![State::Mem(false)]);
                 Phase::Execute
             }
             Target::Write(_, _) => unreachable!("reached decode phase after memory write"),
@@ -139,7 +139,7 @@ impl Cpu {
         ins.execute(self);
         if let Target::Write(addr, val) = self.target {
             // Write the result
-            bus.defer_write(vec![
+            bus.pending_write.get_or_insert(vec![
                 State::Addr(addr),
                 State::Data(val),
                 State::Mem(true),
@@ -164,7 +164,7 @@ impl Cpu {
             Phase::Fetch
         } else {
             // Issue a memory read and await the result
-            bus.defer_write(vec![
+            bus.pending_write.get_or_insert(vec![
                 State::Addr(self.pc),
                 State::Mem(true),
                 State::Write(false),

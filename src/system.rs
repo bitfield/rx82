@@ -13,7 +13,6 @@ use crate::{
 /// The system bus.
 #[non_exhaustive]
 #[derive(Clone, Debug, Default)]
-#[expect(clippy::partial_pub_fields, reason = "pending_write is internal")]
 pub struct Bus {
     /// The 16-bit address bus.
     pub addr: u16,
@@ -24,7 +23,7 @@ pub struct Bus {
     /// CPU 'memory request' line.
     pub mem: bool,
     /// A possible pending write to the bus state during the current cycle.
-    pending_write: Option<Vec<State>>,
+    pub pending_write: Option<Vec<State>>,
     /// CPU 'write request' line.
     pub write: bool,
 }
@@ -36,7 +35,8 @@ impl Bus {
     ///
     /// On the first failed assertion.
     #[inline]
-    pub fn assert(&self, states: &[State], msg: &'static str) -> Result<()> {
+    pub fn assert(&self, states: &[State], msg: impl AsRef<str>) -> Result<()> {
+        let msg = msg.as_ref();
         for state in states {
             match *state {
                 State::Addr(addr) => ensure!(
@@ -64,16 +64,6 @@ impl Bus {
             }
         }
         Ok(())
-    }
-
-    /// Tries to set `states` on the bus at the end of this cycle.
-    ///
-    /// If a write is already pending, this has no effect.
-    #[inline]
-    pub fn defer_write(&mut self, states: Vec<State>) {
-        if self.pending_write.is_none() {
-            self.pending_write = Some(states);
-        }
     }
 
     /// Applies any pending write to the bus.
@@ -134,7 +124,9 @@ pub enum State {
 
 /// The RX82 system as a whole.
 ///
-/// Execution proceeds by repeatedly calling [`System::tick`]. On each tick, all devices attached to the system will be ticked by calling their [`Device::tick`] method in turn, in this order:
+/// Execution proceeds by repeatedly calling [`System::tick`]. On each tick, all devices
+/// attached to the system will be ticked by calling their [`Device::tick`] method in
+/// turn, in this order:
 ///
 /// 1. CPU
 /// 2. Memory
@@ -181,15 +173,13 @@ impl Default for System {
             devices: Vec::new(),
             history: Vec::new(),
             mem: Memory::default(),
-            cycles: Default::default(),
+            cycles: 0,
         }
     }
 }
 
 impl System {
     /// Prints the current CPU state and the next instruction in memory.
-    #[expect(clippy::expect_used, reason = "slice_from returns a non-empty slice")]
-    #[expect(clippy::missing_panics_doc, reason = "ditto")]
     #[inline]
     pub fn debug_print(&self) {
         println!("  PC  A  B  C  D  E  F  G  H  Z | NEXT");
@@ -205,7 +195,13 @@ impl System {
             self.cpu.regs.get8(G),
             self.cpu.regs.get8(H),
             u8::from(self.cpu.flags.zero),
-            disassemble(self.mem.slice_from(self.cpu.pc)).expect("slice can't be empty")
+            disassemble(
+                self.mem
+                    .0
+                    .get(usize::from(self.cpu.pc)..)
+                    .unwrap_or_default()
+            )
+            .unwrap_or_default(),
         );
     }
 
