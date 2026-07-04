@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Context as _, Result, bail};
 
 use core::{
     fmt::{Debug, Display, Formatter},
@@ -6,6 +6,7 @@ use core::{
     slice::Iter,
     str::{Chars, FromStr as _},
 };
+use std::collections::HashMap;
 
 use crate::instructions::InstructionKind;
 use crate::{instructions::InstructionKind::*, regs::Reg};
@@ -22,6 +23,8 @@ pub struct Assembler<'src> {
     pub code: Vec<u8>,
     /// Enables verbose debugging.
     pub debug: bool,
+    /// Label table.
+    pub labels: HashMap<String, u16>,
 }
 
 impl<'src> From<&'src str> for Assembler<'src> {
@@ -31,6 +34,7 @@ impl<'src> From<&'src str> for Assembler<'src> {
             chars: source.chars().peekable(),
             code: Vec::new(),
             debug: false,
+            labels: HashMap::new(),
         }
     }
 }
@@ -53,15 +57,11 @@ impl Assembler<'_> {
             match token {
                 Token::Comment(_) => {}
                 Token::Keyword(kw) if kw == "beq" => {
-                    let Some(Token::ByteLiteral(dis)) = self.next_token() else {
-                        bail!("expected displacement")
-                    };
+                    let dis = self.get_displacement()?;
                     self.code.extend([u8::from(BranchEq), dis]);
                 }
                 Token::Keyword(kw) if kw == "bne" => {
-                    let Some(Token::ByteLiteral(dis)) = self.next_token() else {
-                        bail!("expected displacement")
-                    };
+                    let dis = self.get_displacement()?;
                     self.code.extend([u8::from(BranchNe), dis]);
                 }
                 Token::Keyword(kw) if kw == "dec" => {
@@ -84,6 +84,9 @@ impl Assembler<'_> {
                     None => bail!("unexpected end of file"),
                 },
                 Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Nop)),
+                Token::LabelDef(label) => {
+                    self.labels.insert(label, self.offset());
+                }
                 unexpected => bail!("unexpected token {unexpected:?}"),
             }
         }
@@ -148,6 +151,38 @@ impl Assembler<'_> {
         Ok(())
     }
 
+    /// Returns the displacement for the current branch instruction.
+    ///
+    /// This may be an immediate value or a label reference.
+    ///
+    /// # Errors
+    ///
+    /// * Undefined label
+    /// * No displacement
+    /// * Displacement out of range (signed byte)
+    #[expect(clippy::as_conversions, reason = "required for encoding")]
+    #[expect(clippy::cast_possible_truncation, reason = "code ensures valid range")]
+    #[inline]
+    pub fn get_displacement(&mut self) -> Result<u8> {
+        match self.next_token() {
+            Some(Token::Identifier(label)) => {
+                let Some(&addr) = self.labels.get(&label) else {
+                    bail!("undefined label {label}")
+                };
+                // Displacement is calculated relative to the address of the next
+                // instruction (i.e. PC+2)
+                let long_dis = addr.wrapping_sub(self.offset()).wrapping_sub(2);
+                // This must fit into a signed byte (-128 <= dis <= +127)
+                match long_dis {
+                    0x0000..=0x007F | 0xFF80..=0xFFFF => Ok(long_dis as u8),
+                    _ => bail!("displacement out of range: {long_dis:#06X}"),
+                }
+            }
+            Some(Token::ByteLiteral(dis)) => Ok(dis),
+            _ => bail!("expected displacement"),
+        }
+    }
+
     /// Scans and returns the next token from the source code.
     #[inline]
     pub fn next_token(&mut self) -> Option<Token> {
@@ -168,6 +203,15 @@ impl Assembler<'_> {
         } else {
             None
         }
+    }
+
+    /// Returns the current offset (PC) position in the generated code.
+    #[expect(clippy::as_conversions, reason = "max code size = 65536")]
+    #[expect(clippy::cast_possible_truncation, reason = "max code size = 65536")]
+    #[inline]
+    #[must_use]
+    pub fn offset(&self) -> u16 {
+        self.code.len() as u16
     }
 
     /// Reads a comment token.
@@ -204,9 +248,16 @@ impl Assembler<'_> {
     #[inline]
     pub fn read_identifier(&mut self) -> Token {
         let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
+        if self.debug {
+            println!("ident: {ident}");
+        }
         match ident.as_str() {
             _ if let Ok(reg) = Reg::from_str(&ident) => Token::Register(reg),
             kw if KEYWORDS.contains(&kw) => Token::Keyword(ident),
+            label if let Some(&':') = self.chars.peek() => {
+                self.chars.next();
+                Token::LabelDef(label.to_owned())
+            }
             _ => Token::Identifier(ident),
         }
     }
@@ -294,6 +345,7 @@ pub enum Token {
     Identifier(String),
     Illegal(String),
     Keyword(String),
+    LabelDef(String),
     Register(Reg),
     RegisterName(String),
     WordLiteral(u16),
@@ -311,7 +363,7 @@ impl Display for Token {
     }
 }
 
-/// Assembles `source`, panicking on any error.
+/// Assembles `source` with debug outupt, panicking on any error.
 ///
 /// Useful for writing tests.
 ///
@@ -322,7 +374,11 @@ impl Display for Token {
 #[inline]
 #[must_use]
 pub fn asm(source: &str) -> Vec<u8> {
-    Assembler::from(source).assemble().unwrap()
+    let mut asm = Assembler::from(source);
+    asm.debug = true;
+    asm.assemble()
+        .context(format!("assembling '{source}'"))
+        .unwrap()
 }
 
 /// Disassembles a single instruction from `code`.
@@ -354,9 +410,31 @@ fn format_maybe_word(maybe_lo: Option<&u8>, maybe_hi: Option<&u8>) -> String {
 #[expect(clippy::unwrap_used, reason = "tests")]
 #[cfg(test)]
 mod tests {
-    use anyhow::Context as _;
-
     use super::*;
+
+    macro_rules! assert_asm {
+        ( $source:expr, $generated:expr, $object:expr ) => {
+            assert_eq!(
+                &$generated,
+                $object,
+                "wrong assembly for '{}': want {}, got {}",
+                $source,
+                as_hex($object),
+                as_hex(&$generated),
+            );
+        };
+    }
+
+    macro_rules! assert_disasm {
+        ( $generated:expr, $source:expr ) => {
+            assert_eq!(
+                &disassemble(&$generated).unwrap(),
+                $source,
+                "wrong disassembly for {}",
+                as_hex(&$generated)
+            );
+        };
+    }
 
     #[test]
     fn assembler_assembles_and_disassembles_instructions_correctly() {
@@ -373,42 +451,71 @@ mod tests {
             ("nop", &[u8::from(Nop)]),
         ];
         for &(source, object) in cases {
-            let mut asm = Assembler::from(source);
-            asm.debug = true;
-            let generated = asm
-                .assemble()
-                .context(format!("assembling '{source}'"))
-                .unwrap();
-            assert_eq!(
-                &generated,
-                object,
-                "wrong assembly for '{source}': want {}, got {}",
-                as_hex(object),
-                as_hex(&generated),
-            );
-            assert_eq!(
-                &disassemble(object).unwrap(),
-                source,
-                "wrong disassembly for {}",
-                as_hex(object)
-            );
+            let generated = asm(source);
+            assert_asm!(source, generated, object);
+            assert_disasm!(generated, source);
         }
     }
 
     #[test]
     fn assembler_ignores_comments() {
         let source = "ld a, 0xFF ; loop count";
-        let mut asm = Assembler::from(source);
-        asm.debug = true;
-        let generated = asm.assemble().unwrap();
+        let generated = asm(source);
         let object = &[u8::from(LoadRegImm(Reg::A)), 0xFF];
-        assert_eq!(
-            generated,
-            object,
-            "wrong assembly for '{source}': want {}, got {}",
-            as_hex(object),
-            as_hex(&generated),
-        );
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn assembler_resolves_backward_labels() {
+        let source = "
+        ld a, 0x06 ; about 1 second
+    LOOP:
+        ld cd, 0xFFFF ; inner loop
+    INNER:
+        dec cd
+        bne INNER
+        dec a
+        bne LOOP
+        halt
+";
+        let generated = asm(source);
+        let object = &[
+            u8::from(LoadRegImm(Reg::A)),
+            0x06,
+            u8::from(LoadRegImm(Reg::CD)),
+            0xFF,
+            0xFF,
+            u8::from(Dec(Reg::CD)),
+            u8::from(BranchNe),
+            0xFD,
+            u8::from(Dec(Reg::A)),
+            u8::from(BranchNe),
+            0xF7,
+            u8::from(Halt),
+        ];
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn get_displacement_fn_calculates_correct_max_displacements() {
+        let mut source = String::from("LOOP:\n");
+        source.push_str("nop\n".repeat(126).as_str());
+        source.push_str("beq LOOP");
+        let generated = asm(&source);
+        let mut object = vec![u8::from(Nop); 126];
+        object.extend([u8::from(BranchEq), 0x80]);
+        assert_asm!(source, generated, &object);
+    }
+
+    #[expect(clippy::expect_used, reason = "test")]
+    #[test]
+    fn get_displacement_fn_rejects_out_of_range_displacement() {
+        let mut source = String::from("LOOP:\n");
+        source.push_str("nop\n".repeat(127).as_str());
+        source.push_str("beq LOOP");
+        let mut asm = Assembler::from(source.as_str());
+        asm.assemble()
+            .expect_err("invalid displacement should be rejected");
     }
 
     #[test]
@@ -428,9 +535,9 @@ dec c";
     #[test]
     fn disassembler_copes_with_invalid_code() {
         // Load immediate without a following operand
-        assert_eq!(disassemble(&[0x10]).unwrap(), "ld a, ??? (no operand)");
+        assert_disasm!([0x10], "ld a, ??? (no operand)");
         // Invalid opcode
-        assert_eq!(disassemble(&[0x1C, 0xFF]).unwrap(), "??? (0x1C)");
+        assert_disasm!([0x1C, 0xFF], "??? (0x1C)");
     }
 
     fn as_hex(data: &[u8]) -> String {

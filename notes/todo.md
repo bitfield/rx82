@@ -2,7 +2,7 @@ For `countdown` we need:
 [X] decrement register (`dec a`)
 [X] Zero flag
 [X] Relative jump on non-zero (`bne D`)
-[ ] Forward labels
+[X] Backward labels
 
 For `memcpy` we need:
 [X] cd register
@@ -13,7 +13,7 @@ For `memcpy` we need:
 [X] inc/dec reg pair (`inc cd`)
 [ ] Unconditional relative jump (`bra D`)
 [X] Relative jump on zero (`beq D`)
-[ ] Backward labels
+[ ] Forward labels
 
 For `memtest` we need:
 [X] memory write
@@ -24,4 +24,4 @@ For `hello` we further need:
 [X] `ld b`
 [ ] Assembler `.data` directive
 [ ] `and a, N`
-[ ] simple UART / TTY output
+[ ] BIOS putchar trap

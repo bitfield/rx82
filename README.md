@@ -117,11 +117,13 @@ The input format recognised by the R8 assembler is very similar to that of most 
 ```asm
 ; countdown timer
     ld a, 0x06 ; about 1 second
+LOOP:
     ld cd, 0xFFFF ; inner loop
+INNER:
     dec cd
-    bne 0xFD
+    bne INNER
     dec a
-    bne 0xF7
+    bne LOOP
     halt
 ```
 
