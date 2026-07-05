@@ -65,19 +65,6 @@ impl Memory {
             *loc = val;
         }
     }
-
-    /// Returns the slice starting at `addr`.
-    ///
-    /// # Panics
-    ///
-    /// If `addr` is out of range.
-    #[expect(clippy::expect_used, reason = "panicking is okay here")]
-    #[inline]
-    #[must_use]
-    pub fn slice_from(&self, addr: u16) -> &[u8] {
-        let start = usize::from(addr);
-        self.0.get(start..).expect("out of bounds")
-    }
 }
 
 #[cfg(test)]

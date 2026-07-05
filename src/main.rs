@@ -31,9 +31,6 @@ enum Command {
     },
     /// Start the interactive monitor.
     Mon {
-        /// Enable verbose debugging.
-        #[clap(short, long)]
-        debug: bool,
         /// Path to a binary file to load.
         path: Option<PathBuf>,
     },
@@ -67,27 +64,19 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Command::Mon {
-            debug,
-            path: Some(path),
-        } => {
+        Command::Mon { path: Some(path) } => {
             let mut mon = Monitor::default();
             let data = fs::read(path)?;
             mon.sys.mem.load(0x0000, &data)?;
-            mon.debug = debug;
             mon.run()
         }
-        Command::Mon { path: None, .. } => {
-            let mut mon = Monitor::default();
-            mon.debug = true;
-            mon.run()
-        }
+        Command::Mon { path: None, .. } => Monitor::default().run(),
         Command::Run { debug, path } => {
             let source = fs::read_to_string(&path)?;
             let data = Assembler::from(source.as_str()).assemble()?;
             let mut mon = Monitor::default();
             mon.sys.mem.load(0x0000, &data)?;
-            mon.debug = debug;
+            mon.step = debug;
             mon.run()
         }
     }

@@ -90,10 +90,6 @@ pub trait Device {
     /// number of devices connected to the system, each of which executes one tick per
     /// system clock cycle. There is no timeout, so a slow device will affect the
     /// system's achieved cycle rate.
-    ///
-    /// During its tick, a device may try to write to the bus using
-    /// [`Bus::defer_write`]. If a higher-priority device has already written to the bus
-    /// this tick, all further attempted writes will be ignored.
     fn tick(&mut self, bus: &mut Bus);
 }
 
