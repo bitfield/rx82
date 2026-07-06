@@ -109,20 +109,44 @@ mod tests {
     fn beq() {
         let mut sys = System::default();
         sys.cpu.flags.zero = true;
-        sys.run_program(&asm("beq 0x00\nhalt")).unwrap();
+        sys.run_program(&asm("
+            beq 0x00
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0x0003, "wrong PC after zero branch");
-        sys.run_program(&asm("beq 0x7F\nhalt")).unwrap();
+        sys.run_program(&asm("
+            beq 0x7F
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0x0082, "wrong PC after max forward branch");
-        sys.run_program(&asm("beq 0x80\nhalt")).unwrap();
+        sys.run_program(&asm("
+            beq 0x80
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0xFF83, "wrong PC after max backward branch");
-        sys.run_program(&asm("beq 0x01")).unwrap();
+        sys.run_program(&asm("
+            beq 0x01
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0x0004, "forward branch not taken");
-        sys.run_program(&asm("beq 0x01\nhalt\nbeq 0xFD")).unwrap();
+        sys.run_program(&asm("
+            beq 0x01
+            halt
+            beq 0xFD"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0x0003, "backward branch not taken");
-        sys.run_program(&asm("beq 0x01\nhalt\ninc a\nbeq 0xFC"))
+        sys.run_program(&asm("
+            beq 0x01
+            halt
+            inc a
+            beq 0xFC"))
             .unwrap();
         assert_eq!(sys.cpu.pc, 0x0007, "backward branch taken");
-        sys.run_program(&asm("inc a\nbeq 0x01\nhalt")).unwrap();
+        sys.run_program(&asm("
+            inc a
+            beq 0x01
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0x0004, "forward branch taken");
     }
 
@@ -130,16 +154,36 @@ mod tests {
     fn bne() {
         let mut sys = System::default();
         sys.cpu.flags.zero = true;
-        sys.run_program(&asm("bne 0x01\nhalt")).unwrap();
+        sys.run_program(&asm("
+            bne 0x01
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0x0003, "branch taken");
-        sys.run_program(&asm("inc a\nbne 0x01\nhalt")).unwrap();
+        sys.run_program(&asm("
+            inc a
+            bne 0x01
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0x0005, "branch not taken");
     }
+
+    // #[test]
+    // fn cmp() {
+    //     let mut sys = System::default();
+    //     sys.run_program(&asm("
+    //         ld a, 0x01
+    //         cmp a, 0x01
+    //         halt"))
+    //         .unwrap();
+    // }
 
     #[test]
     fn dec() {
         let mut sys = System::default();
-        sys.run_program(&asm("dec ef")).unwrap();
+        sys.run_program(&asm("
+            dec ef
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.regs.get16(EF), 0xFFFF, "wrong EF");
     }
 
@@ -154,14 +198,20 @@ mod tests {
     #[test]
     fn inc() {
         let mut sys = System::default();
-        sys.run_program(&asm("inc d")).unwrap();
+        sys.run_program(&asm("
+            inc d
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.regs.get8(D), 0x01, "wrong D");
     }
 
     #[test]
     fn ld_reg_imm8() {
         let mut sys = System::default();
-        sys.run_program(&asm("ld a, 0xFF")).unwrap();
+        sys.run_program(&asm("
+            ld a, 0xFF
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.regs.get8(A), 0xFF, "wrong A");
         assert_eq!(sys.cpu.pc, 0x0003, "wrong PC");
     }
@@ -169,7 +219,10 @@ mod tests {
     #[test]
     fn ld_reg_imm16() {
         let mut sys = System::default();
-        sys.run_program(&asm("ld ab, 0x00C0")).unwrap();
+        sys.run_program(&asm("
+            ld ab, 0x00C0
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.regs.get16(AB), 0x00C0, "wrong AB");
         assert_eq!(sys.cpu.pc, 0x0004, "wrong PC");
     }
@@ -177,7 +230,10 @@ mod tests {
     #[test]
     fn nop() {
         let mut sys = System::default();
-        sys.run_program(&asm("nop")).unwrap();
+        sys.run_program(&asm("
+            nop
+            halt"))
+            .unwrap();
         assert_eq!(sys.cpu.pc, 0x0002, "wrong PC");
     }
 
@@ -185,7 +241,10 @@ mod tests {
     fn store_reg_direct() {
         let mut sys = System::default();
         sys.cpu.regs.set8(A, 0xFF);
-        sys.run_program(&asm("ld 0xBEEF, a")).unwrap();
+        sys.run_program(&asm("
+            ld 0xBEEF, a
+            halt"))
+            .unwrap();
         let val = sys.mem.get(0xBEEF);
         assert_eq!(val, 0xFF, "wrong mem value");
     }
@@ -195,13 +254,25 @@ mod tests {
     fn zero_flag() {
         let mut sys = System::default();
         assert_eq!(sys.cpu.flags.zero, false, "zero flag wrongly initialised");
-        sys.run_program(&asm("dec a")).unwrap(); // a = -1
+        sys.run_program(&asm("
+            dec a
+            halt"))
+            .unwrap(); // a = -1
         assert_eq!(sys.cpu.flags.zero, false, "zero flag set after dec");
-        sys.run_program(&asm("inc a")).unwrap(); // a = 0
+        sys.run_program(&asm("
+            inc a
+            halt"))
+            .unwrap(); // a = 0
         assert_eq!(sys.cpu.flags.zero, true, "zero flag clear after inc");
-        sys.run_program(&asm("inc a")).unwrap(); // a = 1
+        sys.run_program(&asm("
+            inc a
+            halt"))
+            .unwrap(); // a = 1
         assert_eq!(sys.cpu.flags.zero, false, "zero flag set after inc");
-        sys.run_program(&asm("dec a")).unwrap(); // a = 0
+        sys.run_program(&asm("
+            dec a
+            halt"))
+            .unwrap(); // a = 0
         assert_eq!(sys.cpu.flags.zero, true, "zero flag clear after dec");
     }
 }

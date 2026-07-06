@@ -520,13 +520,7 @@ mod tests {
 
     #[test]
     fn disassembler_correctly_disassembles_multiline_programs() {
-        let source = "ld a, 0x01
-dec a
-ld b, 0x02
-inc b
-ld c, 0x03
-dec c
-dec c";
+        let source = "ld a, 0x01\ndec a\nld b, 0x02\ninc b\nld c, 0x03\ndec c\ndec c";
         let code = Assembler::from(source).assemble().unwrap();
         let output: Vec<_> = Disassembler::from(code.as_slice()).collect();
         assert_eq!(output.join("\n"), source);
