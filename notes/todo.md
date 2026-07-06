@@ -7,14 +7,23 @@ For `countdown` we need:
 For `memcpy` we need:
 [X] cd register
 [X] load register direct 'ld cd, NN'
+[X] inc/dec reg pair (`inc cd`)
+[X] Relative jump on zero (`beq D`)
+[ ] 8-bit compare immediate (`cmp b, N`)
 [ ] Store indirect (`ld (cd), N`)
 [ ] load register indirect (`ld a, (cd)`)
-[ ] 8-bit compare immediate (`cmp b, N`)
-[X] inc/dec reg pair (`inc cd`)
 [ ] Unconditional relative jump (`bra D`)
-[X] Relative jump on zero (`beq D`)
 [ ] Forward labels
 
+For `to_hex` we need:
+[ ] `trap N`
+[ ] (simulated) BIOS putchar at trap 0x10
+[ ] `push R` / `pop R`
+[ ] `and R, N`
+[ ] `lsr R, N`
+[ ] `call` / `ret`
+[ ] `bmi` / `bpl`
+   
 For `memtest` we need:
 [X] memory write
 [ ] 16-bit compare immediate (`cmp cd, NN`)
@@ -23,5 +32,3 @@ For `memtest` we need:
 For `hello` we further need:
 [X] `ld b`
 [ ] Assembler `.data` directive
-[ ] `and a, N`
-[ ] BIOS putchar trap
