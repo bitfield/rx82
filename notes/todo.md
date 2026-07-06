@@ -9,7 +9,7 @@ For `memcpy` we need:
 [X] load register direct 'ld cd, NN'
 [X] inc/dec reg pair (`inc cd`)
 [X] Relative jump on zero (`beq D`)
-[ ] 8-bit compare immediate (`cmp b, N`)
+[X] 8-bit compare immediate (`cmp b, N`)
 [ ] Store indirect (`ld (cd), N`)
 [ ] load register indirect (`ld a, (cd)`)
 [ ] Unconditional relative jump (`bra D`)

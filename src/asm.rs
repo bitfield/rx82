@@ -12,7 +12,7 @@ use crate::instructions::InstructionKind;
 use crate::{instructions::InstructionKind::*, regs::Reg};
 
 /// Keywords recognised by the assembler.
-pub const KEYWORDS: &[&str] = &["beq", "bne", "dec", "halt", "inc", "ld", "nop"];
+pub const KEYWORDS: &[&str] = &["beq", "bne", "cmp", "dec", "halt", "inc", "ld", "nop"];
 
 /// Assembles a given program.
 #[non_exhaustive]
@@ -53,6 +53,7 @@ impl Assembler<'_> {
     /// * Unexpected token
     #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
+        use crate::regs::Reg::*;
         while let Some(token) = self.next_token() {
             match token {
                 Token::Comment(_) => {}
@@ -63,6 +64,29 @@ impl Assembler<'_> {
                 Token::Keyword(kw) if kw == "bne" => {
                     let dis = self.get_displacement()?;
                     self.code.extend([u8::from(BranchNe), dis]);
+                }
+                Token::Keyword(kw) if kw == "cmp" => {
+                    let Some(Token::Register(reg)) = self.next_token() else {
+                        bail!("expected register name")
+                    };
+                    let Some(Token::Comma) = self.next_token() else {
+                        bail!("expected comma")
+                    };
+                    self.code.push(u8::from(Cmp(reg)));
+                    match reg {
+                        A | B | C | D | E | F | G | H => {
+                            let Some(Token::ByteLiteral(operand)) = self.next_token() else {
+                                bail!("expected immediate byte")
+                            };
+                            self.code.push(operand);
+                        }
+                        AB | CD | EF | GH => {
+                            let Some(Token::WordLiteral(operand)) = self.next_token() else {
+                                bail!("expected immediate word")
+                            };
+                            self.code.extend(operand.to_le_bytes());
+                        }
+                    }
                 }
                 Token::Keyword(kw) if kw == "dec" => {
                     let Some(Token::Register(reg)) = self.next_token() else {
@@ -306,6 +330,19 @@ impl Iterator for Disassembler<'_> {
             match ins {
                 BranchEq => format!("beq {}", format_maybe_byte(self.code.next())),
                 BranchNe => format!("bne {}", format_maybe_byte(self.code.next())),
+                Cmp(reg) => {
+                    let op_lo = self.code.next();
+                    format!(
+                        "cmp {reg}, {}",
+                        match reg {
+                            A | B | C | D | E | F | G | H => format_maybe_byte(op_lo),
+                            AB | CD | EF | GH => {
+                                let op_hi = self.code.next();
+                                format_maybe_word(op_lo, op_hi)
+                            }
+                        }
+                    )
+                }
                 Dec(reg) => format!("dec {reg}"),
                 Halt => "halt".into(),
                 Inc(reg) => format!("inc {reg}"),
@@ -442,6 +479,7 @@ mod tests {
         let cases: &[(&str, &[u8])] = &[
             ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
             ("bne 0x01", &[u8::from(BranchNe), 0x01]),
+            ("cmp d, 0x01", &[u8::from(Cmp(D)), 0x01]),
             ("dec g", &[u8::from(Dec(G))]),
             ("halt", &[u8::from(Halt)]),
             ("inc a", &[u8::from(Inc(A))]),

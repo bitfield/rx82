@@ -56,6 +56,18 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(dis as i8 as u16); // sign-extend displacement
     }
 
+    /// Compares the value in `reg` with the operand, updating the zero flag.
+    #[inline]
+    pub fn cmp(&mut self, reg: Reg, hi: u8, lo: u8) {
+        use crate::regs::Reg::*;
+        match reg {
+            A | B | C | D | E | F | G | H => self.flags.zero = self.regs.get8(reg) == lo,
+            AB | CD | EF | GH => {
+                self.flags.zero = self.regs.get16(reg) == u16::from_be_bytes([hi, lo]);
+            }
+        }
+    }
+
     /// Performs the 'decode' phase.
     ///
     /// If the decoded value is an instruction that has no operands, the next phase will be 'execute'.

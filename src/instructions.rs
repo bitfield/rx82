@@ -8,6 +8,7 @@ use crate::{cpu::Cpu, regs::Reg};
 pub enum InstructionKind {
     BranchEq,
     BranchNe,
+    Cmp(Reg),
     Dec(Reg),
     Halt,
     Inc(Reg),
@@ -31,6 +32,7 @@ impl TryFrom<u8> for InstructionKind {
             0x20..=0x27 => Ok(StoreRegDirect(Reg::try_from(reg_id)?)),
             0x30..=0x3B => Ok(Inc(Reg::try_from(reg_id)?)),
             0x40..=0x4B => Ok(Dec(Reg::try_from(reg_id)?)),
+            0x70..=0x7B => Ok(Cmp(Reg::try_from(reg_id)?)),
             0xB1 => Ok(BranchEq),
             0xB2 => Ok(BranchNe),
             _ => Err(anyhow!("invalid opcode {opcode}")),
@@ -45,6 +47,7 @@ impl From<InstructionKind> for u8 {
         match ins {
             BranchEq => 0xB1,
             BranchNe => 0xB2,
+            Cmp(reg) => 0x70 | u8::from(reg),
             Dec(reg) => 0x40 | u8::from(reg),
             Halt => 0x00,
             Inc(reg) => 0x30 | u8::from(reg),
@@ -63,6 +66,7 @@ impl InstructionKind {
         match *self {
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
+            Cmp(reg) => cpu.cmp(reg, cpu.op_hi, cpu.op_lo),
             Dec(reg) => cpu.decrement(reg),
             Halt => cpu.halt = true,
             Inc(reg) => cpu.increment(reg),
@@ -82,7 +86,7 @@ impl InstructionKind {
         match *self {
             Dec(_) | Halt | Inc(_) | Nop => Zero,
             BranchEq | BranchNe => One,
-            LoadRegImm(reg) => match reg {
+            Cmp(reg) | LoadRegImm(reg) => match reg {
                 A | B | C | D | E | F | G | H => One,
                 AB | CD | EF | GH => Two,
             },
@@ -167,15 +171,23 @@ mod tests {
         assert_eq!(sys.cpu.pc, 0x0005, "branch not taken");
     }
 
-    // #[test]
-    // fn cmp() {
-    //     let mut sys = System::default();
-    //     sys.run_program(&asm("
-    //         ld a, 0x01
-    //         cmp a, 0x01
-    //         halt"))
-    //         .unwrap();
-    // }
+    #[expect(clippy::bool_assert_comparison, reason = "clarity")]
+    #[test]
+    fn cmp() {
+        let mut sys = System::default();
+        sys.run_program(&asm("
+            ld a, 0x01
+            cmp a, 0x01
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear for equal comparison");
+        sys.run_program(&asm("
+            ld a, 0x01
+            cmp a, 0xFF
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.flags.zero, false, "zero set for unequal comparison");
+    }
 
     #[test]
     fn dec() {
