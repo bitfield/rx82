@@ -176,20 +176,22 @@ impl Default for System {
 
 impl System {
     /// Prints the current CPU state and the next instruction in memory.
+    #[expect(clippy::as_conversions, reason = "truncation is correct")]
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn debug_print(&self) {
         println!("  PC  A  B  C  D  E  F  G  H  Z | NEXT");
         println!(
             "{:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X}  {:1b} | {}",
             self.cpu.pc,
-            self.cpu.regs.get8(A),
-            self.cpu.regs.get8(B),
-            self.cpu.regs.get8(C),
-            self.cpu.regs.get8(D),
-            self.cpu.regs.get8(E),
-            self.cpu.regs.get8(F),
-            self.cpu.regs.get8(G),
-            self.cpu.regs.get8(H),
+            self.cpu.regs.get(A) as u8,
+            self.cpu.regs.get(B) as u8,
+            self.cpu.regs.get(C) as u8,
+            self.cpu.regs.get(D) as u8,
+            self.cpu.regs.get(E) as u8,
+            self.cpu.regs.get(F) as u8,
+            self.cpu.regs.get(G) as u8,
+            self.cpu.regs.get(H) as u8,
             u8::from(self.cpu.flags.zero),
             disassemble(
                 self.mem

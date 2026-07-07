@@ -117,6 +117,15 @@ impl TryFrom<u8> for Reg {
     }
 }
 
+impl Reg {
+    /// Returns true if `reg` is a 16-bit register pair.
+    #[inline]
+    #[must_use]
+    pub fn is16(&self) -> bool {
+        matches!(self, Reg::AB | Reg::CD | Reg::EF | Reg::GH)
+    }
+}
+
 /// The CPU registers.
 #[derive(Debug, Default)]
 pub struct Regs {
@@ -133,12 +142,8 @@ pub struct Regs {
 impl Regs {
     /// Compares the value in register `reg` with the operand, updating `flags`.
     #[inline]
-    pub fn cmp(&mut self, reg: Reg, hi: u8, lo: u8, flags: &mut Flags) {
-        use crate::regs::Reg::*;
-        let (lhs, rhs) = match reg {
-            A | B | C | D | E | F | G | H => (u16::from(self.get8(reg)), u16::from(lo)),
-            AB | CD | EF | GH => (self.get16(reg), u16::from_be_bytes([hi, lo])),
-        };
+    pub fn cmp(&mut self, reg: Reg, rhs: u16, flags: &mut Flags) {
+        let lhs = self.get(reg);
         flags.zero = lhs == rhs;
         flags.carry = lhs >= rhs;
     }
@@ -172,58 +177,12 @@ impl Regs {
         }
     }
 
-    /// Returns the word in register pair `reg`.
-    #[inline]
-    #[must_use]
-    pub fn get16(&self, reg: Reg) -> u16 {
-        use Reg::*;
-        match reg {
-            Reg::AB => u16::from_be_bytes([self.ra, self.rb]),
-            Reg::CD => u16::from_be_bytes([self.rc, self.rd]),
-            Reg::EF => u16::from_be_bytes([self.re, self.rf]),
-            Reg::GH => u16::from_be_bytes([self.rg, self.rh]),
-            A | B | C | D | E | F | G | H => unreachable!("called `get16` on 8-bit register {reg}"),
-        }
-    }
-
-    /// Returns the byte in register `reg`.
-    #[inline]
-    #[must_use]
-    pub fn get8(&self, reg: Reg) -> u8 {
-        use Reg::*;
-        match reg {
-            A => self.ra,
-            B => self.rb,
-            C => self.rc,
-            D => self.rd,
-            E => self.re,
-            F => self.rf,
-            G => self.rg,
-            H => self.rh,
-            AB | CD | EF | GH => unreachable!("called `get8` on 16-bit register pair {reg}"),
-        }
-    }
-
     /// Increments the value in register `reg`, updating `flags`.
     #[inline]
     pub fn increment(&mut self, reg: Reg, flags: &mut Flags) {
         let value = self.get(reg).wrapping_add(1);
         self.set(reg, value);
         flags.zero = self.get(reg) == 0;
-    }
-
-    /// Sets register `reg` to the value `val`.
-    ///
-    /// Flags are not affected.
-    #[expect(clippy::as_conversions, reason = "truncation is correct")]
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
-    #[inline]
-    pub fn load(&mut self, reg: Reg, val: u16) {
-        use crate::regs::Reg::*;
-        match reg {
-            A | B | C | D | E | F | G | H => self.set8(reg, val as u8),
-            AB | CD | EF | GH => self.set16(reg, val),
-        }
     }
 
     /// Sets register `reg` to the value `val`.
@@ -247,36 +206,6 @@ impl Regs {
             GH => [self.rg, self.rh] = val.to_be_bytes(),
         }
     }
-
-    /// Sets register pair `reg` to the word `val`.
-    #[inline]
-    pub fn set16(&mut self, reg: Reg, val: u16) {
-        use Reg::*;
-        match reg {
-            AB => [self.ra, self.rb] = val.to_be_bytes(),
-            CD => [self.rc, self.rd] = val.to_be_bytes(),
-            EF => [self.re, self.rf] = val.to_be_bytes(),
-            GH => [self.rg, self.rh] = val.to_be_bytes(),
-            A | B | C | D | E | F | G | H => unreachable!("called `set16` on 8-bit register {reg}"),
-        }
-    }
-
-    /// Sets register `reg` to the byte `val`.
-    #[inline]
-    pub fn set8(&mut self, reg: Reg, val: u8) {
-        use Reg::*;
-        match reg {
-            A => self.ra = val,
-            B => self.rb = val,
-            C => self.rc = val,
-            D => self.rd = val,
-            E => self.re = val,
-            F => self.rf = val,
-            G => self.rg = val,
-            H => self.rh = val,
-            AB | CD | EF | GH => unreachable!("called `set8` on 16-bit register pair {reg}"),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -288,21 +217,21 @@ mod tests {
     #[test]
     fn addressing_individual_regs_works() {
         let mut regs = Regs::default();
-        regs.set8(A, 0xFF);
-        assert_eq!(regs.get8(A), 0xFF, "wrong A");
-        regs.set8(B, 0xFF);
-        assert_eq!(regs.get8(B), 0xFF, "wrong B");
+        regs.set(A, 0x00FF);
+        assert_eq!(regs.get(A), 0x00FF, "wrong A");
+        regs.set(B, 0x00FF);
+        assert_eq!(regs.get(B), 0x00FF, "wrong B");
     }
 
     #[test]
     fn addressing_reg_pairs_works() {
         let mut regs = Regs::default();
-        regs.set8(A, 0xDE);
-        regs.set8(B, 0xAD);
-        assert_eq!(regs.get16(AB), 0xDEAD, "wrong AB");
-        regs.set16(AB, 0xBEEF);
-        assert_eq!(regs.get16(AB), 0xBEEF, "wrong AB");
-        assert_eq!(regs.get8(A), 0xBE, "wrong A");
-        assert_eq!(regs.get8(B), 0xEF, "wrong B");
+        regs.set(A, 0x00DE);
+        regs.set(B, 0x00AD);
+        assert_eq!(regs.get(AB), 0xDEAD, "wrong AB");
+        regs.set(AB, 0xBEEF);
+        assert_eq!(regs.get(AB), 0xBEEF, "wrong AB");
+        assert_eq!(regs.get(A), 0xBE, "wrong A");
+        assert_eq!(regs.get(B), 0xEF, "wrong B");
     }
 }

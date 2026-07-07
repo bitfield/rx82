@@ -66,15 +66,13 @@ impl InstructionKind {
         match *self {
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
-            Cmp(reg) => cpu.regs.cmp(reg, cpu.op_hi, cpu.op_lo, &mut cpu.flags),
+            Cmp(reg) => cpu.regs.cmp(reg, cpu.op(), &mut cpu.flags),
             Dec(reg) => cpu.regs.decrement(reg, &mut cpu.flags),
             Halt => cpu.halt = true,
             Inc(reg) => cpu.regs.increment(reg, &mut cpu.flags),
-            LoadRegImm(reg) => cpu
-                .regs
-                .load(reg, u16::from_le_bytes([cpu.op_lo, cpu.op_hi])),
+            LoadRegImm(reg) => cpu.regs.set(reg, cpu.op()),
             Nop | BranchEq | BranchNe => {}
-            StoreRegDirect(reg) => cpu.write_mem(u16::from_le_bytes([cpu.op_lo, cpu.op_hi]), reg),
+            StoreRegDirect(reg) => cpu.write_mem(cpu.op(), reg),
         }
     }
 
@@ -82,16 +80,18 @@ impl InstructionKind {
     #[inline]
     #[must_use]
     pub fn operands(&self) -> Operands {
-        use crate::regs::Reg::*;
         use InstructionKind::*;
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop => Zero,
             BranchEq | BranchNe => One,
-            Cmp(reg) | LoadRegImm(reg) => match reg {
-                A | B | C | D | E | F | G | H => One,
-                AB | CD | EF | GH => Two,
-            },
+            Cmp(reg) | LoadRegImm(reg) => {
+                if reg.is16() {
+                    Two
+                } else {
+                    One
+                }
+            }
             StoreRegDirect(_) => Two,
         }
     }
@@ -230,21 +230,21 @@ mod tests {
             dec a
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get8(A), 0xFF, "wrong A");
+        assert_eq!(sys.cpu.regs.get(A), 0x00FF, "wrong A");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
         sys.run_program(&asm("
             ld ef, 0xFF01
             dec ef
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get16(EF), 0xFF00, "wrong EF");
+        assert_eq!(sys.cpu.regs.get(EF), 0xFF00, "wrong EF");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
         sys.run_program(&asm("
             ld a, 0x01
             dec a
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get8(A), 0x00, "wrong A");
+        assert_eq!(sys.cpu.regs.get(A), 0x0000, "wrong A");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: dec to zero");
         sys.run_program(&asm("
             ld ef, 0x0001
@@ -269,27 +269,27 @@ mod tests {
             inc d
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get8(D), 0x01, "wrong D");
+        assert_eq!(sys.cpu.regs.get(D), 0x0001, "wrong D");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
         sys.run_program(&asm("
             inc ab
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get16(AB), 0x01, "wrong AB");
+        assert_eq!(sys.cpu.regs.get(AB), 0x0001, "wrong AB");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
         sys.run_program(&asm("
             ld a, 0xFF
             inc a
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get8(A), 0x00, "wrong A");
+        assert_eq!(sys.cpu.regs.get(A), 0x0000, "wrong A");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc zero");
         sys.run_program(&asm("
             ld ab, 0xFFFF
             inc ab
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get16(AB), 0x00, "wrong AB");
+        assert_eq!(sys.cpu.regs.get(AB), 0x0000, "wrong AB");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc zero");
     }
 
@@ -300,7 +300,7 @@ mod tests {
             ld a, 0xFF
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get8(A), 0xFF, "wrong A");
+        assert_eq!(sys.cpu.regs.get(A), 0x00FF, "wrong A");
         assert_eq!(sys.cpu.pc, 0x0003, "wrong PC");
     }
 
@@ -311,7 +311,7 @@ mod tests {
             ld ab, 0x00C0
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get16(AB), 0x00C0, "wrong AB");
+        assert_eq!(sys.cpu.regs.get(AB), 0x00C0, "wrong AB");
         assert_eq!(sys.cpu.pc, 0x0004, "wrong PC");
     }
 
@@ -328,8 +328,8 @@ mod tests {
     #[test]
     fn store_reg_direct() {
         let mut sys = System::default();
-        sys.cpu.regs.set8(A, 0xFF);
         sys.run_program(&asm("
+            ld a, 0xFF
             ld 0xBEEF, a
             halt"))
             .unwrap();

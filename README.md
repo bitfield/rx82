@@ -150,7 +150,8 @@ The 16-bit address bus allows the R8 to address up to 64KiB of memory, and the p
 
 The processor status register PS contains the following flags:
 
-* **Zero**: Set by any arithmetic operation affecting the user registers giving a zero result (for example, decrementing a register to zero). Cleared by any operation with a non-zero result.
+* **Carry** (bit 0) — After addition, this is the carry result. After subtraction or comparison, this flag is set if no borrow occurred (that is, for X - Y, if X >= Y). Increment and decrement instructions do not affect the carry flag.
+* **Zero** (bit 1) — After instructions with a value result, this flag is set if the result is zero, or cleared otherwise.
 
 ## R8 assembly language
 

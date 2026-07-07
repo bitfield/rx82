@@ -53,7 +53,6 @@ impl Assembler<'_> {
     /// * Unexpected token
     #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
-        use crate::regs::Reg::*;
         while let Some(token) = self.next_token() {
             match token {
                 Token::Comment(_) => {}
@@ -73,19 +72,16 @@ impl Assembler<'_> {
                         bail!("expected comma")
                     };
                     self.code.push(u8::from(Cmp(reg)));
-                    match reg {
-                        A | B | C | D | E | F | G | H => {
-                            let Some(Token::ByteLiteral(operand)) = self.next_token() else {
-                                bail!("expected immediate byte")
-                            };
-                            self.code.push(operand);
-                        }
-                        AB | CD | EF | GH => {
-                            let Some(Token::WordLiteral(operand)) = self.next_token() else {
-                                bail!("expected immediate word")
-                            };
-                            self.code.extend(operand.to_le_bytes());
-                        }
+                    if reg.is16() {
+                        let Some(Token::WordLiteral(operand)) = self.next_token() else {
+                            bail!("expected immediate word")
+                        };
+                        self.code.extend(operand.to_le_bytes());
+                    } else {
+                        let Some(Token::ByteLiteral(operand)) = self.next_token() else {
+                            bail!("expected immediate byte")
+                        };
+                        self.code.push(operand);
                     }
                 }
                 Token::Keyword(kw) if kw == "dec" => {
@@ -133,26 +129,21 @@ impl Assembler<'_> {
     /// * Missing or wrong size operand
     #[inline]
     pub fn gen_ld_imm(&mut self, reg: Reg) -> Result<()> {
-        use crate::regs::Reg::*;
         self.code.push(u8::from(LoadRegImm(reg)));
         let Some(Token::Comma) = self.next_token() else {
             bail!("expected comma")
         };
-        match reg {
-            A | B | C | D | E | F | G | H => {
-                let Some(Token::ByteLiteral(operand)) = self.next_token() else {
-                    bail!("expected byte operand for 8-bit immediate 'ld {reg}'")
-                };
-                self.code.push(operand);
-            }
-            AB | CD | EF | GH => {
-                let Some(Token::WordLiteral(operand)) = self.next_token() else {
-                    bail!("expected word operand for 16-bit immediate 'ld {reg}'")
-                };
-                self.code.extend(operand.to_le_bytes());
-            }
+        if reg.is16() {
+            let Some(Token::WordLiteral(operand)) = self.next_token() else {
+                bail!("expected word operand for 16-bit immediate 'ld {reg}'")
+            };
+            self.code.extend(operand.to_le_bytes());
+        } else {
+            let Some(Token::ByteLiteral(operand)) = self.next_token() else {
+                bail!("expected byte operand for 8-bit immediate 'ld {reg}'")
+            };
+            self.code.push(operand);
         }
-
         Ok(())
     }
 
@@ -170,6 +161,9 @@ impl Assembler<'_> {
         let Some(Token::Register(reg)) = self.next_token() else {
             bail!("expected register name")
         };
+        if reg.is16() {
+            bail!("expected 8-bit register, got '{reg}'")
+        }
         self.code.push(u8::from(StoreRegDirect(reg)));
         self.code.extend(addr.to_le_bytes());
         Ok(())
@@ -324,7 +318,6 @@ impl Iterator for Disassembler<'_> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        use crate::regs::Reg::*;
         let &opcode = self.code.next()?;
         Some(if let Ok(ins) = InstructionKind::try_from(opcode) {
             match ins {
@@ -334,12 +327,11 @@ impl Iterator for Disassembler<'_> {
                     let op_lo = self.code.next();
                     format!(
                         "cmp {reg}, {}",
-                        match reg {
-                            A | B | C | D | E | F | G | H => format_maybe_byte(op_lo),
-                            AB | CD | EF | GH => {
-                                let op_hi = self.code.next();
-                                format_maybe_word(op_lo, op_hi)
-                            }
+                        if reg.is16() {
+                            let op_hi = self.code.next();
+                            format_maybe_word(op_lo, op_hi)
+                        } else {
+                            format_maybe_byte(op_lo)
                         }
                     )
                 }
@@ -351,12 +343,11 @@ impl Iterator for Disassembler<'_> {
                     let op_lo = self.code.next();
                     format!(
                         "ld {reg}, {}",
-                        match reg {
-                            A | B | C | D | E | F | G | H => format_maybe_byte(op_lo),
-                            AB | CD | EF | GH => {
-                                let op_hi = self.code.next();
-                                format_maybe_word(op_lo, op_hi)
-                            }
+                        if reg.is16() {
+                            let op_hi = self.code.next();
+                            format_maybe_word(op_lo, op_hi)
+                        } else {
+                            format_maybe_byte(op_lo)
                         }
                     )
                 }
@@ -501,6 +492,19 @@ mod tests {
         let generated = asm(source);
         let object = &[u8::from(LoadRegImm(Reg::A)), 0xFF];
         assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    #[expect(clippy::expect_used, reason = "test")]
+    fn assembler_reports_errors_for_invalid_code() {
+        let cases: &[&str] = &["ld 0x00AF, ab"];
+        for &source in cases {
+            let mut asm = Assembler::from(source);
+            asm.debug = true;
+            asm.assemble()
+                .context(format!("assembling '{source}'"))
+                .expect_err("should be invalid");
+        }
     }
 
     #[test]

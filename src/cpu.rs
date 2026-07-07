@@ -86,6 +86,7 @@ impl Cpu {
             }
             // We've fetched an operand; check if we still need another.
             Target::Operand => {
+                self.op_hi = 0;
                 self.op_lo = bus.data;
                 match self.ins.operands() {
                     Operands::Two => {
@@ -158,6 +159,13 @@ impl Cpu {
         }
     }
 
+    /// Returns the 16-bit value of the two operand registers.
+    #[inline]
+    #[must_use]
+    pub fn op(&self) -> u16 {
+        u16::from_be_bytes([self.op_hi, self.op_lo])
+    }
+
     /// Resets the CPU to its power-on state.
     ///
     /// The initial state is: all registers and flags zero, PC zero, not halted, phase
@@ -183,9 +191,12 @@ impl Cpu {
     }
 
     /// Sets the next sequencer target to write `reg` to memory at `addr`.
+    #[expect(clippy::as_conversions, reason = "truncation is correct")]
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn write_mem(&mut self, addr: u16, reg: Reg) {
-        self.target = Target::Write(addr, self.regs.get8(reg));
+        println!("write_mem: {reg}");
+        self.target = Target::Write(addr, self.regs.get(reg) as u8);
     }
 }
 
@@ -289,7 +300,7 @@ mod tests {
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Execute);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.regs.get8(A), 0xFF);
+        assert_eq!(cpu.regs.get(A), 0x00FF);
         assert_eq!(cpu.pc, 0x0002);
     }
 
@@ -325,7 +336,7 @@ mod tests {
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Execute);
         cpu.tick(&mut bus);
-        assert_eq!(cpu.regs.get16(AB), 0xBEEF);
+        assert_eq!(cpu.regs.get(AB), 0xBEEF);
         assert_eq!(cpu.pc, 0x0003);
     }
 
@@ -333,7 +344,7 @@ mod tests {
     fn cpu_states_are_correct_for_mem_write_instruction() {
         let mut cpu = Cpu::default();
         let mut bus = Bus::default();
-        cpu.regs.set8(A, 0xFF);
+        cpu.regs.set(A, 0x00FF);
         assert_eq!(cpu.phase, Phase::Fetch);
         assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
@@ -371,10 +382,10 @@ mod tests {
     #[test]
     fn reset_resets_cpu() {
         let mut cpu = Cpu::default();
-        cpu.regs.set16(AB, 0xBEEF);
+        cpu.regs.set(AB, 0xBEEF);
         cpu.pc = 0xC000;
         cpu.reset();
-        assert_eq!(cpu.regs.get16(AB), 0x0000, "AB not reset");
+        assert_eq!(cpu.regs.get(AB), 0x0000, "AB not reset");
         assert_eq!(cpu.pc, 0x0000, "PC not reset");
     }
 }
