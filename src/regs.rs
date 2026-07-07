@@ -152,8 +152,7 @@ impl Regs {
     #[inline]
     pub fn decrement(&mut self, reg: Reg, flags: &mut Flags) {
         let value = self.get(reg).wrapping_sub(1);
-        self.set(reg, value);
-        flags.zero = self.get(reg) == 0;
+        flags.zero = self.set(reg, value) == 0;
     }
 
     /// Returns the value in register `reg`.
@@ -181,15 +180,14 @@ impl Regs {
     #[inline]
     pub fn increment(&mut self, reg: Reg, flags: &mut Flags) {
         let value = self.get(reg).wrapping_add(1);
-        self.set(reg, value);
-        flags.zero = self.get(reg) == 0;
+        flags.zero = self.set(reg, value) == 0;
     }
 
     /// Sets register `reg` to the value `val`.
     #[expect(clippy::as_conversions, reason = "truncation is correct")]
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
-    pub fn set(&mut self, reg: Reg, val: u16) {
+    pub fn set(&mut self, reg: Reg, val: u16) -> u16 {
         use Reg::*;
         match reg {
             A => self.ra = val as u8,
@@ -205,6 +203,7 @@ impl Regs {
             EF => [self.re, self.rf] = val.to_be_bytes(),
             GH => [self.rg, self.rh] = val.to_be_bytes(),
         }
+        self.get(reg)
     }
 }
 

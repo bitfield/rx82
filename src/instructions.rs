@@ -70,7 +70,7 @@ impl InstructionKind {
             Dec(reg) => cpu.regs.decrement(reg, &mut cpu.flags),
             Halt => cpu.halt = true,
             Inc(reg) => cpu.regs.increment(reg, &mut cpu.flags),
-            LoadRegImm(reg) => cpu.regs.set(reg, cpu.op()),
+            LoadRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
             Nop | BranchEq | BranchNe => {}
             StoreRegDirect(reg) => cpu.write_mem(cpu.op(), reg),
         }
