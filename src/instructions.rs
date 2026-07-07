@@ -66,11 +66,13 @@ impl InstructionKind {
         match *self {
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
-            Cmp(reg) => cpu.cmp(reg, cpu.op_hi, cpu.op_lo),
-            Dec(reg) => cpu.decrement(reg),
+            Cmp(reg) => cpu.regs.cmp(reg, cpu.op_hi, cpu.op_lo, &mut cpu.flags),
+            Dec(reg) => cpu.regs.decrement(reg, &mut cpu.flags),
             Halt => cpu.halt = true,
-            Inc(reg) => cpu.increment(reg),
-            LoadRegImm(reg) => cpu.load(reg, cpu.op_hi, cpu.op_lo),
+            Inc(reg) => cpu.regs.increment(reg, &mut cpu.flags),
+            LoadRegImm(reg) => cpu
+                .regs
+                .load(reg, u16::from_le_bytes([cpu.op_lo, cpu.op_hi])),
             Nop | BranchEq | BranchNe => {}
             StoreRegDirect(reg) => cpu.write_mem(u16::from_le_bytes([cpu.op_lo, cpu.op_hi]), reg),
         }
@@ -105,6 +107,7 @@ pub enum Operands {
 }
 
 #[cfg(test)]
+#[expect(clippy::bool_assert_comparison, reason = "clarity")]
 #[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
     use crate::{asm::asm, regs::Reg::*, system::System};
@@ -171,7 +174,6 @@ mod tests {
         assert_eq!(sys.cpu.pc, 0x0005, "branch not taken");
     }
 
-    #[expect(clippy::bool_assert_comparison, reason = "clarity")]
     #[test]
     fn cmp() {
         let mut sys = System::default();
@@ -182,53 +184,74 @@ mod tests {
             cmp a, 0x01
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.flags.zero, true, "zero clear after equal comparison");
-        assert_eq!(sys.cpu.flags.carry, true, "carry clear after equal comparison");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: equal cmp");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear: equal cmp");
         sys.run_program(&asm("
             ld a, 0x03
             cmp a, 0x07
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.flags.zero, false, "zero set after unequal comparison");
-        assert_eq!(sys.cpu.flags.carry, false, "carry set after cmp with borrow");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal cmp");
+        assert_eq!(sys.cpu.flags.carry, false, "carry set: cmp with borrow");
         sys.run_program(&asm("
             ld a, 0x07
             cmp a, 0x03
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.flags.zero, false, "zero set after unequal comparison");
-        assert_eq!(sys.cpu.flags.carry, true, "carry clear after cmp with no borrow");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal comparison");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear: cmp with no borrow");
         sys.run_program(&asm("
             ld gh, 0xFF03
             cmp gh, 0xFF03
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.flags.zero, true, "zero clear after equal comparison");
-        assert_eq!(sys.cpu.flags.carry, true, "carry clear after equal comparison");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: equal cmp");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear: equal cmp");
         sys.run_program(&asm("
             ld ab, 0x0003
             cmp ab, 0xFF07
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.flags.zero, false, "zero set after unequal comparison");
-        assert_eq!(sys.cpu.flags.carry, false, "carry set after cmp with borrow");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal cmp");
+        assert_eq!(sys.cpu.flags.carry, false, "carry set: cmp with borrow");
         sys.run_program(&asm("
             ld cd, 0x0107
             cmp cd, 0x0103
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.flags.zero, false, "zero set after unequal comparison");
-        assert_eq!(sys.cpu.flags.carry, true, "carry clear after cmp with no borrow");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal cmp");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear: cmp with no borrow");
     }
 
     #[test]
     fn dec() {
         let mut sys = System::default();
         sys.run_program(&asm("
+            dec a
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.regs.get8(A), 0xFF, "wrong A");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
+        sys.run_program(&asm("
+            ld ef, 0xFF01
             dec ef
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.regs.get16(EF), 0xFFFF, "wrong EF");
+        assert_eq!(sys.cpu.regs.get16(EF), 0xFF00, "wrong EF");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
+        sys.run_program(&asm("
+            ld a, 0x01
+            dec a
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.regs.get8(A), 0x00, "wrong A");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: dec to zero");
+        sys.run_program(&asm("
+            ld ef, 0x0001
+            dec ef
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: dec to zero");
     }
 
     #[test]
@@ -247,6 +270,27 @@ mod tests {
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.regs.get8(D), 0x01, "wrong D");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
+        sys.run_program(&asm("
+            inc ab
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.regs.get16(AB), 0x01, "wrong AB");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
+        sys.run_program(&asm("
+            ld a, 0xFF
+            inc a
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.regs.get8(A), 0x00, "wrong A");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc zero");
+        sys.run_program(&asm("
+            ld ab, 0xFFFF
+            inc ab
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.regs.get16(AB), 0x00, "wrong AB");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc zero");
     }
 
     #[test]

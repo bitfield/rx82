@@ -5,6 +5,8 @@ use core::{
     str::FromStr,
 };
 
+use crate::cpu::Flags;
+
 /// The 8-bit registers.
 #[expect(clippy::min_ident_chars, reason = "the actual names")]
 #[expect(clippy::arbitrary_source_item_ordering, reason = "logical order")]
@@ -129,6 +131,47 @@ pub struct Regs {
 }
 
 impl Regs {
+    /// Compares the value in register `reg` with the operand, updating `flags`.
+    #[inline]
+    pub fn cmp(&mut self, reg: Reg, hi: u8, lo: u8, flags: &mut Flags) {
+        use crate::regs::Reg::*;
+        let (lhs, rhs) = match reg {
+            A | B | C | D | E | F | G | H => (u16::from(self.get8(reg)), u16::from(lo)),
+            AB | CD | EF | GH => (self.get16(reg), u16::from_be_bytes([hi, lo])),
+        };
+        flags.zero = lhs == rhs;
+        flags.carry = lhs >= rhs;
+    }
+
+    /// Decrements the value in register `reg`, updating `flags`.
+    #[inline]
+    pub fn decrement(&mut self, reg: Reg, flags: &mut Flags) {
+        let value = self.get(reg).wrapping_sub(1);
+        self.set(reg, value);
+        flags.zero = self.get(reg) == 0;
+    }
+
+    /// Returns the value in register `reg`.
+    #[inline]
+    #[must_use]
+    pub fn get(&self, reg: Reg) -> u16 {
+        use Reg::*;
+        match reg {
+            A => u16::from(self.ra),
+            B => u16::from(self.rb),
+            C => u16::from(self.rc),
+            D => u16::from(self.rd),
+            E => u16::from(self.re),
+            F => u16::from(self.rf),
+            G => u16::from(self.rg),
+            H => u16::from(self.rh),
+            Reg::AB => u16::from_be_bytes([self.ra, self.rb]),
+            Reg::CD => u16::from_be_bytes([self.rc, self.rd]),
+            Reg::EF => u16::from_be_bytes([self.re, self.rf]),
+            Reg::GH => u16::from_be_bytes([self.rg, self.rh]),
+        }
+    }
+
     /// Returns the word in register pair `reg`.
     #[inline]
     #[must_use]
@@ -158,6 +201,50 @@ impl Regs {
             G => self.rg,
             H => self.rh,
             AB | CD | EF | GH => unreachable!("called `get8` on 16-bit register pair {reg}"),
+        }
+    }
+
+    /// Increments the value in register `reg`, updating `flags`.
+    #[inline]
+    pub fn increment(&mut self, reg: Reg, flags: &mut Flags) {
+        let value = self.get(reg).wrapping_add(1);
+        self.set(reg, value);
+        flags.zero = self.get(reg) == 0;
+    }
+
+    /// Sets register `reg` to the value `val`.
+    ///
+    /// Flags are not affected.
+    #[expect(clippy::as_conversions, reason = "truncation is correct")]
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn load(&mut self, reg: Reg, val: u16) {
+        use crate::regs::Reg::*;
+        match reg {
+            A | B | C | D | E | F | G | H => self.set8(reg, val as u8),
+            AB | CD | EF | GH => self.set16(reg, val),
+        }
+    }
+
+    /// Sets register `reg` to the value `val`.
+    #[expect(clippy::as_conversions, reason = "truncation is correct")]
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn set(&mut self, reg: Reg, val: u16) {
+        use Reg::*;
+        match reg {
+            A => self.ra = val as u8,
+            B => self.rb = val as u8,
+            C => self.rc = val as u8,
+            D => self.rd = val as u8,
+            E => self.re = val as u8,
+            F => self.rf = val as u8,
+            G => self.rg = val as u8,
+            H => self.rh = val as u8,
+            AB => [self.ra, self.rb] = val.to_be_bytes(),
+            CD => [self.rc, self.rd] = val.to_be_bytes(),
+            EF => [self.re, self.rf] = val.to_be_bytes(),
+            GH => [self.rg, self.rh] = val.to_be_bytes(),
         }
     }
 
