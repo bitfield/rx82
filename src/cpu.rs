@@ -60,12 +60,12 @@ impl Cpu {
     #[inline]
     pub fn cmp(&mut self, reg: Reg, hi: u8, lo: u8) {
         use crate::regs::Reg::*;
-        match reg {
-            A | B | C | D | E | F | G | H => self.flags.zero = self.regs.get8(reg) == lo,
-            AB | CD | EF | GH => {
-                self.flags.zero = self.regs.get16(reg) == u16::from_be_bytes([hi, lo]);
-            }
-        }
+        let (lhs, rhs) = match reg {
+            A | B | C | D | E | F | G | H => (u16::from(self.regs.get8(reg)), u16::from(lo)),
+            AB | CD | EF | GH => (self.regs.get16(reg), u16::from_be_bytes([hi, lo])),
+        };
+        self.flags.zero = lhs == rhs;
+        self.flags.carry = lhs >= rhs;
     }
 
     /// Performs the 'decode' phase.
@@ -250,6 +250,7 @@ impl Cpu {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct Flags {
+    pub carry: bool,
     pub zero: bool,
 }
 

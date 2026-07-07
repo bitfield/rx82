@@ -175,18 +175,50 @@ mod tests {
     #[test]
     fn cmp() {
         let mut sys = System::default();
+        sys.cpu.flags.zero = false;
+        sys.cpu.flags.carry = false;
         sys.run_program(&asm("
             ld a, 0x01
             cmp a, 0x01
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.flags.zero, true, "zero clear for equal comparison");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear after equal comparison");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear after equal comparison");
         sys.run_program(&asm("
-            ld a, 0x01
-            cmp a, 0xFF
+            ld a, 0x03
+            cmp a, 0x07
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.flags.zero, false, "zero set for unequal comparison");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set after unequal comparison");
+        assert_eq!(sys.cpu.flags.carry, false, "carry set after cmp with borrow");
+        sys.run_program(&asm("
+            ld a, 0x07
+            cmp a, 0x03
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.flags.zero, false, "zero set after unequal comparison");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear after cmp with no borrow");
+        sys.run_program(&asm("
+            ld gh, 0xFF03
+            cmp gh, 0xFF03
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear after equal comparison");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear after equal comparison");
+        sys.run_program(&asm("
+            ld ab, 0x0003
+            cmp ab, 0xFF07
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.flags.zero, false, "zero set after unequal comparison");
+        assert_eq!(sys.cpu.flags.carry, false, "carry set after cmp with borrow");
+        sys.run_program(&asm("
+            ld cd, 0x0107
+            cmp cd, 0x0103
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.flags.zero, false, "zero set after unequal comparison");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear after cmp with no borrow");
     }
 
     #[test]
