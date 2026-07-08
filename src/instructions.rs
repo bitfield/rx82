@@ -6,15 +6,24 @@ use crate::{cpu::Cpu, regs::Reg};
 #[non_exhaustive]
 #[derive(Clone, Debug, Default)]
 pub enum InstructionKind {
+    /// Branch if the zero flag is set.
     BranchEq,
+    /// Branch if the zero flag is clear.
     BranchNe,
+    /// Compare a register with an immediate operand.
     Cmp(Reg),
+    /// Decrement a register.
     Dec(Reg),
+    /// Halt the CPU.
     Halt,
+    /// Increment a register.
     Inc(Reg),
+    /// Load a register with an immediate operand.
     LoadRegImm(Reg),
+    /// No operation.
     #[default]
     Nop,
+    /// Store a register value at an immediate address.
     StoreRegDirect(Reg),
 }
 
@@ -101,8 +110,11 @@ impl InstructionKind {
 /// Specifies whether an instruction takes zero, one, or two operands.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operands {
+    /// One operand.
     One,
+    /// Two operands.
     Two,
+    /// Zero operands.
     Zero,
 }
 

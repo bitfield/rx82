@@ -17,12 +17,17 @@ S [<address>] = Single step
 Q             = Quit
 Enter         = Repeat last command";
 
+/// A user command.
 #[non_exhaustive]
 #[derive(Copy, Clone)]
 pub enum Command {
+    /// Show help information.
     Help,
+    /// Dump memory.
     Memory,
+    /// Quit the monitor.
     Quit,
+    /// Step the system by one instruction.
     Step,
 }
 

@@ -48,62 +48,13 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Unexpected end of file
-    /// * Invalid register name
-    /// * Unexpected token
+    /// * Syntax errors
     #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         while let Some(token) = self.next_token() {
             match token {
                 Token::Comment(_) => {}
-                Token::Keyword(kw) if kw == "beq" => {
-                    let dis = self.get_displacement()?;
-                    self.code.extend([u8::from(BranchEq), dis]);
-                }
-                Token::Keyword(kw) if kw == "bne" => {
-                    let dis = self.get_displacement()?;
-                    self.code.extend([u8::from(BranchNe), dis]);
-                }
-                Token::Keyword(kw) if kw == "cmp" => {
-                    let Some(Token::Register(reg)) = self.next_token() else {
-                        bail!("expected register name")
-                    };
-                    let Some(Token::Comma) = self.next_token() else {
-                        bail!("expected comma")
-                    };
-                    self.code.push(u8::from(Cmp(reg)));
-                    if reg.is16() {
-                        let Some(Token::WordLiteral(operand)) = self.next_token() else {
-                            bail!("expected immediate word")
-                        };
-                        self.code.extend(operand.to_le_bytes());
-                    } else {
-                        let Some(Token::ByteLiteral(operand)) = self.next_token() else {
-                            bail!("expected immediate byte")
-                        };
-                        self.code.push(operand);
-                    }
-                }
-                Token::Keyword(kw) if kw == "dec" => {
-                    let Some(Token::Register(reg)) = self.next_token() else {
-                        bail!("expected register name")
-                    };
-                    self.code.push(u8::from(Dec(reg)));
-                }
-                Token::Keyword(kw) if kw == "halt" => self.code.push(u8::from(Halt)),
-                Token::Keyword(kw) if kw == "inc" => {
-                    let Some(Token::Register(reg)) = self.next_token() else {
-                        bail!("expected register name")
-                    };
-                    self.code.push(u8::from(Inc(reg)));
-                }
-                Token::Keyword(kw) if kw == "ld" => match self.next_token() {
-                    Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr)?,
-                    Some(Token::Register(reg)) => self.gen_ld_imm(reg)?,
-                    Some(other) => bail!("expected register name, got {other:?}"),
-                    None => bail!("unexpected end of file"),
-                },
-                Token::Keyword(kw) if kw == "nop" => self.code.push(u8::from(Nop)),
+                Token::Keyword(kw) => self.assemble_kw(&kw)?,
                 Token::LabelDef(label) => {
                     self.labels.insert(label, self.offset());
                 }
@@ -111,6 +62,31 @@ impl Assembler<'_> {
             }
         }
         Ok(self.code.clone())
+    }
+
+    /// Assembles keyword `kw`.
+    ///
+    /// # Errors
+    ///
+    /// * Syntax errors
+    #[inline]
+    pub fn assemble_kw(&mut self, kw: &String) -> Result<()> {
+        match kw.as_str() {
+            "beq" => self.gen_branch(BranchEq),
+            "bne" => self.gen_branch(BranchNe),
+            "cmp" => self.gen_cmp(),
+            "dec" => self.gen_dec(),
+            "halt" => self.gen_implied(Halt),
+            "inc" => self.gen_inc(),
+            "ld" => match self.next_token() {
+                Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr),
+                Some(Token::Register(reg)) => self.gen_ld_imm(reg),
+                Some(other) => bail!("expected register name, got {other:?}"),
+                None => bail!("unexpected end of file"),
+            },
+            "nop" => self.gen_implied(Nop),
+            _ => bail!("unknown keyword '{kw}'"),
+        }
     }
 
     /// Skips the given string (or as much of it as is present in the source).
@@ -122,50 +98,16 @@ impl Assembler<'_> {
         Some(())
     }
 
-    /// Generate a load register immediate instruction.
-    ///
-    /// # Errors
-    /// * Missing comma after register name
-    /// * Missing or wrong size operand
-    #[inline]
-    pub fn gen_ld_imm(&mut self, reg: Reg) -> Result<()> {
-        self.code.push(u8::from(LoadRegImm(reg)));
-        let Some(Token::Comma) = self.next_token() else {
-            bail!("expected comma")
-        };
-        if reg.is16() {
-            let Some(Token::WordLiteral(operand)) = self.next_token() else {
-                bail!("expected word operand for 16-bit immediate 'ld {reg}'")
-            };
-            self.code.extend(operand.to_le_bytes());
-        } else {
-            let Some(Token::ByteLiteral(operand)) = self.next_token() else {
-                bail!("expected byte operand for 8-bit immediate 'ld {reg}'")
-            };
-            self.code.push(operand);
-        }
-        Ok(())
-    }
-
-    /// Generate a store register direct instruction.
+    /// Consumes a comma token.
     ///
     /// # Errors
     ///
-    /// * Missing comma before register name
-    /// * Invalid register name
+    /// If the next token is not a comma.
     #[inline]
-    pub fn gen_store_direct(&mut self, addr: u16) -> Result<()> {
+    pub fn expect_comma(&mut self) -> Result<()> {
         let Some(Token::Comma) = self.next_token() else {
             bail!("expected comma")
         };
-        let Some(Token::Register(reg)) = self.next_token() else {
-            bail!("expected register name")
-        };
-        if reg.is16() {
-            bail!("expected 8-bit register, got '{reg}'")
-        }
-        self.code.push(u8::from(StoreRegDirect(reg)));
-        self.code.extend(addr.to_le_bytes());
         Ok(())
     }
 
@@ -181,7 +123,7 @@ impl Assembler<'_> {
     #[expect(clippy::as_conversions, reason = "required for encoding")]
     #[expect(clippy::cast_possible_truncation, reason = "code ensures valid range")]
     #[inline]
-    pub fn get_displacement(&mut self) -> Result<u8> {
+    pub fn expect_displacement(&mut self) -> Result<u8> {
         match self.next_token() {
             Some(Token::Identifier(label)) => {
                 let Some(&addr) = self.labels.get(&label) else {
@@ -199,6 +141,135 @@ impl Assembler<'_> {
             Some(Token::ByteLiteral(dis)) => Ok(dis),
             _ => bail!("expected displacement"),
         }
+    }
+
+    /// Returns the operand bytes for an instruction targeting `reg`.
+    ///
+    /// # Errors
+    ///
+    /// If the operand is missing or the wrong size.
+    #[inline]
+    pub fn expect_op_for_reg(&mut self, reg: Reg) -> Result<Vec<u8>> {
+        Ok(if reg.is16() {
+            let Some(Token::WordLiteral(operand)) = self.next_token() else {
+                bail!("expected immediate word")
+            };
+            Vec::from(operand.to_le_bytes())
+        } else {
+            let Some(Token::ByteLiteral(operand)) = self.next_token() else {
+                bail!("expected immediate byte")
+            };
+            vec![operand]
+        })
+    }
+
+    /// Returns the register named by the next token.
+    ///
+    /// # Errors
+    ///
+    /// If the next token is not a register name.
+    #[inline]
+    pub fn expect_reg(&mut self) -> Result<Reg> {
+        let Some(Token::Register(reg)) = self.next_token() else {
+            bail!("expected register name")
+        };
+        Ok(reg)
+    }
+
+    /// Generates a branch instruction of kind `kind`.
+    ///
+    /// # Errors
+    ///
+    /// * Missing or invalid displacement
+    #[inline]
+    pub fn gen_branch(&mut self, kind: InstructionKind) -> Result<()> {
+        let dis = self.expect_displacement()?;
+        self.code.extend([u8::from(kind), dis]);
+        Ok(())
+    }
+
+    /// Generates a compare instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing register name
+    /// * Missing comma
+    /// * Missing or mis-sized operand
+    #[inline]
+    pub fn gen_cmp(&mut self) -> Result<()> {
+        let reg = self.expect_reg()?;
+        self.expect_comma()?;
+        self.code.push(u8::from(Cmp(reg)));
+        let op = self.expect_op_for_reg(reg)?;
+        self.code.extend(op);
+        Ok(())
+    }
+
+    /// Generates a decrement instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing or invalid register name
+    #[inline]
+    pub fn gen_dec(&mut self) -> Result<()> {
+        let reg = self.expect_reg()?;
+        self.code.push(u8::from(Dec(reg)));
+        Ok(())
+    }
+
+    /// Generates an implied-address instruction of `kind`.
+    ///
+    /// # Errors
+    ///
+    /// * None
+    #[inline]
+    pub fn gen_implied(&mut self, kind: InstructionKind) -> Result<()> {
+        self.code.push(u8::from(kind));
+        Ok(())
+    }
+
+    /// Generates an increment instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing or invalid register name
+    #[inline]
+    pub fn gen_inc(&mut self) -> Result<()> {
+        let reg = self.expect_reg()?;
+        self.code.push(u8::from(Inc(reg)));
+        Ok(())
+    }
+
+    /// Generates a load register immediate instruction.
+    ///
+    /// # Errors
+    /// * Missing comma after register name
+    /// * Missing or wrong size operand
+    #[inline]
+    pub fn gen_ld_imm(&mut self, reg: Reg) -> Result<()> {
+        self.code.push(u8::from(LoadRegImm(reg)));
+        self.expect_comma()?;
+        let op = self.expect_op_for_reg(reg)?;
+        self.code.extend(op);
+        Ok(())
+    }
+
+    /// Generates a store register direct instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing comma before register name
+    /// * Invalid register name
+    #[inline]
+    pub fn gen_store_direct(&mut self, addr: u16) -> Result<()> {
+        self.expect_comma()?;
+        let reg = self.expect_reg()?;
+        if reg.is16() {
+            bail!("expected 8-bit register, got '{reg}'")
+        }
+        self.code.push(u8::from(StoreRegDirect(reg)));
+        self.code.extend(addr.to_le_bytes());
+        Ok(())
     }
 
     /// Scans and returns the next token from the source code.
@@ -316,50 +387,58 @@ impl<'code> From<&'code [u8]> for Disassembler<'code> {
 impl Iterator for Disassembler<'_> {
     type Item = String;
 
+    /// Disassembles the next instruction.
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let &opcode = self.code.next()?;
         Some(if let Ok(ins) = InstructionKind::try_from(opcode) {
             match ins {
-                BranchEq => format!("beq {}", format_maybe_byte(self.code.next())),
-                BranchNe => format!("bne {}", format_maybe_byte(self.code.next())),
-                Cmp(reg) => {
-                    let op_lo = self.code.next();
-                    format!(
-                        "cmp {reg}, {}",
-                        if reg.is16() {
-                            let op_hi = self.code.next();
-                            format_maybe_word(op_lo, op_hi)
-                        } else {
-                            format_maybe_byte(op_lo)
-                        }
-                    )
-                }
+                BranchEq => format!("beq {}", self.format_byte()),
+                BranchNe => format!("bne {}", self.format_byte()),
+                Cmp(reg) => format!("cmp {reg}, {}", self.format_op_for_reg(reg)),
                 Dec(reg) => format!("dec {reg}"),
                 Halt => "halt".into(),
                 Inc(reg) => format!("inc {reg}"),
                 Nop => "nop".into(),
-                LoadRegImm(reg) => {
-                    let op_lo = self.code.next();
-                    format!(
-                        "ld {reg}, {}",
-                        if reg.is16() {
-                            let op_hi = self.code.next();
-                            format_maybe_word(op_lo, op_hi)
-                        } else {
-                            format_maybe_byte(op_lo)
-                        }
-                    )
-                }
-                StoreRegDirect(reg) => {
-                    let op_lo = self.code.next();
-                    let op_hi = self.code.next();
-                    format!("ld {}, {reg}", format_maybe_word(op_lo, op_hi))
-                }
+                LoadRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
+                StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
             }
         } else {
             format!("??? ({opcode:#04X})")
         })
+    }
+}
+
+#[expect(clippy::elidable_lifetime_names, reason = "can't be elided here")]
+impl<'code> Disassembler<'code> {
+    /// Reads a byte operand and formats it for display.
+    #[inline]
+    fn format_byte(&mut self) -> String {
+        if let Some(op) = self.code.next() {
+            format!("{op:#04X}")
+        } else {
+            "??? (no operand)".to_owned()
+        }
+    }
+
+    /// Reads an operand for `reg` and formats it for display.
+    #[inline]
+    fn format_op_for_reg(&mut self, reg: Reg) -> String {
+        if reg.is16() {
+            self.format_word()
+        } else {
+            self.format_byte()
+        }
+    }
+
+    /// Reads a word operand and formats it for display.
+    #[inline]
+    fn format_word(&mut self) -> String {
+        if let (Some(&lo), Some(&hi)) = (self.code.next(), self.code.next()) {
+            format!("{:#06X}", u16::from_le_bytes([lo, hi]))
+        } else {
+            "??? (no operand)".to_owned()
+        }
     }
 }
 
@@ -375,7 +454,6 @@ pub enum Token {
     Keyword(String),
     LabelDef(String),
     Register(Reg),
-    RegisterName(String),
     WordLiteral(u16),
 }
 
@@ -417,22 +495,6 @@ pub fn asm(source: &str) -> Vec<u8> {
 pub fn disassemble(code: &[u8]) -> Option<String> {
     let mut dis = Disassembler::from(code);
     dis.next()
-}
-
-fn format_maybe_byte(maybe_op: Option<&u8>) -> String {
-    if let Some(op) = maybe_op {
-        format!("{op:#04X}")
-    } else {
-        "??? (no operand)".to_owned()
-    }
-}
-
-fn format_maybe_word(maybe_lo: Option<&u8>, maybe_hi: Option<&u8>) -> String {
-    if let (Some(&lo), Some(&hi)) = (maybe_lo, maybe_hi) {
-        format!("{:#06X}", u16::from_le_bytes([lo, hi]))
-    } else {
-        "??? (no operand)".to_owned()
-    }
 }
 
 #[expect(clippy::unwrap_used, reason = "tests")]

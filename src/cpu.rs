@@ -204,7 +204,9 @@ impl Cpu {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct Flags {
+    /// Indicates carry (from addition) or 'no borrow' (from subtraction or comparison).
     pub carry: bool,
+    /// Indicates a zero result from the last operation.
     pub zero: bool,
 }
 
