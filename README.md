@@ -174,6 +174,7 @@ Whitespace is ignored, and only `0x`-prefixed hexadecimal numbers are recognised
 
 # Changelog
 
+* **0.4.0** — beq, bne, inc, dec, and cmp instructions; zero and carry flags; backward labels, comments
 * **0.3.0** — all registers, load immediate and store direct instructions
 * **0.2.0** — monitor improvements, add `halt` instruction, add assembler
 * **0.1.0** — first release

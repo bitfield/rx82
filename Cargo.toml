@@ -1,10 +1,10 @@
 [package]
 name = "rx82"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 authors = ["John Arundel <john@bitfieldconsulting.com>"]
-description = """An emulator for the RX82 retro computer system."""
-keywords = ["emulator", "emulation", "R8"]
+description = """An emulator for the RX82 fantasy retro computer system."""
+keywords = ["emulator", "emulation", "R8", "RX82", "retrocomputing"]
 categories = ["emulators"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
