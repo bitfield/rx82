@@ -19,7 +19,9 @@ pub enum InstructionKind {
     /// Increment a register.
     Inc(Reg),
     /// Load a register with an immediate operand.
-    LoadRegImm(Reg),
+    LdRegImm(Reg),
+    /// Load a register from an indirect address in another register.
+    LdRegIndirect,
     /// No operation.
     #[default]
     Nop,
@@ -37,8 +39,9 @@ impl TryFrom<u8> for InstructionKind {
         match opcode {
             0x00 => Ok(Halt),
             0x01 => Ok(Nop),
-            0x10..=0x1B => Ok(LoadRegImm(Reg::try_from(reg_id)?)),
+            0x10..=0x1B => Ok(LdRegImm(Reg::try_from(reg_id)?)),
             0x20..=0x27 => Ok(StoreRegDirect(Reg::try_from(reg_id)?)),
+            0x2D => Ok(LdRegIndirect),
             0x30..=0x3B => Ok(Inc(Reg::try_from(reg_id)?)),
             0x40..=0x4B => Ok(Dec(Reg::try_from(reg_id)?)),
             0x70..=0x7B => Ok(Cmp(Reg::try_from(reg_id)?)),
@@ -60,7 +63,8 @@ impl From<InstructionKind> for u8 {
             Dec(reg) => 0x40 | u8::from(reg),
             Halt => 0x00,
             Inc(reg) => 0x30 | u8::from(reg),
-            LoadRegImm(reg) => 0x10 | u8::from(reg),
+            LdRegImm(reg) => 0x10 | u8::from(reg),
+            LdRegIndirect => 0x2D,
             Nop => 0x01,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
         }
@@ -79,7 +83,8 @@ impl InstructionKind {
             Dec(reg) => cpu.regs.decrement(reg, &mut cpu.flags),
             Halt => cpu.halt = true,
             Inc(reg) => cpu.regs.increment(reg, &mut cpu.flags),
-            LoadRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
+            LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
+            LdRegIndirect => cpu.ld_indirect(),
             Nop | BranchEq | BranchNe => {}
             StoreRegDirect(reg) => cpu.write_mem(cpu.op(), reg),
         }
@@ -93,8 +98,8 @@ impl InstructionKind {
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop => Zero,
-            BranchEq | BranchNe => One,
-            Cmp(reg) | LoadRegImm(reg) => {
+            BranchEq | BranchNe | LdRegIndirect => One,
+            Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
                 } else {
@@ -325,6 +330,20 @@ mod tests {
             .unwrap();
         assert_eq!(sys.cpu.regs.get(AB), 0x00C0, "wrong AB");
         assert_eq!(sys.cpu.pc, 0x0004, "wrong PC");
+    }
+
+    #[test]
+    fn ld_reg_indirect() {
+        let mut sys = System::default();
+        sys.run_program(&asm("
+            ld a, 0xFF
+            ld 0x0100, a
+            ld cd, 0x0100
+            ld b, (cd)
+            halt"))
+            .unwrap();
+        sys.debug_print();
+        assert_eq!(sys.cpu.regs.get(B), 0xFF, "wrong B");
     }
 
     #[test]

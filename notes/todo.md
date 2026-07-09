@@ -10,8 +10,8 @@ For `memcpy` we need:
 [X] inc/dec reg pair (`inc cd`)
 [X] Relative jump on zero (`beq D`)
 [X] 8-bit compare immediate (`cmp b, N`)
-[ ] Store indirect (`ld (cd), N`)
-[ ] load register indirect (`ld a, (cd)`)
+[ ] Store register indirect (`ld (cd), a`)
+[X] load register indirect (`ld a, (cd)`)
 [ ] Unconditional relative jump (`bra D`)
 [ ] Forward labels
 

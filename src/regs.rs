@@ -184,7 +184,6 @@ impl Regs {
     }
 
     /// Sets register `reg` to the value `val`.
-    #[expect(clippy::as_conversions, reason = "truncation is correct")]
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn set(&mut self, reg: Reg, val: u16) -> u16 {

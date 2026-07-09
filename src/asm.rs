@@ -8,8 +8,10 @@ use core::{
 };
 use std::collections::HashMap;
 
-use crate::instructions::InstructionKind;
-use crate::{instructions::InstructionKind::*, regs::Reg};
+use crate::{
+    instructions::InstructionKind::{self, *},
+    regs::Reg,
+};
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &["beq", "bne", "cmp", "dec", "halt", "inc", "ld", "nop"];
@@ -79,8 +81,16 @@ impl Assembler<'_> {
             "halt" => self.gen_implied(Halt),
             "inc" => self.gen_inc(),
             "ld" => match self.next_token() {
+                Some(Token::Register(reg)) => {
+                    self.expect_comma()?;
+                    self.skip_whitespace();
+                    if let Some(&'(') = self.chars.peek() {
+                        self.gen_ld_reg_indirect(reg)
+                    } else {
+                        self.gen_ld_imm(reg)
+                    }
+                }
                 Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr),
-                Some(Token::Register(reg)) => self.gen_ld_imm(reg),
                 Some(other) => bail!("expected register name, got {other:?}"),
                 None => bail!("unexpected end of file"),
             },
@@ -96,6 +106,22 @@ impl Assembler<'_> {
             _ = self.chars.next_if(|&got| want == got)?;
         }
         Some(())
+    }
+
+    /// Consumes the specified token.
+    ///
+    /// # Errors
+    ///
+    /// If the next token does not match the expectation.
+    #[inline]
+    pub fn expect(&mut self, expected: &Token) -> Result<()> {
+        let Some(token) = self.next_token() else {
+            bail!("expected {expected}")
+        };
+        if token != *expected {
+            bail!("expected {expected}, got {token}")
+        }
+        Ok(())
     }
 
     /// Consumes a comma token.
@@ -120,7 +146,6 @@ impl Assembler<'_> {
     /// * Undefined label
     /// * No displacement
     /// * Displacement out of range (signed byte)
-    #[expect(clippy::as_conversions, reason = "required for encoding")]
     #[expect(clippy::cast_possible_truncation, reason = "code ensures valid range")]
     #[inline]
     pub fn expect_displacement(&mut self) -> Result<u8> {
@@ -247,10 +272,32 @@ impl Assembler<'_> {
     /// * Missing or wrong size operand
     #[inline]
     pub fn gen_ld_imm(&mut self, reg: Reg) -> Result<()> {
-        self.code.push(u8::from(LoadRegImm(reg)));
-        self.expect_comma()?;
+        self.code.push(u8::from(LdRegImm(reg)));
         let op = self.expect_op_for_reg(reg)?;
         self.code.extend(op);
+        Ok(())
+    }
+
+    /// Generates a load register immediate instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Invalid source or target registers
+    /// * Syntax errors
+    #[inline]
+    pub fn gen_ld_reg_indirect(&mut self, target_reg: Reg) -> Result<()> {
+        if target_reg.is16() {
+            bail!("expected 8-bit register, got '{target_reg}'")
+        }
+        self.code.push(u8::from(LdRegIndirect));
+        self.expect(&Token::ParenOpen)?;
+        let source_reg = self.expect_reg()?;
+        if !source_reg.is16() {
+            bail!("expected 16-bit register, got '{source_reg}'")
+        }
+        self.expect(&Token::ParenClose)?;
+        let regs = (u8::from(source_reg) << 4_u8) | u8::from(target_reg);
+        self.code.push(regs);
         Ok(())
     }
 
@@ -282,6 +329,8 @@ impl Assembler<'_> {
                 '0' => self.read_hex_literal(),
                 ',' => self.read_token(Token::Comma),
                 ';' => self.read_comment(),
+                '(' => self.read_token(Token::ParenOpen),
+                ')' => self.read_token(Token::ParenClose),
                 ch if ch.is_alphabetic() => self.read_identifier(),
                 ch => self.read_illegal(ch),
             };
@@ -295,7 +344,6 @@ impl Assembler<'_> {
     }
 
     /// Returns the current offset (PC) position in the generated code.
-    #[expect(clippy::as_conversions, reason = "max code size = 65536")]
     #[expect(clippy::cast_possible_truncation, reason = "max code size = 65536")]
     #[inline]
     #[must_use]
@@ -400,7 +448,8 @@ impl Iterator for Disassembler<'_> {
                 Halt => "halt".into(),
                 Inc(reg) => format!("inc {reg}"),
                 Nop => "nop".into(),
-                LoadRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
+                LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
+                LdRegIndirect => self.format_ld_reg_indirect(),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
             }
         } else {
@@ -416,6 +465,20 @@ impl<'code> Disassembler<'code> {
     fn format_byte(&mut self) -> String {
         if let Some(op) = self.code.next() {
             format!("{op:#04X}")
+        } else {
+            "??? (no operand)".to_owned()
+        }
+    }
+
+    /// Reads an operand specifying source and target registers and formats it for
+    /// display.
+    #[inline]
+    fn format_ld_reg_indirect(&mut self) -> String {
+        if let Some(regs) = self.code.next()
+            && let Ok(source_reg) = Reg::try_from((regs & 0x0F0) >> 4)
+            && let Ok(target_reg) = Reg::try_from(regs & 0x0F)
+        {
+            format!("ld {target_reg}, ({source_reg})")
         } else {
             "??? (no operand)".to_owned()
         }
@@ -453,6 +516,8 @@ pub enum Token {
     Illegal(String),
     Keyword(String),
     LabelDef(String),
+    ParenClose,
+    ParenOpen,
     Register(Reg),
     WordLiteral(u16),
 }
@@ -536,8 +601,9 @@ mod tests {
             ("dec g", &[u8::from(Dec(G))]),
             ("halt", &[u8::from(Halt)]),
             ("inc a", &[u8::from(Inc(A))]),
-            ("ld b, 0xFF", &[u8::from(LoadRegImm(B)), 0xFF]),
-            ("ld cd, 0xBEEF", &[u8::from(LoadRegImm(CD)), 0xEF, 0xBE]),
+            ("ld b, (cd)", &[u8::from(LdRegIndirect), 0x91]),
+            ("ld b, 0xFF", &[u8::from(LdRegImm(B)), 0xFF]),
+            ("ld cd, 0xBEEF", &[u8::from(LdRegImm(CD)), 0xEF, 0xBE]),
             ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
             ("nop", &[u8::from(Nop)]),
         ];
@@ -552,7 +618,7 @@ mod tests {
     fn assembler_ignores_comments() {
         let source = "ld a, 0xFF ; loop count";
         let generated = asm(source);
-        let object = &[u8::from(LoadRegImm(Reg::A)), 0xFF];
+        let object = &[u8::from(LdRegImm(Reg::A)), 0xFF];
         assert_asm!(source, generated, object);
     }
 
@@ -584,9 +650,9 @@ mod tests {
 ";
         let generated = asm(source);
         let object = &[
-            u8::from(LoadRegImm(Reg::A)),
+            u8::from(LdRegImm(Reg::A)),
             0x06,
-            u8::from(LoadRegImm(Reg::CD)),
+            u8::from(LdRegImm(Reg::CD)),
             0xFF,
             0xFF,
             u8::from(Dec(Reg::CD)),

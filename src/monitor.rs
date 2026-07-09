@@ -102,6 +102,7 @@ impl Monitor {
     pub fn run(&mut self) -> Result<()> {
         println!("{BANNER}");
         self.step = true;
+        self.last_cmd = Some(Step);
         self.sys.debug_print();
         loop {
             match self.get_command()? {
@@ -122,11 +123,11 @@ impl Monitor {
             self.sys.cpu.pc = addr;
         }
         loop {
+            self.sys.tick();
             if self.sys.cpu.halt {
                 println!("halted");
                 break;
             }
-            self.sys.tick();
             if self.sys.cpu.phase == Phase::Fetch && self.sys.cpu.target == Target::Opcode {
                 break;
             }

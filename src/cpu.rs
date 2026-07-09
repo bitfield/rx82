@@ -48,7 +48,6 @@ impl Device for Cpu {
 
 impl Cpu {
     /// Branches to PC+`dis`.
-    #[expect(clippy::as_conversions, reason = "easiest way to sign-extend")]
     #[expect(clippy::cast_possible_wrap, reason = "i8 to u16 is sound")]
     #[expect(clippy::cast_sign_loss, reason = "okay with wrapping_add")]
     #[inline]
@@ -109,6 +108,11 @@ impl Cpu {
                 bus.pending_write.get_or_insert(vec![State::Mem(false)]);
                 Phase::Execute
             }
+            Target::Read(_, reg) => {
+                self.regs.set(reg, u16::from(bus.data));
+                self.target = Target::Opcode;
+                Phase::Fetch
+            }
             Target::Write(_, _) => unreachable!("reached decode phase after memory write"),
         }
     }
@@ -122,19 +126,23 @@ impl Cpu {
         // Execute this instruction
         let ins = self.ins.clone();
         ins.execute(self);
-        if let Target::Write(addr, val) = self.target {
-            // Write the result
-            bus.pending_write.get_or_insert(vec![
-                State::Addr(addr),
-                State::Data(val),
-                State::Mem(true),
-                State::Write(true),
-            ]);
-            Phase::Wait
-        } else {
-            // Fetch the next instruction
-            self.target = Target::Opcode;
-            Phase::Fetch
+        match self.target {
+            Target::Write(addr, val) => {
+                // Write the result
+                bus.pending_write.get_or_insert(vec![
+                    State::Addr(addr),
+                    State::Data(val),
+                    State::Mem(true),
+                    State::Write(true),
+                ]);
+                Phase::Wait
+            }
+            Target::Read(_, _) => Phase::Fetch,
+            Target::Opcode | Target::Operand | Target::Operand2 => {
+                // Fetch the next instruction
+                self.target = Target::Opcode;
+                Phase::Fetch
+            }
         }
     }
 
@@ -148,14 +156,34 @@ impl Cpu {
             // Just keep looping in this state
             Phase::Fetch
         } else {
+            let addr = if let Target::Read(addr, _) = self.target {
+                addr
+            } else {
+                let addr = self.pc;
+                self.pc = self.pc.wrapping_add(1);
+                addr
+            };
             // Issue a memory read and await the result
             bus.pending_write.get_or_insert(vec![
-                State::Addr(self.pc),
+                State::Addr(addr),
                 State::Mem(true),
                 State::Write(false),
             ]);
-            self.pc = self.pc.wrapping_add(1);
             Phase::Wait
+        }
+    }
+
+    /// Loads the specified source register from the memory address in the specified
+    /// target register.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn ld_indirect(&mut self) {
+        let regs = self.op() as u8;
+        if let Ok(source_reg) = Reg::try_from((regs & 0x0F0) >> 4_u8)
+            && let Ok(target_reg) = Reg::try_from(regs & 0x0F)
+        {
+            let addr = self.regs.get(source_reg);
+            self.read_mem(addr, target_reg);
         }
     }
 
@@ -164,6 +192,12 @@ impl Cpu {
     #[must_use]
     pub fn op(&self) -> u16 {
         u16::from_be_bytes([self.op_hi, self.op_lo])
+    }
+
+    /// Sets the next sequencer target to read `reg` from memory at `addr`.
+    #[inline]
+    pub fn read_mem(&mut self, addr: u16, reg: Reg) {
+        self.target = Target::Read(addr, reg);
     }
 
     /// Resets the CPU to its power-on state.
@@ -186,16 +220,16 @@ impl Cpu {
                 self.target = Target::Opcode;
                 Phase::Fetch
             }
-            Target::Opcode | Target::Operand | Target::Operand2 => Phase::Decode,
+            Target::Opcode | Target::Operand | Target::Operand2 | Target::Read(_, _) => {
+                Phase::Decode
+            }
         }
     }
 
     /// Sets the next sequencer target to write `reg` to memory at `addr`.
-    #[expect(clippy::as_conversions, reason = "truncation is correct")]
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn write_mem(&mut self, addr: u16, reg: Reg) {
-        println!("write_mem: {reg}");
         self.target = Target::Write(addr, self.regs.get(reg) as u8);
     }
 }
@@ -252,13 +286,15 @@ pub enum Target {
     Operand,
     /// A second 1-byte operand (or high byte of a 2-byte operand).
     Operand2,
+    /// Waiting for a memory read to a register.
+    Read(u16, Reg),
     /// Waiting for a memory write to complete.
     Write(u16, u8),
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{instructions::InstructionKind::*, regs::Reg::*};
+    use crate::{instructions::InstructionKind::*, regs::Reg::*, system::System};
 
     use super::*;
 
@@ -287,7 +323,7 @@ mod tests {
         assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = u8::from(LoadRegImm(A)); // ld a, N
+        bus.data = u8::from(LdRegImm(A)); // ld a, N
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
@@ -314,7 +350,7 @@ mod tests {
         assert_eq!(cpu.target, Target::Opcode);
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = u8::from(LoadRegImm(AB)); // ld ab, NN
+        bus.data = u8::from(LdRegImm(AB)); // ld ab, NN
         cpu.tick(&mut bus);
         assert_eq!(cpu.phase, Phase::Decode);
         cpu.tick(&mut bus);
@@ -340,6 +376,47 @@ mod tests {
         cpu.tick(&mut bus);
         assert_eq!(cpu.regs.get(AB), 0xBEEF);
         assert_eq!(cpu.pc, 0x0003);
+    }
+
+    #[expect(clippy::unwrap_used, reason = "test")]
+    #[test]
+    fn cpu_states_are_correct_for_mem_read_instruction() {
+        let mut sys = System::default();
+        sys.mem.set(0x0100, 0xFF);
+        sys.cpu.regs.set(Reg::CD, 0x0100);
+        sys.mem
+            .load(0x0000, &[u8::from(LdRegIndirect), 0x91])
+            .unwrap(); // ld b, (cd)
+        assert_eq!(sys.cpu.phase, Phase::Fetch);
+        assert_eq!(sys.cpu.target, Target::Opcode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Fetch);
+        assert_eq!(sys.cpu.target, Target::Operand);
+        assert_eq!(sys.cpu.pc, 0x0001);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Wait);
+        assert_eq!(sys.cpu.target, Target::Operand);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Execute);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Fetch);
+        assert_eq!(sys.cpu.target, Target::Read(0x0100, Reg::B));
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Wait);
+        assert_eq!(sys.cpu.target, Target::Read(0x0100, Reg::B));
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Phase::Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.regs.get(B), 0x00FF);
+        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.phase, Phase::Fetch);
+        assert_eq!(sys.cpu.target, Target::Opcode);
     }
 
     #[test]
