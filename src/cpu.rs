@@ -5,7 +5,7 @@ use crate::{
         InstructionKind::{self, Nop},
         Operands,
     },
-    regs::{Reg, Regs},
+    regs::{Reg, Regs, source_and_target_from},
     system::{Bus, Device, State},
 };
 
@@ -178,12 +178,8 @@ impl Cpu {
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn ld_indirect(&mut self) {
-        let regs = self.op() as u8;
-        if let Ok(source_reg) = Reg::try_from((regs & 0x0F0) >> 4_u8)
-            && let Ok(target_reg) = Reg::try_from(regs & 0x0F)
-        {
-            let addr = self.regs.get(source_reg);
-            self.read_mem(addr, target_reg);
+        if let Some((source, target)) = source_and_target_from(self.op() as u8) {
+            self.read_mem(self.regs.get(source), target);
         }
     }
 
@@ -207,6 +203,16 @@ impl Cpu {
     #[inline]
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// Stores the contents of the specified source register to the memory address in
+    /// the specified target register.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn store_indirect(&mut self) {
+        if let Some((source, target)) = source_and_target_from(self.op() as u8) {
+            self.write_mem(self.regs.get(target), source);
+        }
     }
 
     /// Performs the 'wait for memory' phase.

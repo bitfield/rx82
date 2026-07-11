@@ -27,6 +27,8 @@ pub enum InstructionKind {
     Nop,
     /// Store a register value at an immediate address.
     StoreRegDirect(Reg),
+    /// Store a register value at an indirect address in another register.
+    StoreRegIndirect,
 }
 
 impl TryFrom<u8> for InstructionKind {
@@ -43,6 +45,7 @@ impl TryFrom<u8> for InstructionKind {
             0x20..=0x27 => Ok(StoreRegDirect(Reg::try_from(reg_id)?)),
             0x2D => Ok(LdRegIndirect),
             0x30..=0x3B => Ok(Inc(Reg::try_from(reg_id)?)),
+            0x3D => Ok(StoreRegIndirect),
             0x40..=0x4B => Ok(Dec(Reg::try_from(reg_id)?)),
             0x70..=0x7B => Ok(Cmp(Reg::try_from(reg_id)?)),
             0xB1 => Ok(BranchEq),
@@ -67,6 +70,7 @@ impl From<InstructionKind> for u8 {
             LdRegIndirect => 0x2D,
             Nop => 0x01,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
+            StoreRegIndirect => 0x3D,
         }
     }
 }
@@ -87,6 +91,7 @@ impl InstructionKind {
             LdRegIndirect => cpu.ld_indirect(),
             Nop | BranchEq | BranchNe => {}
             StoreRegDirect(reg) => cpu.write_mem(cpu.op(), reg),
+            StoreRegIndirect => cpu.store_indirect(),
         }
     }
 
@@ -98,7 +103,7 @@ impl InstructionKind {
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop => Zero,
-            BranchEq | BranchNe | LdRegIndirect => One,
+            BranchEq | BranchNe | LdRegIndirect | StoreRegIndirect => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -365,6 +370,19 @@ mod tests {
             halt"))
             .unwrap();
         let val = sys.mem.get(0xBEEF);
+        assert_eq!(val, 0xFF, "wrong mem value");
+    }
+
+    #[test]
+    fn store_reg_indirect() {
+        let mut sys = System::default();
+        sys.run_program(&asm("
+            ld ef, 0xBABE
+            ld a, 0xFF
+            ld (ef), a
+            halt"))
+            .unwrap();
+        let val = sys.mem.get(0xBABE);
         assert_eq!(val, 0xFF, "wrong mem value");
     }
 

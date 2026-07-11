@@ -81,6 +81,7 @@ impl Assembler<'_> {
             "halt" => self.gen_implied(Halt),
             "inc" => self.gen_inc(),
             "ld" => match self.next_token() {
+                Some(Token::ParenOpen) => self.gen_store_indirect(),
                 Some(Token::Register(reg)) => {
                     self.expect_comma()?;
                     self.skip_whitespace();
@@ -319,6 +320,30 @@ impl Assembler<'_> {
         Ok(())
     }
 
+    /// Generates a store register indirect instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing comma before register name
+    /// * Invalid register name
+    #[inline]
+    pub fn gen_store_indirect(&mut self) -> Result<()> {
+        let target_reg = self.expect_reg()?;
+        if !target_reg.is16() {
+            bail!("expected 16-bit register, got '{target_reg}'")
+        }
+        self.expect(&Token::ParenClose)?;
+        self.expect_comma()?;
+        let source_reg = self.expect_reg()?;
+        if source_reg.is16() {
+            bail!("expected 8-bit register, got '{source_reg}'")
+        }
+        self.code.push(u8::from(StoreRegIndirect));
+        let regs = (u8::from(source_reg) << 4_u8) | u8::from(target_reg);
+        self.code.push(regs);
+        Ok(())
+    }
+
     /// Scans and returns the next token from the source code.
     #[inline]
     pub fn next_token(&mut self) -> Option<Token> {
@@ -451,6 +476,7 @@ impl Iterator for Disassembler<'_> {
                 LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
                 LdRegIndirect => self.format_ld_reg_indirect(),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
+                StoreRegIndirect => self.format_store_reg_indirect(),
             }
         } else {
             format!("??? ({opcode:#04X})")
@@ -470,8 +496,8 @@ impl<'code> Disassembler<'code> {
         }
     }
 
-    /// Reads an operand specifying source and target registers and formats it for
-    /// display.
+    /// Reads an operand specifying source and target registers and formats the
+    /// instruction for display.
     #[inline]
     fn format_ld_reg_indirect(&mut self) -> String {
         if let Some(regs) = self.code.next()
@@ -491,6 +517,20 @@ impl<'code> Disassembler<'code> {
             self.format_word()
         } else {
             self.format_byte()
+        }
+    }
+
+    /// Reads an operand specifying source and target registers and formats the
+    /// instruction for display.
+    #[inline]
+    fn format_store_reg_indirect(&mut self) -> String {
+        if let Some(regs) = self.code.next()
+            && let Ok(source_reg) = Reg::try_from((regs & 0x0F0) >> 4)
+            && let Ok(target_reg) = Reg::try_from(regs & 0x0F)
+        {
+            format!("ld ({target_reg}), {source_reg}")
+        } else {
+            "??? (no operand)".to_owned()
         }
     }
 
@@ -602,6 +642,7 @@ mod tests {
             ("halt", &[u8::from(Halt)]),
             ("inc a", &[u8::from(Inc(A))]),
             ("ld b, (cd)", &[u8::from(LdRegIndirect), 0x91]),
+            ("ld (ef), a", &[u8::from(StoreRegIndirect), 0x0A]),
             ("ld b, 0xFF", &[u8::from(LdRegImm(B)), 0xFF]),
             ("ld cd, 0xBEEF", &[u8::from(LdRegImm(CD)), 0xEF, 0xBE]),
             ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),

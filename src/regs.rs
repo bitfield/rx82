@@ -206,6 +206,19 @@ impl Regs {
     }
 }
 
+/// Returns the source and target registers specified by `regs`.
+#[inline]
+#[must_use]
+pub fn source_and_target_from(regs: u8) -> Option<(Reg, Reg)> {
+    if let Ok(source_reg) = Reg::try_from((regs & 0x0F0) >> 4_u8)
+        && let Ok(target_reg) = Reg::try_from(regs & 0x0F)
+    {
+        Some((source_reg, target_reg))
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::regs::{Reg::AB, Reg::*};
