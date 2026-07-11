@@ -6,6 +6,8 @@ use crate::{cpu::Cpu, regs::Reg};
 #[non_exhaustive]
 #[derive(Clone, Debug, Default)]
 pub enum InstructionKind {
+    /// Branch always.
+    BranchAlways,
     /// Branch if the zero flag is set.
     BranchEq,
     /// Branch if the zero flag is clear.
@@ -48,6 +50,7 @@ impl TryFrom<u8> for InstructionKind {
             0x3D => Ok(StoreRegIndirect),
             0x40..=0x4B => Ok(Dec(Reg::try_from(reg_id)?)),
             0x70..=0x7B => Ok(Cmp(Reg::try_from(reg_id)?)),
+            0xB0 => Ok(BranchAlways),
             0xB1 => Ok(BranchEq),
             0xB2 => Ok(BranchNe),
             _ => Err(anyhow!("invalid opcode {opcode}")),
@@ -60,6 +63,7 @@ impl From<InstructionKind> for u8 {
     fn from(ins: InstructionKind) -> Self {
         use InstructionKind::*;
         match ins {
+            BranchAlways => 0xB0,
             BranchEq => 0xB1,
             BranchNe => 0xB2,
             Cmp(reg) => 0x70 | u8::from(reg),
@@ -81,6 +85,7 @@ impl InstructionKind {
     pub fn execute(&self, cpu: &mut Cpu) {
         use InstructionKind::*;
         match *self {
+            BranchAlways => cpu.branch(cpu.op_lo),
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
             Cmp(reg) => cpu.regs.cmp(reg, cpu.op(), &mut cpu.flags),
@@ -103,7 +108,7 @@ impl InstructionKind {
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop => Zero,
-            BranchEq | BranchNe | LdRegIndirect | StoreRegIndirect => One,
+            BranchAlways | BranchEq | BranchNe | LdRegIndirect | StoreRegIndirect => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -194,6 +199,18 @@ mod tests {
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.pc, 0x0005, "branch not taken");
+    }
+
+    #[test]
+    fn bra() {
+        let mut sys = System::default();
+        sys.cpu.flags.zero = true;
+        sys.run_program(&asm("
+            bra 0x01
+            halt
+            halt"))
+            .unwrap();
+        assert_eq!(sys.cpu.pc, 0x0004, "branch not taken");
     }
 
     #[test]

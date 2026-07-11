@@ -12,7 +12,7 @@ For `memcpy` we need:
 [X] 8-bit compare immediate (`cmp b, N`)
 [X] Store register indirect (`ld (cd), a`)
 [X] load register indirect (`ld a, (cd)`)
-[ ] Unconditional relative jump (`bra D`)
+[X] Unconditional relative jump (`bra D`)
 [ ] Forward labels
 
 For `to_hex` we need:

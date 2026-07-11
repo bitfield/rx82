@@ -14,7 +14,9 @@ use crate::{
 };
 
 /// Keywords recognised by the assembler.
-pub const KEYWORDS: &[&str] = &["beq", "bne", "cmp", "dec", "halt", "inc", "ld", "nop"];
+pub const KEYWORDS: &[&str] = &[
+    "beq", "bne", "bra", "cmp", "dec", "halt", "inc", "ld", "nop",
+];
 
 /// Assembles a given program.
 #[non_exhaustive]
@@ -74,6 +76,7 @@ impl Assembler<'_> {
     #[inline]
     pub fn assemble_kw(&mut self, kw: &String) -> Result<()> {
         match kw.as_str() {
+            "bra" => self.gen_branch(BranchAlways),
             "beq" => self.gen_branch(BranchEq),
             "bne" => self.gen_branch(BranchNe),
             "cmp" => self.gen_cmp(),
@@ -466,6 +469,7 @@ impl Iterator for Disassembler<'_> {
         let &opcode = self.code.next()?;
         Some(if let Ok(ins) = InstructionKind::try_from(opcode) {
             match ins {
+                BranchAlways => format!("bra {}", self.format_byte()),
                 BranchEq => format!("beq {}", self.format_byte()),
                 BranchNe => format!("bne {}", self.format_byte()),
                 Cmp(reg) => format!("cmp {reg}, {}", self.format_op_for_reg(reg)),
@@ -637,6 +641,7 @@ mod tests {
         let cases: &[(&str, &[u8])] = &[
             ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
             ("bne 0x01", &[u8::from(BranchNe), 0x01]),
+            ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
             ("cmp d, 0x01", &[u8::from(Cmp(D)), 0x01]),
             ("dec g", &[u8::from(Dec(G))]),
             ("halt", &[u8::from(Halt)]),

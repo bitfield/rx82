@@ -11,6 +11,7 @@ use crate::{
 const BANNER: &str = "RMON v1.0 © 1977 Solid State Technologies, Inc.\n";
 
 const USAGE: &str = "Commands:
+G [<address>] = Go (run till halted)
 H             = Help
 M [<address>] = Memory dump
 S [<address>] = Single step
@@ -21,6 +22,8 @@ Enter         = Repeat last command";
 #[non_exhaustive]
 #[derive(Copy, Clone)]
 pub enum Command {
+    /// Run continuously.
+    Go,
     /// Show help information.
     Help,
     /// Dump memory.
@@ -60,6 +63,7 @@ impl Monitor {
         _ = stdin().read_line(&mut input)?;
         let (cmd, arg) = match input.to_ascii_uppercase().trim() {
             "" => (self.last_cmd.unwrap_or(Step), None),
+            cmd if cmd.starts_with('G') => (Go, parse_arg(cmd)),
             cmd if cmd.starts_with('M') => (Memory, parse_arg(cmd)),
             cmd if cmd.starts_with('S') => (Step, parse_arg(cmd)),
             cmd if cmd.starts_with('Q') => (Quit, None),
@@ -69,10 +73,40 @@ impl Monitor {
         Ok((cmd, arg))
     }
 
+    /// Runs the system until halted.
+    #[inline]
+    pub fn go(&mut self, addr: Option<u16>) {
+        self.step = false;
+        self.run(addr);
+    }
+
     /// Prints usage information.
     #[inline]
     pub fn help(&self) {
         println!("{USAGE}");
+    }
+
+    /// Runs the monitor interactively until the user quits.
+    ///
+    /// # Errors
+    ///
+    /// If reading the user's command input fails.
+    #[inline]
+    pub fn interact(&mut self) -> Result<()> {
+        println!("{BANNER}");
+        self.step = true;
+        self.last_cmd = Some(Step);
+        self.sys.debug_print();
+        loop {
+            match self.get_command()? {
+                (Go, addr) => self.go(addr),
+                (Help, _) => self.help(),
+                (Memory, addr) => self.memory(addr),
+                (Step, addr) => self.step(addr),
+                (Quit, _) => break,
+            }
+        }
+        Ok(())
     }
 
     /// Dumps memory at `addr` (default: PC).
@@ -93,31 +127,12 @@ impl Monitor {
         self.last_addr = Some(base);
     }
 
-    /// Runs the monitor interactively until the user quits.
+    /// Runs the system.
     ///
-    /// # Errors
-    ///
-    /// If reading the user's command input fails.
+    /// If `self.step` is true, stops after the next instruction. Otherwise runs until
+    /// halted.
     #[inline]
-    pub fn run(&mut self) -> Result<()> {
-        println!("{BANNER}");
-        self.step = true;
-        self.last_cmd = Some(Step);
-        self.sys.debug_print();
-        loop {
-            match self.get_command()? {
-                (Help, _) => self.help(),
-                (Memory, addr) => self.memory(addr),
-                (Step, addr) => self.step(addr),
-                (Quit, _) => break,
-            }
-        }
-        Ok(())
-    }
-
-    /// Steps the system by one instruction.
-    #[inline]
-    pub fn step(&mut self, addr: Option<u16>) {
+    pub fn run(&mut self, addr: Option<u16>) {
         self.sys.cpu.halt = false;
         if let Some(addr) = addr {
             self.sys.cpu.pc = addr;
@@ -128,12 +143,22 @@ impl Monitor {
                 println!("halted");
                 break;
             }
-            if self.sys.cpu.phase == Phase::Fetch && self.sys.cpu.target == Target::Opcode {
+            if self.step
+                && self.sys.cpu.phase == Phase::Fetch
+                && self.sys.cpu.target == Target::Opcode
+            {
                 break;
             }
         }
         self.last_addr = Some(self.sys.cpu.pc);
         self.sys.debug_print();
+    }
+
+    /// Steps the system by one instruction.
+    #[inline]
+    pub fn step(&mut self, addr: Option<u16>) {
+        self.step = true;
+        self.run(addr);
     }
 }
 
