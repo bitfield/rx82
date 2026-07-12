@@ -7,8 +7,7 @@ use crate::{
     system::System,
 };
 
-#[expect(clippy::non_ascii_literal, reason = "copyright symbol")]
-const BANNER: &str = "RMON v1.0 © 1977 Solid State Technologies, Inc.\n";
+const BANNER: &str = "RMON v1.0 (C) 1977 Solid State Technologies, Inc.";
 
 const USAGE: &str = "Commands:
 G [<address>] = Go (run till halted)

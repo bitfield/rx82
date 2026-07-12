@@ -69,10 +69,9 @@ rx82 mon my_prog.bin
 The monitor displays the current CPU registers and the next instruction in memory, then prompts for a command. Type `H` for help:
 
 ```txt
-RMON v1.0 © 1977 Solid State Technologies, Inc.
-
-  PC  A  B  C  D  E  F  G  H  Z | NEXT
-0000 00 00 00 00 00 00 00 00  0 | ld a, 0x06
+RMON v1.0 (C) 1977 Solid State Technologies, Inc.
+  PC  A  B  C  D  E  F  G  H  ZC | NEXT
+0000 00 00 00 00 00 00 00 00  00 | ld a, 0x00
 > h
 Commands:
 H             = Help
@@ -90,12 +89,7 @@ To dump memory, use the `M` command. This will print a block of memory starting 
 > m
 0000: 10 06 19 FF FF 49 B2 FD 40 B2 F7 00 00 00 00 00
 0010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0070: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+...
 ```
 
 Press Enter to dump the next block:
@@ -104,12 +98,7 @@ Press Enter to dump the next block:
 >
 0080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 0090: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00A0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00B0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00C0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00D0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00E0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-00F0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+...
 ```
 
 To dump memory from a specific address, enter the address in hex:
@@ -118,12 +107,7 @@ To dump memory from a specific address, enter the address in hex:
 > m fff0
 FFF0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 0000: 10 06 19 FF FF 49 B2 FD 40 B2 F7 00 00 00 00 00
-0010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+...
 ```
 
 ## Disassembling R8 binary files

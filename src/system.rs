@@ -179,9 +179,9 @@ impl System {
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn debug_print(&self) {
-        println!("  PC  A  B  C  D  E  F  G  H  Z | NEXT");
+        println!("  PC  A  B  C  D  E  F  G  H  ZC | NEXT");
         println!(
-            "{:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X}  {:1b} | {}",
+            "{:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X}  {:1b}{:1b} | {}",
             self.cpu.pc,
             self.cpu.regs.get(A) as u8,
             self.cpu.regs.get(B) as u8,
@@ -192,6 +192,7 @@ impl System {
             self.cpu.regs.get(G) as u8,
             self.cpu.regs.get(H) as u8,
             u8::from(self.cpu.flags.zero),
+            u8::from(self.cpu.flags.carry),
             disassemble(
                 self.mem
                     .0

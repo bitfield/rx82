@@ -74,26 +74,6 @@ impl FromStr for Reg {
     }
 }
 
-impl From<Reg> for u8 {
-    #[inline]
-    fn from(reg: Reg) -> Self {
-        match reg {
-            Reg::A => 0x00,
-            Reg::B => 0x01,
-            Reg::C => 0x02,
-            Reg::D => 0x03,
-            Reg::E => 0x04,
-            Reg::F => 0x05,
-            Reg::G => 0x06,
-            Reg::H => 0x07,
-            Reg::AB => 0x08,
-            Reg::CD => 0x09,
-            Reg::EF => 0x0A,
-            Reg::GH => 0x0B,
-        }
-    }
-}
-
 impl TryFrom<u8> for Reg {
     type Error = anyhow::Error;
 
@@ -113,6 +93,26 @@ impl TryFrom<u8> for Reg {
             0x0A => Ok(Reg::EF),
             0x0B => Ok(Reg::GH),
             _ => Err(anyhow!("invalid register id {id:#04X}")),
+        }
+    }
+}
+
+impl From<Reg> for u8 {
+    #[inline]
+    fn from(reg: Reg) -> Self {
+        match reg {
+            Reg::A => 0x00,
+            Reg::B => 0x01,
+            Reg::C => 0x02,
+            Reg::D => 0x03,
+            Reg::E => 0x04,
+            Reg::F => 0x05,
+            Reg::G => 0x06,
+            Reg::H => 0x07,
+            Reg::AB => 0x08,
+            Reg::CD => 0x09,
+            Reg::EF => 0x0A,
+            Reg::GH => 0x0B,
         }
     }
 }
@@ -156,6 +156,8 @@ impl Regs {
     }
 
     /// Returns the value in register `reg`.
+    ///
+    /// For 8-bit registers, the high byte will always be 0.
     #[inline]
     #[must_use]
     pub fn get(&self, reg: Reg) -> u16 {
@@ -184,6 +186,8 @@ impl Regs {
     }
 
     /// Sets register `reg` to the value `val`.
+    ///
+    /// For 8-bit registers, the high byte is ignored.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn set(&mut self, reg: Reg, val: u16) -> u16 {
@@ -207,16 +211,31 @@ impl Regs {
 }
 
 /// Returns the source and target registers specified by `regs`.
+///
+/// The source register ID is encoded in the high nibble, the target register in the low
+/// nibble. For example, in the instruction `ld a, (cd)` (load register indirect), the
+/// source register is `cd` and the target register is `a`. The instruction is followed
+/// by an operand byte encoding these registers as 0x91 (9 = 0b1001 = `cd`, 1 = 0b0001 =
+/// `a`).
 #[inline]
 #[must_use]
 pub fn source_and_target_from(regs: u8) -> Option<(Reg, Reg)> {
-    if let Ok(source_reg) = Reg::try_from((regs & 0x0F0) >> 4_u8)
-        && let Ok(target_reg) = Reg::try_from(regs & 0x0F)
+    if let Ok(source) = Reg::try_from((regs & 0x0F0) >> 4_u8)
+        && let Ok(target) = Reg::try_from(regs & 0x0F)
     {
-        Some((source_reg, target_reg))
+        Some((source, target))
     } else {
         None
     }
+}
+
+/// Returns the operand byte encoding `source` and `target` registers.
+///
+/// See [`source_and_target_from`] for details of the encoding.
+#[inline]
+#[must_use]
+pub fn u8_from(source: Reg, target: Reg) -> u8 {
+    (u8::from(source) << 4_u8) | u8::from(target)
 }
 
 #[cfg(test)]

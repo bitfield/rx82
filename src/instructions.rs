@@ -39,17 +39,17 @@ impl TryFrom<u8> for InstructionKind {
     #[inline]
     fn try_from(opcode: u8) -> Result<Self, Self::Error> {
         use InstructionKind::*;
-        let reg_id = opcode & 0x0F;
+        let reg = Reg::try_from(opcode & 0x0F);
         match opcode {
             0x00 => Ok(Halt),
             0x01 => Ok(Nop),
-            0x10..=0x1B => Ok(LdRegImm(Reg::try_from(reg_id)?)),
-            0x20..=0x27 => Ok(StoreRegDirect(Reg::try_from(reg_id)?)),
+            0x10..=0x1B => Ok(LdRegImm(reg?)),
+            0x20..=0x27 => Ok(StoreRegDirect(reg?)),
             0x2D => Ok(LdRegIndirect),
-            0x30..=0x3B => Ok(Inc(Reg::try_from(reg_id)?)),
+            0x30..=0x3B => Ok(Inc(reg?)),
             0x3D => Ok(StoreRegIndirect),
-            0x40..=0x4B => Ok(Dec(Reg::try_from(reg_id)?)),
-            0x70..=0x7B => Ok(Cmp(Reg::try_from(reg_id)?)),
+            0x40..=0x4B => Ok(Dec(reg?)),
+            0x70..=0x7B => Ok(Cmp(reg?)),
             0xB0 => Ok(BranchAlways),
             0xB1 => Ok(BranchEq),
             0xB2 => Ok(BranchNe),
@@ -190,12 +190,14 @@ mod tests {
         sys.cpu.flags.zero = true;
         sys.run_program(&asm("
             bne 0x01
+            halt
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.pc, 0x0003, "branch taken");
         sys.run_program(&asm("
             inc a
             bne 0x01
+            halt
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.pc, 0x0005, "branch not taken");
@@ -403,7 +405,6 @@ mod tests {
         assert_eq!(val, 0xFF, "wrong mem value");
     }
 
-    #[expect(clippy::bool_assert_comparison, reason = "clarity")]
     #[test]
     fn zero_flag() {
         let mut sys = System::default();

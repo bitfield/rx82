@@ -21,10 +21,12 @@ impl Device for Memory {
     fn tick(&mut self, bus: &mut Bus) {
         match (bus.mem, bus.write) {
             (true, false) => {
+                // Memory read request
                 let data = self.get(bus.addr);
                 bus.pending_write.get_or_insert(vec![State::Data(data)]);
             }
             (true, true) => {
+                // Memory write request
                 self.set(bus.addr, bus.data);
             }
             _ => {}
@@ -35,7 +37,7 @@ impl Device for Memory {
 impl Memory {
     /// Returns the byte at address `addr`.
     ///
-    /// Returns zero if the address is out of range.
+    /// Returns zero if the address is outside the configured memory range.
     #[inline]
     #[must_use]
     pub fn get(&self, addr: u16) -> u8 {

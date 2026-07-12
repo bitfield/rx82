@@ -8,6 +8,7 @@ use rx82::{
     monitor::Monitor,
 };
 
+/// An emulator for the RX82 fantasy retro computer system.
 #[derive(Debug, Parser)]
 struct Cli {
     #[clap(subcommand)]

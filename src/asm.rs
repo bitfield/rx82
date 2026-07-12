@@ -10,8 +10,10 @@ use std::collections::HashMap;
 
 use crate::{
     instructions::InstructionKind::{self, *},
-    regs::Reg,
+    regs::{self, Reg, source_and_target_from},
 };
+
+use Token::*;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
@@ -44,22 +46,22 @@ impl<'src> From<&'src str> for Assembler<'src> {
 }
 
 impl Assembler<'_> {
-    #[expect(
-        clippy::wildcard_enum_match_arm,
-        reason = "any unexpected token is illegal here"
-    )]
     /// Assembles the source code.
     ///
     /// # Errors
     ///
     /// * Syntax errors
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "unexpected tokens are illegal"
+    )]
     #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         while let Some(token) = self.next_token() {
             match token {
-                Token::Comment(_) => {}
-                Token::Keyword(kw) => self.assemble_kw(&kw)?,
-                Token::LabelDef(label) => {
+                Comment(_) => {}
+                Keyword(kw) => self.assemble_kw(&kw)?,
+                LabelDef(label) => {
                     self.labels.insert(label, self.offset());
                 }
                 unexpected => bail!("unexpected token {unexpected:?}"),
@@ -83,21 +85,7 @@ impl Assembler<'_> {
             "dec" => self.gen_dec(),
             "halt" => self.gen_implied(Halt),
             "inc" => self.gen_inc(),
-            "ld" => match self.next_token() {
-                Some(Token::ParenOpen) => self.gen_store_indirect(),
-                Some(Token::Register(reg)) => {
-                    self.expect_comma()?;
-                    self.skip_whitespace();
-                    if let Some(&'(') = self.chars.peek() {
-                        self.gen_ld_reg_indirect(reg)
-                    } else {
-                        self.gen_ld_imm(reg)
-                    }
-                }
-                Some(Token::WordLiteral(addr)) => self.gen_store_direct(addr),
-                Some(other) => bail!("expected register name, got {other:?}"),
-                None => bail!("unexpected end of file"),
-            },
+            "ld" => self.gen_ld(),
             "nop" => self.gen_implied(Nop),
             _ => bail!("unknown keyword '{kw}'"),
         }
@@ -120,24 +108,11 @@ impl Assembler<'_> {
     #[inline]
     pub fn expect(&mut self, expected: &Token) -> Result<()> {
         let Some(token) = self.next_token() else {
-            bail!("expected {expected}")
+            bail!("unexpected end of input")
         };
         if token != *expected {
             bail!("expected {expected}, got {token}")
         }
-        Ok(())
-    }
-
-    /// Consumes a comma token.
-    ///
-    /// # Errors
-    ///
-    /// If the next token is not a comma.
-    #[inline]
-    pub fn expect_comma(&mut self) -> Result<()> {
-        let Some(Token::Comma) = self.next_token() else {
-            bail!("expected comma")
-        };
         Ok(())
     }
 
@@ -154,7 +129,7 @@ impl Assembler<'_> {
     #[inline]
     pub fn expect_displacement(&mut self) -> Result<u8> {
         match self.next_token() {
-            Some(Token::Identifier(label)) => {
+            Some(Identifier(label)) => {
                 let Some(&addr) = self.labels.get(&label) else {
                     bail!("undefined label {label}")
                 };
@@ -167,8 +142,8 @@ impl Assembler<'_> {
                     _ => bail!("displacement out of range: {long_dis:#06X}"),
                 }
             }
-            Some(Token::ByteLiteral(dis)) => Ok(dis),
-            _ => bail!("expected displacement"),
+            Some(ByteLiteral(dis)) => Ok(dis),
+            other => bail!("expected label or immediate displacement, got {other:?}"),
         }
     }
 
@@ -180,13 +155,17 @@ impl Assembler<'_> {
     #[inline]
     pub fn expect_op_for_reg(&mut self, reg: Reg) -> Result<Vec<u8>> {
         Ok(if reg.is16() {
-            let Some(Token::WordLiteral(operand)) = self.next_token() else {
-                bail!("expected immediate word")
+            let operand = match self.next_token() {
+                Some(WordLiteral(operand)) => operand,
+                Some(other) => bail!("expected immediate word, got {other:?}"),
+                None => bail!("unexpected end of input"),
             };
             Vec::from(operand.to_le_bytes())
         } else {
-            let Some(Token::ByteLiteral(operand)) = self.next_token() else {
-                bail!("expected immediate byte")
+            let operand = match self.next_token() {
+                Some(ByteLiteral(operand)) => operand,
+                Some(other) => bail!("expected immediate byte, got {other:?}"),
+                None => bail!("unexpected end of input"),
             };
             vec![operand]
         })
@@ -199,8 +178,42 @@ impl Assembler<'_> {
     /// If the next token is not a register name.
     #[inline]
     pub fn expect_reg(&mut self) -> Result<Reg> {
-        let Some(Token::Register(reg)) = self.next_token() else {
-            bail!("expected register name")
+        let reg = match self.next_token() {
+            Some(Register(reg)) => reg,
+            Some(other) => bail!("expected register name, got {other:?}"),
+            None => bail!("unexpected end of input"),
+        };
+        Ok(reg)
+    }
+
+    /// Returns the 16-bit register named by the next token.
+    ///
+    /// # Errors
+    ///
+    /// If the next token is not a 16-bit register name.
+    #[inline]
+    pub fn expect_reg16(&mut self) -> Result<Reg> {
+        let reg = match self.next_token() {
+            Some(Register(reg)) if reg.is16() => reg,
+            Some(Register(reg)) => bail!("expected 16-bit register name, got '{reg:?}'"),
+            Some(other) => bail!("expected register name, got {other:?}"),
+            None => bail!("unexpected end of input"),
+        };
+        Ok(reg)
+    }
+
+    /// Returns the 8-bit register named by the next token.
+    ///
+    /// # Errors
+    ///
+    /// If the next token is not a 8-bit register name.
+    #[inline]
+    pub fn expect_reg8(&mut self) -> Result<Reg> {
+        let reg = match self.next_token() {
+            Some(Register(reg)) if !reg.is16() => reg,
+            Some(Register(reg)) => bail!("expected 8-bit register name, got '{reg:?}'"),
+            Some(other) => bail!("expected register name, got {other:?}"),
+            None => bail!("unexpected end of input"),
         };
         Ok(reg)
     }
@@ -227,7 +240,7 @@ impl Assembler<'_> {
     #[inline]
     pub fn gen_cmp(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
-        self.expect_comma()?;
+        self.expect(&Comma)?;
         self.code.push(u8::from(Cmp(reg)));
         let op = self.expect_op_for_reg(reg)?;
         self.code.extend(op);
@@ -250,11 +263,17 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * None
+    /// * If the instruction is not an implied-address instruction.
+    #[expect(clippy::wildcard_enum_match_arm, reason = "others are invalid")]
     #[inline]
     pub fn gen_implied(&mut self, kind: InstructionKind) -> Result<()> {
-        self.code.push(u8::from(kind));
-        Ok(())
+        match kind {
+            Halt | Nop => {
+                self.code.push(u8::from(kind));
+                Ok(())
+            }
+            _ => bail!("invalid instruction kind {kind:?}"),
+        }
     }
 
     /// Generates an increment instruction.
@@ -267,6 +286,30 @@ impl Assembler<'_> {
         let reg = self.expect_reg()?;
         self.code.push(u8::from(Inc(reg)));
         Ok(())
+    }
+
+    /// Generates a load (or store) instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Syntax errors
+    #[inline]
+    pub fn gen_ld(&mut self) -> Result<()> {
+        match self.next_token() {
+            Some(ParenOpen) => self.gen_store_indirect(),
+            Some(Register(reg)) => {
+                self.expect(&Comma)?;
+                self.skip_whitespace();
+                if let Some(&'(') = self.chars.peek() {
+                    self.gen_ld_reg_indirect(reg)
+                } else {
+                    self.gen_ld_imm(reg)
+                }
+            }
+            Some(WordLiteral(addr)) => self.gen_store_direct(addr),
+            Some(other) => bail!("expected register name, got {other:?}"),
+            None => bail!("unexpected end of input"),
+        }
     }
 
     /// Generates a load register immediate instruction.
@@ -289,19 +332,15 @@ impl Assembler<'_> {
     /// * Invalid source or target registers
     /// * Syntax errors
     #[inline]
-    pub fn gen_ld_reg_indirect(&mut self, target_reg: Reg) -> Result<()> {
-        if target_reg.is16() {
-            bail!("expected 8-bit register, got '{target_reg}'")
+    pub fn gen_ld_reg_indirect(&mut self, target: Reg) -> Result<()> {
+        if target.is16() {
+            bail!("expected 8-bit register, got '{target}'")
         }
         self.code.push(u8::from(LdRegIndirect));
-        self.expect(&Token::ParenOpen)?;
-        let source_reg = self.expect_reg()?;
-        if !source_reg.is16() {
-            bail!("expected 16-bit register, got '{source_reg}'")
-        }
-        self.expect(&Token::ParenClose)?;
-        let regs = (u8::from(source_reg) << 4_u8) | u8::from(target_reg);
-        self.code.push(regs);
+        self.expect(&ParenOpen)?;
+        let source = self.expect_reg16()?;
+        self.expect(&ParenClose)?;
+        self.code.push(regs::u8_from(source, target));
         Ok(())
     }
 
@@ -313,11 +352,8 @@ impl Assembler<'_> {
     /// * Invalid register name
     #[inline]
     pub fn gen_store_direct(&mut self, addr: u16) -> Result<()> {
-        self.expect_comma()?;
-        let reg = self.expect_reg()?;
-        if reg.is16() {
-            bail!("expected 8-bit register, got '{reg}'")
-        }
+        self.expect(&Comma)?;
+        let reg = self.expect_reg8()?;
         self.code.push(u8::from(StoreRegDirect(reg)));
         self.code.extend(addr.to_le_bytes());
         Ok(())
@@ -331,19 +367,12 @@ impl Assembler<'_> {
     /// * Invalid register name
     #[inline]
     pub fn gen_store_indirect(&mut self) -> Result<()> {
-        let target_reg = self.expect_reg()?;
-        if !target_reg.is16() {
-            bail!("expected 16-bit register, got '{target_reg}'")
-        }
-        self.expect(&Token::ParenClose)?;
-        self.expect_comma()?;
-        let source_reg = self.expect_reg()?;
-        if source_reg.is16() {
-            bail!("expected 8-bit register, got '{source_reg}'")
-        }
+        let target = self.expect_reg16()?;
+        self.expect(&ParenClose)?;
+        self.expect(&Comma)?;
+        let source = self.expect_reg8()?;
         self.code.push(u8::from(StoreRegIndirect));
-        let regs = (u8::from(source_reg) << 4_u8) | u8::from(target_reg);
-        self.code.push(regs);
+        self.code.push(regs::u8_from(source, target));
         Ok(())
     }
 
@@ -355,12 +384,12 @@ impl Assembler<'_> {
             let next = *next_char;
             let token = match next {
                 '0' => self.read_hex_literal(),
-                ',' => self.read_token(Token::Comma),
+                ',' => self.read_token(Comma),
                 ';' => self.read_comment(),
-                '(' => self.read_token(Token::ParenOpen),
-                ')' => self.read_token(Token::ParenClose),
+                '(' => self.read_token(ParenOpen),
+                ')' => self.read_token(ParenClose),
                 ch if ch.is_alphabetic() => self.read_identifier(),
-                ch => self.read_illegal(ch),
+                ch => self.read_token(Illegal(ch.to_string())),
             };
             if self.debug {
                 println!("token: {token}");
@@ -387,7 +416,7 @@ impl Assembler<'_> {
         let comment: String =
             iter::from_fn(|| self.chars.next_if(|&ch| ch != '\r' && ch != '\n')).collect();
         self.chars.next_if(|&ch| ch == '\n'); // extra trailing newline on Windows
-        Token::Comment(comment)
+        Comment(comment)
     }
 
     /// Reads a hex literal token.
@@ -398,14 +427,14 @@ impl Assembler<'_> {
             iter::from_fn(|| self.chars.next_if(char::is_ascii_hexdigit)).collect();
         match literal.len() {
             4 => match u16::from_str_radix(&literal, 16) {
-                Ok(val) => Token::WordLiteral(val),
-                Err(_) => Token::Illegal(literal),
+                Ok(val) => WordLiteral(val),
+                Err(_) => Illegal(literal),
             },
             2 => match u8::from_str_radix(&literal, 16) {
-                Ok(val) => Token::ByteLiteral(val),
-                Err(_) => Token::Illegal(literal),
+                Ok(val) => ByteLiteral(val),
+                Err(_) => Illegal(literal),
             },
-            _ => Token::Illegal(literal),
+            _ => Illegal(literal),
         }
     }
 
@@ -417,21 +446,14 @@ impl Assembler<'_> {
             println!("ident: {ident}");
         }
         match ident.as_str() {
-            _ if let Ok(reg) = Reg::from_str(&ident) => Token::Register(reg),
-            kw if KEYWORDS.contains(&kw) => Token::Keyword(ident),
+            _ if let Ok(reg) = Reg::from_str(&ident) => Register(reg),
+            kw if KEYWORDS.contains(&kw) => Keyword(ident),
             label if let Some(&':') = self.chars.peek() => {
                 self.chars.next();
-                Token::LabelDef(label.to_owned())
+                LabelDef(label.to_owned())
             }
-            _ => Token::Identifier(ident),
+            _ => Identifier(ident),
         }
-    }
-
-    /// Reads an illegal token.
-    #[inline]
-    pub fn read_illegal(&mut self, ch: char) -> Token {
-        self.chars.next();
-        Token::Illegal(ch.to_string())
     }
 
     /// Reads a given token.
@@ -504,11 +526,10 @@ impl<'code> Disassembler<'code> {
     /// instruction for display.
     #[inline]
     fn format_ld_reg_indirect(&mut self) -> String {
-        if let Some(regs) = self.code.next()
-            && let Ok(source_reg) = Reg::try_from((regs & 0x0F0) >> 4)
-            && let Ok(target_reg) = Reg::try_from(regs & 0x0F)
+        if let Some(&regs) = self.code.next()
+            && let Some((source, target)) = source_and_target_from(regs)
         {
-            format!("ld {target_reg}, ({source_reg})")
+            format!("ld {target}, ({source})")
         } else {
             "??? (no operand)".to_owned()
         }
@@ -528,11 +549,10 @@ impl<'code> Disassembler<'code> {
     /// instruction for display.
     #[inline]
     fn format_store_reg_indirect(&mut self) -> String {
-        if let Some(regs) = self.code.next()
-            && let Ok(source_reg) = Reg::try_from((regs & 0x0F0) >> 4)
-            && let Ok(target_reg) = Reg::try_from(regs & 0x0F)
+        if let Some(&regs) = self.code.next()
+            && let Some((source, target)) = source_and_target_from(regs)
         {
-            format!("ld ({target_reg}), {source_reg}")
+            format!("ld ({target}), {source}")
         } else {
             "??? (no operand)".to_owned()
         }
@@ -571,8 +591,8 @@ impl Display for Token {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match *self {
-            Token::ByteLiteral(byte) => write!(f, "ByteLiteral({byte:#04X})"),
-            Token::WordLiteral(word) => write!(f, "WordLiteral({word:#06X})"),
+            ByteLiteral(byte) => write!(f, "ByteLiteral({byte:#04X})"),
+            WordLiteral(word) => write!(f, "WordLiteral({word:#06X})"),
             _ => Debug::fmt(self, f),
         }
     }

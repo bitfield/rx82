@@ -1,10 +1,7 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
-    instructions::{
-        InstructionKind::{self, Nop},
-        Operands,
-    },
+    instructions::{InstructionKind, Operands},
     regs::{Reg, Regs, source_and_target_from},
     system::{Bus, Device, State},
 };
@@ -56,23 +53,16 @@ impl Cpu {
     }
 
     /// Performs the 'decode' phase.
-    ///
-    /// If the decoded value is an instruction that has no operands, the next phase will be 'execute'.
-    /// If the instruction needs operands, the next phase will be 'fetch'.
-    ///
-    /// If the decoded value is an operand, and no more operands are needed, the next
-    /// phase will be 'execute'. If more operands are needed, the next phase will be
-    /// 'fetch'.
     #[inline]
     pub fn decode(&mut self, bus: &mut Bus) -> Phase {
         match self.target {
-            // We've fetched an instruction; what kind is it?
             Target::Opcode => {
+                // We've fetched an instruction; does it need operands?
                 let opcode = bus.data;
-                self.ins = InstructionKind::try_from(opcode).unwrap_or(Nop);
+                self.ins = InstructionKind::try_from(opcode).unwrap_or(InstructionKind::Nop);
                 match self.ins.operands() {
                     Operands::Zero => {
-                        // No operands needed, so execute it
+                        // No operands needed, go straight to 'execute'
                         bus.pending_write.get_or_insert(vec![State::Mem(false)]);
                         Phase::Execute
                     }
@@ -83,8 +73,8 @@ impl Cpu {
                     }
                 }
             }
-            // We've fetched an operand; check if we still need another.
             Target::Operand => {
+                // We've fetched an operand; does the current instruction need one more?
                 self.op_hi = 0;
                 self.op_lo = bus.data;
                 match self.ins.operands() {
@@ -94,7 +84,7 @@ impl Cpu {
                         Phase::Fetch
                     }
                     Operands::One => {
-                        // No, execute this instruction
+                        // No, go to 'execute'
                         bus.pending_write.get_or_insert(vec![State::Mem(false)]);
                         Phase::Execute
                     }
@@ -104,12 +94,15 @@ impl Cpu {
                 }
             }
             Target::Operand2 => {
+                // We've fetched the 2nd operand of this instruction; go to 'execute'
                 self.op_hi = bus.data;
                 bus.pending_write.get_or_insert(vec![State::Mem(false)]);
                 Phase::Execute
             }
             Target::Read(_, reg) => {
+                // We've fetched a value from memory; load it to the target register
                 self.regs.set(reg, u16::from(bus.data));
+                // Fetch the next instruction
                 self.target = Target::Opcode;
                 Phase::Fetch
             }
@@ -118,9 +111,6 @@ impl Cpu {
     }
 
     /// Performs the 'execute' phase.
-    ///
-    /// If the instruction is a memory write, the next phase will be 'wait'. Otherwise
-    /// the next phase will be 'fetch'.
     #[inline]
     pub fn execute(&mut self, bus: &mut Bus) -> Phase {
         // Execute this instruction
@@ -128,7 +118,7 @@ impl Cpu {
         ins.execute(self);
         match self.target {
             Target::Write(addr, val) => {
-                // Write the result
+                // It was a store instruction; store the result
                 bus.pending_write.get_or_insert(vec![
                     State::Addr(addr),
                     State::Data(val),
@@ -175,6 +165,8 @@ impl Cpu {
 
     /// Loads the specified source register from the memory address in the specified
     /// target register.
+    ///
+    /// Invalid source or target registers make this a no-op.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn ld_indirect(&mut self) {
@@ -207,6 +199,8 @@ impl Cpu {
 
     /// Stores the contents of the specified source register to the memory address in
     /// the specified target register.
+    ///
+    /// Invalid source or target registers make this a no-op.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn store_indirect(&mut self) {
@@ -216,17 +210,17 @@ impl Cpu {
     }
 
     /// Performs the 'wait for memory' phase.
-    ///
-    /// If the current target is an opcode or operand, the next phase will be 'decode'.
-    /// If the target is a memory write, the next phase will be 'fetch'.
     #[inline]
     pub fn wait(&mut self) -> Phase {
         match self.target {
             Target::Write(_, _) => {
+                // We were waiting for a memory write to complete; now fetch the next
+                // instruction
                 self.target = Target::Opcode;
                 Phase::Fetch
             }
             Target::Opcode | Target::Operand | Target::Operand2 | Target::Read(_, _) => {
+                // We were waiting for an opcode, operand, or memory read; now decode it
                 Phase::Decode
             }
         }
@@ -292,185 +286,216 @@ pub enum Target {
     Operand,
     /// A second 1-byte operand (or high byte of a 2-byte operand).
     Operand2,
-    /// Waiting for a memory read to a register.
+    /// Memory read.
     Read(u16, Reg),
-    /// Waiting for a memory write to complete.
+    /// Memory write.
     Write(u16, u8),
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
-    use crate::{instructions::InstructionKind::*, regs::Reg::*, system::System};
+    use crate::{asm::asm, cpu::Phase::*, cpu::Target::*, regs::Reg::*, system::System};
 
     use super::*;
 
     #[test]
     fn cpu_states_are_correct_for_1_byte_instruction() {
-        use InstructionKind::*;
-        let mut cpu = Cpu::default();
-        let mut bus = Bus::default();
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Opcode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = u8::from(Nop);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Execute);
-        assert_eq!(cpu.pc, 0x0001);
+        let mut sys = System::default();
+        sys.mem
+            .load(
+                0x0000,
+                &asm("
+                    nop
+                    halt"),
+            )
+            .unwrap();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Opcode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Execute);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Opcode);
+        assert_eq!(sys.cpu.pc, 0x0001);
     }
 
     #[test]
     fn cpu_states_are_correct_for_2_byte_instruction() {
-        let mut cpu = Cpu::default();
-        let mut bus = Bus::default();
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Opcode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = u8::from(LdRegImm(A)); // ld a, N
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Operand);
-        assert_eq!(cpu.pc, 0x0001);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = 0xFF;
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Execute);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.regs.get(A), 0x00FF);
-        assert_eq!(cpu.pc, 0x0002);
+        let mut sys = System::default();
+        sys.mem
+            .load(
+                0x0000,
+                &asm("
+                    ld a, 0xFF
+                    halt"),
+            )
+            .unwrap();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Opcode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Operand);
+        assert_eq!(sys.cpu.pc, 0x0001);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Execute);
+        sys.tick();
+        assert_eq!(sys.cpu.regs.get(A), 0x00FF);
+        assert_eq!(sys.cpu.pc, 0x0002);
     }
 
     #[test]
     fn cpu_states_are_correct_for_3_byte_instruction() {
-        let mut cpu = Cpu::default();
-        let mut bus = Bus::default();
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Opcode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = u8::from(LdRegImm(AB)); // ld ab, NN
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Operand);
-        assert_eq!(cpu.pc, 0x0001);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = 0xEF;
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Operand2);
-        assert_eq!(cpu.pc, 0x0002);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = 0xBE;
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Execute);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.regs.get(AB), 0xBEEF);
-        assert_eq!(cpu.pc, 0x0003);
+        let mut sys = System::default();
+        sys.mem
+            .load(
+                0x0000,
+                &asm("
+                    ld ab, 0xBEEF
+                    halt"),
+            )
+            .unwrap();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Opcode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Operand);
+        assert_eq!(sys.cpu.pc, 0x0001);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Operand2);
+        assert_eq!(sys.cpu.pc, 0x0002);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Execute);
+        sys.tick();
+        assert_eq!(sys.cpu.regs.get(AB), 0xBEEF);
+        assert_eq!(sys.cpu.pc, 0x0003);
     }
 
-    #[expect(clippy::unwrap_used, reason = "test")]
     #[test]
     fn cpu_states_are_correct_for_mem_read_instruction() {
         let mut sys = System::default();
         sys.mem.set(0x0100, 0xFF);
         sys.cpu.regs.set(Reg::CD, 0x0100);
         sys.mem
-            .load(0x0000, &[u8::from(LdRegIndirect), 0x91])
-            .unwrap(); // ld b, (cd)
-        assert_eq!(sys.cpu.phase, Phase::Fetch);
-        assert_eq!(sys.cpu.target, Target::Opcode);
+            .load(
+                0x0000,
+                &asm("
+                    ld b, (cd)
+                    halt"),
+            )
+            .unwrap();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Opcode);
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Wait);
+        assert_eq!(sys.cpu.phase, Wait);
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Decode);
+        assert_eq!(sys.cpu.phase, Decode);
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Fetch);
-        assert_eq!(sys.cpu.target, Target::Operand);
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Operand);
         assert_eq!(sys.cpu.pc, 0x0001);
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Wait);
-        assert_eq!(sys.cpu.target, Target::Operand);
+        assert_eq!(sys.cpu.phase, Wait);
+        assert_eq!(sys.cpu.target, Operand);
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Decode);
+        assert_eq!(sys.cpu.phase, Decode);
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Execute);
+        assert_eq!(sys.cpu.phase, Execute);
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Fetch);
-        assert_eq!(sys.cpu.target, Target::Read(0x0100, Reg::B));
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Read(0x0100, Reg::B));
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Wait);
-        assert_eq!(sys.cpu.target, Target::Read(0x0100, Reg::B));
+        assert_eq!(sys.cpu.phase, Wait);
+        assert_eq!(sys.cpu.target, Read(0x0100, Reg::B));
         sys.tick();
-        assert_eq!(sys.cpu.phase, Phase::Decode);
+        assert_eq!(sys.cpu.phase, Decode);
         sys.tick();
         assert_eq!(sys.cpu.regs.get(B), 0x00FF);
         assert_eq!(sys.cpu.pc, 0x0002);
-        assert_eq!(sys.cpu.phase, Phase::Fetch);
-        assert_eq!(sys.cpu.target, Target::Opcode);
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Opcode);
     }
 
     #[test]
     fn cpu_states_are_correct_for_mem_write_instruction() {
-        let mut cpu = Cpu::default();
-        let mut bus = Bus::default();
-        cpu.regs.set(A, 0x00FF);
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Opcode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = u8::from(StoreRegDirect(A)); // ld NN, a
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Operand);
-        assert_eq!(cpu.pc, 0x0001);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = 0xEF;
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Fetch);
-        assert_eq!(cpu.target, Target::Operand2);
-        assert_eq!(cpu.pc, 0x0002);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        bus.data = 0xBE;
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Decode);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Execute);
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.phase, Phase::Wait);
-        assert_eq!(cpu.target, Target::Write(0xBEEF, 0xFF));
-        cpu.tick(&mut bus);
-        assert_eq!(cpu.pc, 0x0003);
+        let mut sys = System::default();
+        sys.mem
+            .load(
+                0x0000,
+                &asm("
+                    ld 0xBEEF, a
+                    halt"),
+            )
+            .unwrap();
+        sys.cpu.regs.set(A, 0xFF);
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Opcode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Operand);
+        assert_eq!(sys.cpu.pc, 0x0001);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Fetch);
+        assert_eq!(sys.cpu.target, Operand2);
+        assert_eq!(sys.cpu.pc, 0x0002);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Execute);
+        sys.tick();
+        assert_eq!(sys.cpu.phase, Wait);
+        assert_eq!(sys.cpu.target, Write(0xBEEF, 0xFF));
+        sys.tick();
+        assert_eq!(sys.cpu.pc, 0x0003);
     }
 
+    #[expect(clippy::bool_assert_comparison, reason = "clarity")]
     #[test]
     fn reset_resets_cpu() {
         let mut cpu = Cpu::default();
         cpu.regs.set(AB, 0xBEEF);
         cpu.pc = 0xC000;
+        cpu.flags.carry = true;
+        cpu.flags.zero = true;
         cpu.reset();
         assert_eq!(cpu.regs.get(AB), 0x0000, "AB not reset");
         assert_eq!(cpu.pc, 0x0000, "PC not reset");
+        assert_eq!(cpu.flags.carry, false, "carry not reset");
+        assert_eq!(cpu.flags.zero, false, "zero not reset");
     }
 }
