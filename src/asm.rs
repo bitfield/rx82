@@ -598,7 +598,7 @@ impl Display for Token {
     }
 }
 
-/// Assembles `source` with debug outupt, panicking on any error.
+/// Assembles `source` with debug output, panicking on any error.
 ///
 /// Useful for writing tests.
 ///

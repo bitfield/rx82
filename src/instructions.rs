@@ -4,7 +4,7 @@ use crate::{cpu::Cpu, regs::Reg};
 
 /// Instruction kinds.
 #[non_exhaustive]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub enum InstructionKind {
     /// Branch always.
     BranchAlways,
@@ -25,7 +25,6 @@ pub enum InstructionKind {
     /// Load a register from an indirect address in another register.
     LdRegIndirect,
     /// No operation.
-    #[default]
     Nop,
     /// Store a register value at an immediate address.
     StoreRegDirect(Reg),

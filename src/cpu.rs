@@ -8,7 +8,7 @@ use crate::{
 
 /// The system CPU.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Cpu {
     /// Flags.
     pub flags: Flags,
@@ -28,6 +28,23 @@ pub struct Cpu {
     pub regs: Regs,
     /// Target of the current memory fetch.
     pub target: Target,
+}
+
+impl Default for Cpu {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            flags: Flags::default(),
+            halt: Default::default(),
+            ins: InstructionKind::Nop,
+            op_hi: Default::default(),
+            op_lo: Default::default(),
+            pc: Default::default(),
+            phase: Phase::default(),
+            regs: Regs::default(),
+            target: Target::default(),
+        }
+    }
 }
 
 impl Device for Cpu {
@@ -163,8 +180,8 @@ impl Cpu {
         }
     }
 
-    /// Loads the specified source register from the memory address in the specified
-    /// target register.
+    /// Loads the specified target register from the memory address in the specified
+    /// source register.
     ///
     /// Invalid source or target registers make this a no-op.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
