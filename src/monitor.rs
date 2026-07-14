@@ -2,10 +2,7 @@ use anyhow::Result;
 
 use std::io::{Write as _, stdin, stdout};
 
-use crate::{
-    cpu::{Phase, Target},
-    system::System,
-};
+use crate::{cpu::State::Execute, system::System};
 
 const BANNER: &str = "RMON v1.0 (C) 1977 Solid State Technologies, Inc.";
 
@@ -142,10 +139,7 @@ impl Monitor {
                 println!("halted");
                 break;
             }
-            if self.step
-                && self.sys.cpu.phase == Phase::Fetch
-                && self.sys.cpu.target == Target::Opcode
-            {
+            if self.step && self.sys.cpu.state == Execute {
                 break;
             }
         }

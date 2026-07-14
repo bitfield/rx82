@@ -1,10 +1,17 @@
 use anyhow::anyhow;
 
-use crate::{cpu::Cpu, regs::Reg};
+use crate::{
+    cpu::{
+        Cpu,
+        State::{self, *},
+    },
+    regs::{Reg, source_and_target_from},
+    system::{Bus, BusState},
+};
 
 /// Instruction kinds.
 #[non_exhaustive]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum InstructionKind {
     /// Branch always.
     BranchAlways,
@@ -80,22 +87,78 @@ impl From<InstructionKind> for u8 {
 
 impl InstructionKind {
     /// Executes the instruction.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
-    pub fn execute(&self, cpu: &mut Cpu) {
+    pub fn execute(&self, cpu: &mut Cpu, bus: &mut Bus) -> State {
         use InstructionKind::*;
         match *self {
-            BranchAlways => cpu.branch(cpu.op_lo),
-            BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
-            BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
-            Cmp(reg) => cpu.regs.cmp(reg, cpu.op(), &mut cpu.flags),
-            Dec(reg) => cpu.regs.decrement(reg, &mut cpu.flags),
-            Halt => cpu.halt = true,
-            Inc(reg) => cpu.regs.increment(reg, &mut cpu.flags),
-            LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
-            LdRegIndirect => cpu.ld_indirect(),
-            Nop | BranchEq | BranchNe => {}
-            StoreRegDirect(reg) => cpu.write_mem(cpu.op(), reg),
-            StoreRegIndirect => cpu.store_indirect(),
+            BranchAlways => {
+                cpu.branch(cpu.op_lo);
+                cpu.fetch(bus)
+            }
+            BranchEq if cpu.flags.zero => {
+                cpu.branch(cpu.op_lo);
+                cpu.fetch(bus)
+            }
+            BranchNe if !cpu.flags.zero => {
+                cpu.branch(cpu.op_lo);
+                cpu.fetch(bus)
+            }
+            Cmp(reg) => {
+                cpu.regs.cmp(reg, cpu.op(), &mut cpu.flags);
+                cpu.fetch(bus)
+            }
+            Dec(reg) => {
+                cpu.regs.decrement(reg, &mut cpu.flags);
+                cpu.fetch(bus)
+            }
+            Halt => {
+                cpu.halt = true;
+                Execute
+            }
+            Inc(reg) => {
+                cpu.regs.increment(reg, &mut cpu.flags);
+                cpu.fetch(bus)
+            }
+            LdRegImm(reg) => {
+                _ = cpu.regs.set(reg, cpu.op());
+                cpu.fetch(bus)
+            }
+            LdRegIndirect => {
+                if let Some((source, target)) = source_and_target_from(cpu.op() as u8) {
+                    bus.pending_write.get_or_insert(vec![
+                        BusState::Addr(cpu.regs.get(source)),
+                        BusState::Mem(true),
+                        BusState::Write(false),
+                    ]);
+                    WaitLoad1of1(target)
+                } else {
+                    cpu.fetch(bus)
+                }
+            }
+            Nop | BranchEq | BranchNe => cpu.fetch(bus),
+            StoreRegDirect(reg) => {
+                bus.pending_write.get_or_insert(vec![
+                    BusState::Addr(cpu.op()),
+                    BusState::Data(cpu.regs.get(reg) as u8),
+                    BusState::Mem(true),
+                    BusState::Write(true),
+                ]);
+                WaitStore1of1
+            }
+            StoreRegIndirect => {
+                if let Some((source, target)) = source_and_target_from(cpu.op() as u8) {
+                    bus.pending_write.get_or_insert(vec![
+                        BusState::Addr(cpu.regs.get(target)),
+                        BusState::Data(cpu.regs.get(source) as u8),
+                        BusState::Mem(true),
+                        BusState::Write(true),
+                    ]);
+                    WaitStore1of1
+                } else {
+                    cpu.fetch(bus)
+                }
+            }
         }
     }
 
@@ -315,6 +378,7 @@ mod tests {
             inc ab
             halt"))
             .unwrap();
+        sys.debug_print();
         assert_eq!(sys.cpu.regs.get(AB), 0x0001, "wrong AB");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
         sys.run_program(&asm("

@@ -5,7 +5,10 @@ use core::fmt::Write as _;
 use crate::{
     asm::disassemble,
     clock::Clock,
-    cpu::{Cpu, Phase},
+    cpu::{
+        Cpu,
+        State::{self, FetchOpcode},
+    },
     memory::Memory,
     regs::Reg::*,
 };
@@ -23,7 +26,7 @@ pub struct Bus {
     /// CPU 'memory request' line.
     pub mem: bool,
     /// A possible pending write to the bus state during the current cycle.
-    pub pending_write: Option<Vec<State>>,
+    pub pending_write: Option<Vec<BusState>>,
     /// CPU 'write request' line.
     pub write: bool,
 }
@@ -35,28 +38,28 @@ impl Bus {
     ///
     /// On the first failed assertion.
     #[inline]
-    pub fn assert(&self, states: &[State], msg: impl AsRef<str>) -> Result<()> {
+    pub fn assert(&self, states: &[BusState], msg: impl AsRef<str>) -> Result<()> {
         let msg = msg.as_ref();
         for state in states {
             match *state {
-                State::Addr(addr) => ensure!(
+                BusState::Addr(addr) => ensure!(
                     self.addr == addr,
                     "want bus addr {:04X}, got {:04X} {msg}",
                     addr,
                     self.addr
                 ),
-                State::Data(data) => ensure!(
+                BusState::Data(data) => ensure!(
                     self.data == data,
                     "want bus data {:02X}, got {:02X} {msg}",
                     data,
                     self.data
                 ),
-                State::Mem(mem) => ensure!(
+                BusState::Mem(mem) => ensure!(
                     self.mem == mem,
                     "/MEM line {} {msg}",
                     if self.mem { "active" } else { "inactive" }
                 ),
-                State::Write(wr) => ensure!(
+                BusState::Write(wr) => ensure!(
                     self.write == wr,
                     "/WR line {} {msg}",
                     if self.write { "active" } else { "inactive" }
@@ -72,10 +75,10 @@ impl Bus {
         if let Some(states) = self.pending_write.take() {
             for state in states {
                 match state {
-                    State::Addr(addr) => self.addr = addr,
-                    State::Data(data) => self.data = data,
-                    State::Mem(mem) => self.mem = mem,
-                    State::Write(wr) => self.write = wr,
+                    BusState::Addr(addr) => self.addr = addr,
+                    BusState::Data(data) => self.data = data,
+                    BusState::Mem(mem) => self.mem = mem,
+                    BusState::Write(wr) => self.write = wr,
                 }
             }
         }
@@ -98,8 +101,8 @@ pub trait Device {
 pub struct Snapshot {
     /// Bus state at end of tick.
     pub bus: Bus,
-    /// CPU phase at start of tick.
-    pub phase: Phase,
+    /// CPU state at start of tick.
+    pub state: State,
     /// Sequence number of just-completed tick.
     pub tick: u16,
 }
@@ -107,7 +110,7 @@ pub struct Snapshot {
 /// A desired or asserted bus state.
 #[non_exhaustive]
 #[derive(Clone, Debug)]
-pub enum State {
+pub enum BusState {
     /// Address bus value.
     Addr(u16),
     /// Data bus value.
@@ -207,6 +210,7 @@ impl System {
     #[inline]
     pub fn run(&mut self) {
         self.cpu.halt = false;
+        self.cpu.state = FetchOpcode;
         while !self.cpu.halt {
             self.tick();
         }
@@ -228,7 +232,7 @@ impl System {
     /// Advances the system by one clock cycle.
     #[inline]
     pub fn tick(&mut self) {
-        let phase = self.cpu.phase; // save before cpu.tick() overwrites it
+        let state = self.cpu.state; // save before cpu.tick() overwrites it
         self.cpu.tick(&mut self.bus);
         self.mem.tick(&mut self.bus);
         for device in &mut self.devices {
@@ -238,7 +242,7 @@ impl System {
         if self.debug {
             self.history.push(Snapshot {
                 tick: self.cycles,
-                phase, // at start of this tick
+                state, // at start of this tick
                 bus: self.bus.clone(),
             });
         }
@@ -268,7 +272,7 @@ impl System {
             for snapshot in chunk {
                 write!(tick, " {:04X}", snapshot.tick).unwrap();
                 write!(header, "─────").unwrap();
-                write!(phase, " {}", snapshot.phase).unwrap();
+                write!(phase, " {}", snapshot.state).unwrap();
                 write!(addr, " {:04X}", snapshot.bus.addr).unwrap();
                 write!(data, " ──{:02X}", snapshot.bus.data).unwrap();
                 write!(
@@ -296,7 +300,7 @@ impl System {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instructions::InstructionKind::*;
+    use crate::{asm::asm, instructions::InstructionKind::*};
 
     #[test]
     fn program_executes_correctly() -> Result<()> {
@@ -306,60 +310,91 @@ mod tests {
         };
         sys.mem.load(
             0x0000,
-            &[
-                u8::from(LdRegImm(A)),
-                0xFF,          // ld a, 0xFF
-                u8::from(Nop), // nop
-            ],
+            &asm("
+                ld a, 0xFF
+                nop
+                halt"),
         )?;
         let ticks = vec![
             (
                 "initial",
-                &[State::Addr(0x0000), State::Data(0x00), State::Mem(false)],
+                &[
+                    BusState::Addr(0x0000),
+                    BusState::Data(0x00),
+                    BusState::Mem(false),
+                ],
             ),
             (
-                "after fetch opcode at 0x0000",
-                &[State::Addr(0x0000), State::Data(0x00), State::Mem(true)],
+                "after fetchopcode at 0x0000",
+                &[
+                    BusState::Addr(0x0000),
+                    BusState::Data(0x00),
+                    BusState::Mem(true),
+                ],
             ),
             (
-                "after wait at 0x0000",
-                &[State::Addr(0x0000), State::Data(0x10), State::Mem(true)],
+                "after waitopcode at 0x0000",
+                &[
+                    BusState::Addr(0x0000),
+                    BusState::Data(0x10),
+                    BusState::Mem(true),
+                ],
             ),
             (
-                "after decode nop",
-                &[State::Addr(0x0000), State::Data(0x10), State::Mem(true)],
+                "after decode ld a, 0xFF",
+                &[
+                    BusState::Addr(0x0001),
+                    BusState::Data(0x10),
+                    BusState::Mem(true),
+                ],
             ),
             (
-                "after fetch operand at 0x0001",
-                &[State::Addr(0x0001), State::Data(0x10), State::Mem(true)],
+                "after waitop1of1",
+                &[
+                    BusState::Addr(0x0001),
+                    BusState::Data(0xFF),
+                    BusState::Mem(true),
+                ],
             ),
             (
-                "after wait at 0x0001",
-                &[State::Addr(0x0001), State::Data(0xFF), State::Mem(true)],
-            ),
-            (
-                "after decode at 0x0001",
-                &[State::Addr(0x0001), State::Data(0xFF), State::Mem(false)],
+                "after readop1of1",
+                &[
+                    BusState::Addr(0x0001),
+                    BusState::Data(0xFF),
+                    BusState::Mem(true),
+                ],
             ),
             (
                 "after execute 'ld a, 0xff'",
-                &[State::Addr(0x0001), State::Data(0xFF), State::Mem(false)],
+                &[
+                    BusState::Addr(0x0002),
+                    BusState::Data(0xFF),
+                    BusState::Mem(true),
+                ],
             ),
             (
-                "after fetch opcode at 0x0002",
-                &[State::Addr(0x0002), State::Data(0xFF), State::Mem(true)],
+                "after waitopcode",
+                &[
+                    BusState::Addr(0x0002),
+                    BusState::Data(0x01),
+                    BusState::Mem(true),
+                ],
             ),
             (
-                "after wait at 0x0002",
-                &[State::Addr(0x0002), State::Data(0x01), State::Mem(true)],
-            ),
-            (
-                "after decode at 0x0002",
-                &[State::Addr(0x0002), State::Data(0x01), State::Mem(false)],
+                "after decode nop",
+                &[
+                    BusState::Addr(0x0002),
+                    BusState::Data(0x01),
+                    BusState::Mem(false),
+                ],
             ),
             (
                 "after execute 'nop'",
-                &[State::Addr(0x0002), State::Data(0x01), State::Mem(false)],
+                &[
+                    BusState::Addr(0x0003),
+                    BusState::Data(0x01),
+                    BusState::Mem(true),
+                ],
             ),
         ];
 
