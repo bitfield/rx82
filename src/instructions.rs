@@ -1,10 +1,7 @@
 use anyhow::anyhow;
 
 use crate::{
-    cpu::{
-        Cpu,
-        State::{self, *},
-    },
+    cpu::{Cpu, State::*},
     regs::{Reg, source_and_target_from},
     system::{Bus, BusState},
 };
@@ -89,54 +86,30 @@ impl InstructionKind {
     /// Executes the instruction.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
-    pub fn execute(&self, cpu: &mut Cpu, bus: &mut Bus) -> State {
+    pub fn execute(&self, cpu: &mut Cpu, bus: &mut Bus) {
         use InstructionKind::*;
         match *self {
-            BranchAlways => {
-                cpu.branch(cpu.op_lo);
-                cpu.fetch(bus)
-            }
-            BranchEq if cpu.flags.zero => {
-                cpu.branch(cpu.op_lo);
-                cpu.fetch(bus)
-            }
-            BranchNe if !cpu.flags.zero => {
-                cpu.branch(cpu.op_lo);
-                cpu.fetch(bus)
-            }
-            Cmp(reg) => {
-                cpu.regs.cmp(reg, cpu.op(), &mut cpu.flags);
-                cpu.fetch(bus)
-            }
-            Dec(reg) => {
-                cpu.regs.decrement(reg, &mut cpu.flags);
-                cpu.fetch(bus)
-            }
+            BranchAlways => cpu.branch(cpu.op_lo),
+            BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
+            BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
+            Cmp(reg) => cpu.regs.cmp(reg, cpu.op(), &mut cpu.flags),
+            Dec(reg) => cpu.regs.decrement(reg, &mut cpu.flags),
             Halt => {
                 cpu.halt = true;
-                Execute
+                cpu.state = Execute;
             }
-            Inc(reg) => {
-                cpu.regs.increment(reg, &mut cpu.flags);
-                cpu.fetch(bus)
+            Inc(reg) => cpu.regs.increment(reg, &mut cpu.flags),
+            LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
+            LdRegIndirect
+                if let Some((source, target)) = source_and_target_from(cpu.op() as u8) =>
+            {
+                bus.pending_write.get_or_insert(vec![
+                    BusState::Addr(cpu.regs.get(source)),
+                    BusState::Mem(true),
+                    BusState::Write(false),
+                ]);
+                cpu.state = WaitLoad1of1(target);
             }
-            LdRegImm(reg) => {
-                _ = cpu.regs.set(reg, cpu.op());
-                cpu.fetch(bus)
-            }
-            LdRegIndirect => {
-                if let Some((source, target)) = source_and_target_from(cpu.op() as u8) {
-                    bus.pending_write.get_or_insert(vec![
-                        BusState::Addr(cpu.regs.get(source)),
-                        BusState::Mem(true),
-                        BusState::Write(false),
-                    ]);
-                    WaitLoad1of1(target)
-                } else {
-                    cpu.fetch(bus)
-                }
-            }
-            Nop | BranchEq | BranchNe => cpu.fetch(bus),
             StoreRegDirect(reg) => {
                 bus.pending_write.get_or_insert(vec![
                     BusState::Addr(cpu.op()),
@@ -144,21 +117,24 @@ impl InstructionKind {
                     BusState::Mem(true),
                     BusState::Write(true),
                 ]);
-                WaitStore1of1
+                cpu.state = WaitStore1of1;
             }
-            StoreRegIndirect => {
-                if let Some((source, target)) = source_and_target_from(cpu.op() as u8) {
-                    bus.pending_write.get_or_insert(vec![
-                        BusState::Addr(cpu.regs.get(target)),
-                        BusState::Data(cpu.regs.get(source) as u8),
-                        BusState::Mem(true),
-                        BusState::Write(true),
-                    ]);
-                    WaitStore1of1
-                } else {
-                    cpu.fetch(bus)
-                }
+            StoreRegIndirect
+                if let Some((source, target)) = source_and_target_from(cpu.op() as u8) =>
+            {
+                bus.pending_write.get_or_insert(vec![
+                    BusState::Addr(cpu.regs.get(target)),
+                    BusState::Data(cpu.regs.get(source) as u8),
+                    BusState::Mem(true),
+                    BusState::Write(true),
+                ]);
+                cpu.state = WaitStore1of1;
             }
+            Nop | BranchEq | BranchNe | StoreRegIndirect | LdRegIndirect => {}
+        }
+        if cpu.state == Execute && !cpu.halt {
+            cpu.fetch_and_advance(bus);
+            cpu.state = WaitOpcode;
         }
     }
 

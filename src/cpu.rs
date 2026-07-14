@@ -61,21 +61,11 @@ impl Device for Cpu {
                         Execute
                     }
                     Operands::One => {
-                        bus.pending_write.get_or_insert(vec![
-                            BusState::Addr(self.pc),
-                            BusState::Mem(true),
-                            BusState::Write(false),
-                        ]);
-                        self.pc = self.pc.wrapping_add(1);
+                        self.fetch_and_advance(bus);
                         WaitOp1of1
                     }
                     Operands::Two => {
-                        bus.pending_write.get_or_insert(vec![
-                            BusState::Addr(self.pc),
-                            BusState::Mem(true),
-                            BusState::Write(false),
-                        ]);
-                        self.pc = self.pc.wrapping_add(1);
+                        self.fetch_and_advance(bus);
                         WaitOp1of2
                     }
                 }
@@ -86,18 +76,17 @@ impl Device for Cpu {
                     Execute
                 } else {
                     let ins = self.ins;
-                    ins.execute(self, bus)
+                    ins.execute(self, bus);
+                    self.state
                 }
             }
-            FetchOpcode | WaitStore1of1 => self.fetch(bus),
+            FetchOpcode | WaitStore1of1 => {
+                self.fetch_and_advance(bus);
+                WaitOpcode
+            }
             ReadLoad1of1(reg) => {
                 self.regs.set(reg, u16::from(bus.data));
-                bus.pending_write.get_or_insert(vec![
-                    BusState::Addr(self.pc),
-                    BusState::Mem(true),
-                    BusState::Write(false),
-                ]);
-                self.pc = self.pc.wrapping_add(1);
+                self.fetch_and_advance(bus);
                 WaitOpcode
             }
             ReadOp1of1 => {
@@ -106,12 +95,7 @@ impl Device for Cpu {
             }
             ReadOp1of2 => {
                 self.op_lo = bus.data;
-                bus.pending_write.get_or_insert(vec![
-                    BusState::Addr(self.pc),
-                    BusState::Mem(true),
-                    BusState::Write(false),
-                ]);
-                self.pc = self.pc.wrapping_add(1);
+                self.fetch_and_advance(bus);
                 WaitOp2of2
             }
             ReadOp2of2 => {
@@ -136,15 +120,15 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(dis as i8 as u16); // sign-extend displacement
     }
 
+    /// Issues a memory fetch and advances PC.
     #[inline]
-    pub fn fetch(&mut self, bus: &mut Bus) -> State {
+    pub fn fetch_and_advance(&mut self, bus: &mut Bus) {
         bus.pending_write.get_or_insert(vec![
             BusState::Addr(self.pc),
             BusState::Mem(true),
             BusState::Write(false),
         ]);
         self.pc = self.pc.wrapping_add(1);
-        WaitOpcode
     }
 
     /// Returns the 16-bit value of the two operand registers.
