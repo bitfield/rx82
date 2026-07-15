@@ -2,8 +2,8 @@ use anyhow::anyhow;
 
 use crate::{
     cpu::{Cpu, State::*},
-    regs::{Reg, source_and_target_from},
-    system::{Bus, BusState},
+    regs::Reg,
+    system::Bus,
 };
 
 /// Instruction kinds.
@@ -84,7 +84,6 @@ impl From<InstructionKind> for u8 {
 
 impl InstructionKind {
     /// Executes the instruction.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn execute(&self, cpu: &mut Cpu, bus: &mut Bus) {
         use InstructionKind::*;
@@ -92,49 +91,18 @@ impl InstructionKind {
             BranchAlways => cpu.branch(cpu.op_lo),
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
-            Cmp(reg) => cpu.regs.cmp(reg, cpu.op(), &mut cpu.flags),
-            Dec(reg) => cpu.regs.decrement(reg, &mut cpu.flags),
-            Halt => {
-                cpu.halt = true;
-                cpu.state = Execute;
-            }
-            Inc(reg) => cpu.regs.increment(reg, &mut cpu.flags),
+            Cmp(reg) => cpu.cmp(reg, cpu.op()),
+            Dec(reg) => cpu.decrement(reg),
+            Halt => cpu.halt(),
+            Inc(reg) => cpu.increment(reg),
             LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
-            LdRegIndirect
-                if let Some((source, target)) = source_and_target_from(cpu.op() as u8) =>
-            {
-                bus.pending_write.get_or_insert(vec![
-                    BusState::Addr(cpu.regs.get(source)),
-                    BusState::Mem(true),
-                    BusState::Write(false),
-                ]);
-                cpu.state = WaitLoad1of1(target);
-            }
-            StoreRegDirect(reg) => {
-                bus.pending_write.get_or_insert(vec![
-                    BusState::Addr(cpu.op()),
-                    BusState::Data(cpu.regs.get(reg) as u8),
-                    BusState::Mem(true),
-                    BusState::Write(true),
-                ]);
-                cpu.state = WaitStore1of1;
-            }
-            StoreRegIndirect
-                if let Some((source, target)) = source_and_target_from(cpu.op() as u8) =>
-            {
-                bus.pending_write.get_or_insert(vec![
-                    BusState::Addr(cpu.regs.get(target)),
-                    BusState::Data(cpu.regs.get(source) as u8),
-                    BusState::Mem(true),
-                    BusState::Write(true),
-                ]);
-                cpu.state = WaitStore1of1;
-            }
-            Nop | BranchEq | BranchNe | StoreRegIndirect | LdRegIndirect => {}
+            LdRegIndirect => cpu.ld_reg_indirect(bus),
+            StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
+            StoreRegIndirect => cpu.store_reg_indirect(bus),
+            Nop | BranchEq | BranchNe => {}
         }
-        if cpu.state == Execute && !cpu.halt {
-            cpu.fetch_and_advance(bus);
-            cpu.state = WaitOpcode;
+        if cpu.state == Execute {
+            cpu.state = FetchOpcode;
         }
     }
 
@@ -299,6 +267,16 @@ mod tests {
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal cmp");
+        assert_eq!(sys.cpu.flags.carry, true, "carry clear: cmp with no borrow");
+        sys.run_program(&asm("
+            ld cd, 0xFFFF
+            cmp a, 0x00
+            halt"))
+            .unwrap();
+        assert_eq!(
+            sys.cpu.flags.zero, true,
+            "zero clear: equal cmp (junk in high byte?)"
+        );
         assert_eq!(sys.cpu.flags.carry, true, "carry clear: cmp with no borrow");
     }
 

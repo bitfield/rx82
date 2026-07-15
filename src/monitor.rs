@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use std::io::{Write as _, stdin, stdout};
 
-use crate::{cpu::State::Execute, system::System};
+use crate::{cpu::State::FetchOpcode, system::System};
 
 const BANNER: &str = "RMON v1.0 (C) 1977 Solid State Technologies, Inc.";
 
@@ -139,7 +139,7 @@ impl Monitor {
                 println!("halted");
                 break;
             }
-            if self.step && self.sys.cpu.state == Execute {
+            if self.step && self.sys.cpu.state == FetchOpcode {
                 break;
             }
         }

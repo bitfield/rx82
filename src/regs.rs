@@ -5,8 +5,6 @@ use core::{
     str::FromStr,
 };
 
-use crate::cpu::Flags;
-
 /// The 8-bit registers.
 #[expect(clippy::min_ident_chars, reason = "the actual names")]
 #[expect(clippy::arbitrary_source_item_ordering, reason = "logical order")]
@@ -140,21 +138,6 @@ pub struct Regs {
 }
 
 impl Regs {
-    /// Compares the value in register `reg` with the operand, updating `flags`.
-    #[inline]
-    pub fn cmp(&mut self, reg: Reg, rhs: u16, flags: &mut Flags) {
-        let lhs = self.get(reg);
-        flags.zero = lhs == rhs;
-        flags.carry = lhs >= rhs;
-    }
-
-    /// Decrements the value in register `reg`, updating `flags`.
-    #[inline]
-    pub fn decrement(&mut self, reg: Reg, flags: &mut Flags) {
-        let value = self.get(reg).wrapping_sub(1);
-        flags.zero = self.set(reg, value) == 0;
-    }
-
     /// Returns the value in register `reg`.
     ///
     /// For 8-bit registers, the high byte will always be 0.
@@ -176,13 +159,6 @@ impl Regs {
             Reg::EF => u16::from_be_bytes([self.re, self.rf]),
             Reg::GH => u16::from_be_bytes([self.rg, self.rh]),
         }
-    }
-
-    /// Increments the value in register `reg`, updating `flags`.
-    #[inline]
-    pub fn increment(&mut self, reg: Reg, flags: &mut Flags) {
-        let value = self.get(reg).wrapping_add(1);
-        flags.zero = self.set(reg, value) == 0;
     }
 
     /// Sets register `reg` to the value `val`.

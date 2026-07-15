@@ -26,7 +26,7 @@ pub struct Bus {
     /// CPU 'memory request' line.
     pub mem: bool,
     /// A possible pending write to the bus state during the current cycle.
-    pub pending_write: Option<Vec<BusState>>,
+    pub pending_write: Option<Vec<Bstate>>,
     /// CPU 'write request' line.
     pub write: bool,
 }
@@ -38,28 +38,28 @@ impl Bus {
     ///
     /// On the first failed assertion.
     #[inline]
-    pub fn assert(&self, states: &[BusState], msg: impl AsRef<str>) -> Result<()> {
+    pub fn assert(&self, states: &[Bstate], msg: impl AsRef<str>) -> Result<()> {
         let msg = msg.as_ref();
         for state in states {
             match *state {
-                BusState::Addr(addr) => ensure!(
+                Bstate::Addr(addr) => ensure!(
                     self.addr == addr,
                     "want bus addr {:04X}, got {:04X} {msg}",
                     addr,
                     self.addr
                 ),
-                BusState::Data(data) => ensure!(
+                Bstate::Data(data) => ensure!(
                     self.data == data,
                     "want bus data {:02X}, got {:02X} {msg}",
                     data,
                     self.data
                 ),
-                BusState::Mem(mem) => ensure!(
+                Bstate::Mem(mem) => ensure!(
                     self.mem == mem,
                     "/MEM line {} {msg}",
                     if self.mem { "active" } else { "inactive" }
                 ),
-                BusState::Write(wr) => ensure!(
+                Bstate::Write(wr) => ensure!(
                     self.write == wr,
                     "/WR line {} {msg}",
                     if self.write { "active" } else { "inactive" }
@@ -75,10 +75,10 @@ impl Bus {
         if let Some(states) = self.pending_write.take() {
             for state in states {
                 match state {
-                    BusState::Addr(addr) => self.addr = addr,
-                    BusState::Data(data) => self.data = data,
-                    BusState::Mem(mem) => self.mem = mem,
-                    BusState::Write(wr) => self.write = wr,
+                    Bstate::Addr(addr) => self.addr = addr,
+                    Bstate::Data(data) => self.data = data,
+                    Bstate::Mem(mem) => self.mem = mem,
+                    Bstate::Write(wr) => self.write = wr,
                 }
             }
         }
@@ -110,7 +110,7 @@ pub struct Snapshot {
 /// A desired or asserted bus state.
 #[non_exhaustive]
 #[derive(Clone, Debug)]
-pub enum BusState {
+pub enum Bstate {
     /// Address bus value.
     Addr(u16),
     /// Data bus value.
@@ -265,14 +265,14 @@ impl System {
         for chunk in self.history.chunks(16) {
             let mut tick = String::from("TICK ");
             let mut header = String::from("─────");
-            let mut phase = String::from("CPU  ");
+            let mut state = String::from("CPU  ");
             let mut addr = String::from("ADDR ");
             let mut data = String::from("DATA ");
             let mut mem = String::from("/MEM ");
             for snapshot in chunk {
                 write!(tick, " {:04X}", snapshot.tick).unwrap();
                 write!(header, "─────").unwrap();
-                write!(phase, " {}", snapshot.state).unwrap();
+                write!(state, " {}", snapshot.state).unwrap();
                 write!(addr, " {:04X}", snapshot.bus.addr).unwrap();
                 write!(data, " ──{:02X}", snapshot.bus.data).unwrap();
                 write!(
@@ -288,7 +288,7 @@ impl System {
             }
             println!("{tick}");
             println!("{header}");
-            println!("{phase}");
+            println!("{state}");
             println!("{addr}");
             println!("{data}");
             println!("{mem}");
@@ -318,83 +318,47 @@ mod tests {
         let ticks = vec![
             (
                 "initial",
-                &[
-                    BusState::Addr(0x0000),
-                    BusState::Data(0x00),
-                    BusState::Mem(false),
-                ],
+                &[Bstate::Addr(0x0000), Bstate::Data(0x00), Bstate::Mem(false)],
             ),
             (
                 "after fetchopcode at 0x0000",
-                &[
-                    BusState::Addr(0x0000),
-                    BusState::Data(0x00),
-                    BusState::Mem(true),
-                ],
+                &[Bstate::Addr(0x0000), Bstate::Data(0x00), Bstate::Mem(true)],
             ),
             (
                 "after waitopcode at 0x0000",
-                &[
-                    BusState::Addr(0x0000),
-                    BusState::Data(0x10),
-                    BusState::Mem(true),
-                ],
+                &[Bstate::Addr(0x0000), Bstate::Data(0x10), Bstate::Mem(true)],
             ),
             (
                 "after decode ld a, 0xFF",
-                &[
-                    BusState::Addr(0x0001),
-                    BusState::Data(0x10),
-                    BusState::Mem(true),
-                ],
+                &[Bstate::Addr(0x0001), Bstate::Data(0x10), Bstate::Mem(true)],
             ),
             (
                 "after waitop1of1",
-                &[
-                    BusState::Addr(0x0001),
-                    BusState::Data(0xFF),
-                    BusState::Mem(true),
-                ],
+                &[Bstate::Addr(0x0001), Bstate::Data(0xFF), Bstate::Mem(true)],
             ),
             (
                 "after readop1of1",
-                &[
-                    BusState::Addr(0x0001),
-                    BusState::Data(0xFF),
-                    BusState::Mem(true),
-                ],
+                &[Bstate::Addr(0x0001), Bstate::Data(0xFF), Bstate::Mem(true)],
             ),
             (
                 "after execute 'ld a, 0xff'",
-                &[
-                    BusState::Addr(0x0002),
-                    BusState::Data(0xFF),
-                    BusState::Mem(true),
-                ],
+                &[Bstate::Addr(0x0001), Bstate::Data(0xFF), Bstate::Mem(true)],
+            ),
+            (
+                "after fetchopcode",
+                &[Bstate::Addr(0x0002), Bstate::Data(0xFF), Bstate::Mem(true)],
             ),
             (
                 "after waitopcode",
-                &[
-                    BusState::Addr(0x0002),
-                    BusState::Data(0x01),
-                    BusState::Mem(true),
-                ],
+                &[Bstate::Addr(0x0002), Bstate::Data(0x01), Bstate::Mem(true)],
             ),
             (
                 "after decode nop",
-                &[
-                    BusState::Addr(0x0002),
-                    BusState::Data(0x01),
-                    BusState::Mem(false),
-                ],
+                &[Bstate::Addr(0x0002), Bstate::Data(0x01), Bstate::Mem(false)],
             ),
             (
                 "after execute 'nop'",
-                &[
-                    BusState::Addr(0x0003),
-                    BusState::Data(0x01),
-                    BusState::Mem(true),
-                ],
+                &[Bstate::Addr(0x0002), Bstate::Data(0x01), Bstate::Mem(false)],
             ),
         ];
 

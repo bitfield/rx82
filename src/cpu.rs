@@ -2,8 +2,8 @@ use core::fmt::{Display, Formatter};
 
 use crate::{
     instructions::{InstructionKind, Operands},
-    regs::{Reg, Regs},
-    system::{Bus, BusState, Device},
+    regs::{Reg, Regs, source_and_target_from},
+    system::{Bstate, Bus, Device},
 };
 
 use State::*;
@@ -47,22 +47,22 @@ impl Default for Cpu {
 }
 
 impl Device for Cpu {
-    /// Performs the current phase, and sets the next phase.
+    /// Transitions to the next state.
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         self.state = match self.state {
-            DecodeOpcode => {
+            Decode => {
                 let opcode = bus.data;
                 self.ins = InstructionKind::try_from(opcode).unwrap_or(InstructionKind::Nop);
                 match self.ins.operands() {
                     Operands::Zero => {
                         // No operands needed, go straight to 'execute'
-                        bus.pending_write.get_or_insert(vec![BusState::Mem(false)]);
+                        bus.pending_write.get_or_insert(vec![Bstate::Mem(false)]);
                         Execute
                     }
                     Operands::One => {
                         self.fetch_and_advance(bus);
-                        WaitOp1of1
+                        WaitOp
                     }
                     Operands::Two => {
                         self.fetch_and_advance(bus);
@@ -71,25 +71,25 @@ impl Device for Cpu {
                 }
             }
             Execute => {
+                let ins = self.ins;
+                ins.execute(self, bus);
+                self.state
+            }
+            FetchOpcode => {
                 if self.halt {
-                    // Just keep looping in this state
-                    Execute
+                    FetchOpcode
                 } else {
-                    let ins = self.ins;
-                    ins.execute(self, bus);
-                    self.state
+                    self.fetch_and_advance(bus);
+                    WaitOpcode
                 }
             }
-            FetchOpcode | WaitStore1of1 => {
-                self.fetch_and_advance(bus);
-                WaitOpcode
-            }
-            ReadLoad1of1(reg) => {
+            ReadLoad(reg) => {
                 self.regs.set(reg, u16::from(bus.data));
-                self.fetch_and_advance(bus);
-                WaitOpcode
+                FetchOpcode
             }
-            ReadOp1of1 => {
+            ReadOp => {
+                // clear any junk left in the high byte
+                self.op_hi = 0;
                 self.op_lo = bus.data;
                 Execute
             }
@@ -102,12 +102,12 @@ impl Device for Cpu {
                 self.op_hi = bus.data;
                 Execute
             }
-            WaitLoad1of1(reg) => ReadLoad1of1(reg),
-            WaitOp1of1 => ReadOp1of1,
+            WaitLoad(reg) => ReadLoad(reg),
+            WaitOp => ReadOp,
             WaitOp1of2 => ReadOp1of2,
             WaitOp2of2 => ReadOp2of2,
-            WaitOpcode => DecodeOpcode,
-        }
+            WaitOpcode => Decode,
+        };
     }
 }
 
@@ -120,15 +120,79 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(dis as i8 as u16); // sign-extend displacement
     }
 
+    /// Compares the value in register `reg` with the operand, updating flags.
+    #[inline]
+    pub fn cmp(&mut self, reg: Reg, rhs: u16) {
+        let lhs = self.regs.get(reg);
+        self.flags.zero = lhs == rhs;
+        self.flags.carry = lhs >= rhs;
+    }
+
+    /// Decrements the value in register `reg`, updating flags.
+    #[inline]
+    pub fn decrement(&mut self, reg: Reg) {
+        let value = self.regs.get(reg).wrapping_sub(1);
+        self.flags.zero = self.regs.set(reg, value) == 0;
+    }
+
     /// Issues a memory fetch and advances PC.
     #[inline]
     pub fn fetch_and_advance(&mut self, bus: &mut Bus) {
-        bus.pending_write.get_or_insert(vec![
-            BusState::Addr(self.pc),
-            BusState::Mem(true),
-            BusState::Write(false),
-        ]);
+        self.mem_read(self.pc, bus);
         self.pc = self.pc.wrapping_add(1);
+    }
+
+    /// Halts the CPU.
+    #[inline]
+    pub fn halt(&mut self) {
+        self.halt = true;
+        self.state = Execute;
+    }
+
+    /// Raises an illegal instruction exception.
+    #[inline]
+    pub fn illegal(&mut self) {
+        self.halt = true;
+    }
+
+    /// Increments the value in register `reg`, updating flags.
+    #[inline]
+    pub fn increment(&mut self, reg: Reg) {
+        let value = self.regs.get(reg).wrapping_add(1);
+        self.flags.zero = self.regs.set(reg, value) == 0;
+    }
+
+    /// Executes a load register indirect instruction.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn ld_reg_indirect(&mut self, bus: &mut Bus) {
+        if let Some((source, target)) = source_and_target_from(self.op() as u8) {
+            self.mem_read(self.regs.get(source), bus);
+            self.state = WaitLoad(target);
+        } else {
+            self.illegal();
+        }
+    }
+
+    /// Issues a memory read request for `addr`.
+    #[inline]
+    pub fn mem_read(&mut self, addr: u16, bus: &mut Bus) {
+        bus.pending_write.get_or_insert(vec![
+            Bstate::Addr(addr),
+            Bstate::Mem(true),
+            Bstate::Write(false),
+        ]);
+    }
+
+    /// Issues a memory write request for `addr` with `val`.
+    #[inline]
+    pub fn mem_write(&mut self, addr: u16, val: u8, bus: &mut Bus) {
+        bus.pending_write.get_or_insert(vec![
+            Bstate::Addr(addr),
+            Bstate::Data(val),
+            Bstate::Mem(true),
+            Bstate::Write(true),
+        ]);
     }
 
     /// Returns the 16-bit value of the two operand registers.
@@ -140,11 +204,31 @@ impl Cpu {
 
     /// Resets the CPU to its power-on state.
     ///
-    /// The initial state is: all registers and flags zero, PC zero, not halted, phase
-    /// 'fetch' and target 'opcode'.
+    /// The initial state is: all registers and flags zero, PC zero, not halted, state
+    /// [`FetchOpcode`](State::FetchOpcode).
     #[inline]
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// Executes a store register direct instruction.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn store_reg_direct(&mut self, reg: Reg, bus: &mut Bus) {
+        self.mem_write(self.op(), self.regs.get(reg) as u8, bus);
+        self.state = FetchOpcode;
+    }
+
+    /// Executes a store register indirect instruction.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn store_reg_indirect(&mut self, bus: &mut Bus) {
+        if let Some((source, target)) = source_and_target_from(self.op() as u8) {
+            self.mem_write(self.regs.get(target), self.regs.get(source) as u8, bus);
+            self.state = FetchOpcode;
+        } else {
+            self.illegal();
+        }
     }
 }
 
@@ -163,32 +247,30 @@ pub struct Flags {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum State {
     /// Reads the opcode from the data bus.
-    DecodeOpcode,
+    Decode,
     /// Executes the current instruction.
     Execute,
     /// Requests the next opcode from memory.
     #[default]
     FetchOpcode,
     /// Loads a register from the bus.
-    ReadLoad1of1(Reg),
+    ReadLoad(Reg),
     /// Reads a single operand from the bus.
-    ReadOp1of1,
+    ReadOp,
     /// Reads the first of two operands from the bus.
     ReadOp1of2,
     /// Reads the second of two operands from the bus.
     ReadOp2of2,
     /// Waits for a byte from memory to load a register.
-    WaitLoad1of1(Reg),
+    WaitLoad(Reg),
     /// Waits for a single operand read from memory.
-    WaitOp1of1,
+    WaitOp,
     /// Waits for the first of two operands from memory.
     WaitOp1of2,
     /// Waits for the second of two operands from memory.
     WaitOp2of2,
     /// Waits for an opcode fetch to complete.
     WaitOpcode,
-    /// Waits for a byte to be written to memory.
-    WaitStore1of1,
 }
 
 impl Display for State {
@@ -198,40 +280,22 @@ impl Display for State {
             f,
             "{}",
             match *self {
-                DecodeOpcode => "DCOD",
+                Decode => "DCOD",
                 Execute => "EXEC",
                 FetchOpcode => "FOPC",
-                ReadLoad1of1(_) => "RL11",
-                ReadOp1of1 => "RO11",
+                ReadLoad(_) => "RDLD",
+                ReadOp => "RDOP",
                 ReadOp1of2 => "RO12",
                 ReadOp2of2 => "RO22",
-                WaitLoad1of1(_) => "WL11",
-                WaitOp1of1 => "WO11",
+                WaitLoad(_) => "WTLD",
+                WaitOp => "WTOP",
                 WaitOp1of2 => "WO12",
                 WaitOp2of2 => "WO22",
                 WaitOpcode => "WOPC",
-                WaitStore1of1 => "WS11",
             }
         )
     }
 }
-
-// #[expect(clippy::exhaustive_enums, reason = "this actually is exhaustive")]
-// /// The target of the next fetch or wait phase.
-// #[derive(Debug, Default, PartialEq)]
-// pub enum Target {
-//     /// An opcode.
-//     #[default]
-//     Opcode,
-//     /// A 1-byte operand (or low byte of a 2-byte operand).
-//     Operand,
-//     /// A second 1-byte operand (or high byte of a 2-byte operand).
-//     Operand2,
-//     /// Memory read.
-//     Read(u16, Reg),
-//     /// Memory write.
-//     Write(u16, u8),
-// }
 
 #[cfg(test)]
 #[expect(clippy::unwrap_used, reason = "test")]
@@ -257,14 +321,14 @@ mod tests {
         assert_eq!(sys.cpu.state, WaitOpcode);
         assert_eq!(sys.cpu.pc, 0x0001);
         sys.tick();
-        assert_eq!(sys.cpu.state, DecodeOpcode);
+        assert_eq!(sys.cpu.state, Decode);
         assert_eq!(sys.cpu.pc, 0x0001);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         assert_eq!(sys.cpu.pc, 0x0001);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitOpcode);
-        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.state, FetchOpcode);
+        assert_eq!(sys.cpu.pc, 0x0001);
     }
 
     #[test]
@@ -283,17 +347,17 @@ mod tests {
         assert_eq!(sys.cpu.pc, 0x0001);
         assert_eq!(sys.cpu.state, WaitOpcode);
         sys.tick();
-        assert_eq!(sys.cpu.state, DecodeOpcode);
+        assert_eq!(sys.cpu.state, Decode);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitOp1of1);
+        assert_eq!(sys.cpu.state, WaitOp);
         assert_eq!(sys.cpu.pc, 0x0002);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadOp1of1);
+        assert_eq!(sys.cpu.state, ReadOp);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
         assert_eq!(sys.cpu.regs.get(A), 0x00FF);
-        assert_eq!(sys.cpu.pc, 0x0003);
+        assert_eq!(sys.cpu.pc, 0x0002);
     }
 
     #[test]
@@ -311,7 +375,7 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOpcode);
         sys.tick();
-        assert_eq!(sys.cpu.state, DecodeOpcode);
+        assert_eq!(sys.cpu.state, Decode);
         assert_eq!(sys.cpu.pc, 0x0001);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOp1of2);
@@ -327,7 +391,7 @@ mod tests {
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
         assert_eq!(sys.cpu.regs.get(AB), 0xBEEF);
-        assert_eq!(sys.cpu.pc, 0x0004);
+        assert_eq!(sys.cpu.pc, 0x0003);
     }
 
     #[test]
@@ -348,22 +412,22 @@ mod tests {
         assert_eq!(sys.cpu.state, WaitOpcode);
         assert_eq!(sys.cpu.pc, 0x0001);
         sys.tick();
-        assert_eq!(sys.cpu.state, DecodeOpcode);
+        assert_eq!(sys.cpu.state, Decode);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitOp1of1);
+        assert_eq!(sys.cpu.state, WaitOp);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadOp1of1);
+        assert_eq!(sys.cpu.state, ReadOp);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
         assert_eq!(sys.cpu.pc, 0x0002);
-        assert_eq!(sys.cpu.state, WaitLoad1of1(B));
+        assert_eq!(sys.cpu.state, WaitLoad(B));
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadLoad1of1(B));
+        assert_eq!(sys.cpu.state, ReadLoad(B));
         sys.tick();
         assert_eq!(sys.cpu.regs.get(B), 0x00FF);
-        assert_eq!(sys.cpu.pc, 0x0003);
-        assert_eq!(sys.cpu.state, WaitOpcode);
+        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.state, FetchOpcode);
     }
 
     #[test]
@@ -382,7 +446,7 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOpcode);
         sys.tick();
-        assert_eq!(sys.cpu.state, DecodeOpcode);
+        assert_eq!(sys.cpu.state, Decode);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOp1of2);
         assert_eq!(sys.cpu.pc, 0x0002);
@@ -396,7 +460,7 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitStore1of1);
+        assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOpcode);
         assert_eq!(sys.cpu.pc, 0x0004);
