@@ -86,6 +86,20 @@ impl Device for Cpu {
                     WaitOpcode
                 }
             }
+            ReadDec(addr) => {
+                let mut val = bus.data;
+                val = val.wrapping_sub(1);
+                bus.mem_write(addr, val);
+                self.flags.zero = val == 0;
+                FetchOpcode
+            }
+            ReadInc(addr) => {
+                let mut val = bus.data;
+                val = val.wrapping_add(1);
+                bus.mem_write(addr, val);
+                self.flags.zero = val == 0;
+                FetchOpcode
+            }
             ReadLoad(reg) => {
                 self.regs.set(reg, u16::from(bus.data));
                 FetchOpcode
@@ -104,6 +118,8 @@ impl Device for Cpu {
                 self.op_hi = bus.data;
                 Execute
             }
+            WaitDec(addr) => ReadDec(addr),
+            WaitInc(addr) => ReadInc(addr),
             WaitLoad(reg) => ReadLoad(reg),
             WaitOp => ReadOp,
             WaitOp1of2 => ReadOp1of2,
@@ -128,6 +144,13 @@ impl Cpu {
         let lhs = self.regs.get(reg);
         self.flags.zero = lhs == rhs;
         self.flags.carry = lhs >= rhs;
+    }
+
+    /// Decrements the value in address `addr`, updating flags.
+    #[inline]
+    pub fn dec_mem(&mut self, addr: u16, bus: &mut Bus) {
+        bus.mem_read(addr);
+        self.state = WaitDec(addr);
     }
 
     /// Decrements the value in register `reg`, updating flags.
@@ -155,6 +178,13 @@ impl Cpu {
     #[inline]
     pub fn illegal(&mut self) {
         self.halt = true;
+    }
+
+    /// Increments the value in address `addr`, updating flags.
+    #[inline]
+    pub fn inc_mem(&mut self, addr: u16, bus: &mut Bus) {
+        bus.mem_read(addr);
+        self.state = WaitInc(addr);
     }
 
     /// Increments the value in register `reg`, updating flags.
@@ -234,6 +264,10 @@ pub enum State {
     /// Requests the next opcode from memory.
     #[default]
     FetchOpcode,
+    /// Reads a byte from memory for a decrement instruction.
+    ReadDec(u16),
+    /// Reads a byte from memory for an increment instruction.
+    ReadInc(u16),
     /// Loads a register from the bus.
     ReadLoad(Reg),
     /// Reads a single operand from the bus.
@@ -242,6 +276,10 @@ pub enum State {
     ReadOp1of2,
     /// Reads the second of two operands from the bus.
     ReadOp2of2,
+    /// Waits for a byte from memory for a decrement instruction.
+    WaitDec(u16),
+    /// Waits for a byte from memory for an increment instruction.
+    WaitInc(u16),
     /// Waits for a byte from memory to load a register.
     WaitLoad(Reg),
     /// Waits for a single operand read from memory.
@@ -273,6 +311,10 @@ impl Display for State {
                 WaitOp1of2 => "WO12",
                 WaitOp2of2 => "WO22",
                 WaitOpcode => "WOPC",
+                ReadDec(_) => "RDEC",
+                ReadInc(_) => "RINC",
+                WaitDec(_) => "WDEC",
+                WaitInc(_) => "WINC",
             }
         )
     }

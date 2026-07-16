@@ -11,19 +11,10 @@ RAM_READ:
     inc cd          ; pointer to next test address
     cmp cd, 0xFFFE  ; past top?
     beq DONE        ; if so, all memory is present and OK
-    ld  a, (cd)     ; get contents of address
-    cmp a, 0x02     ; should be 0x02
-    bne DONE        ; if not, RAM is faulty
-    dec a           ; 0x02 goes to 0x01
-    ld  (cd), a     ; store 0x01 back in RAM
-    ld  a, (cd)     ; get contents again
-    cmp a, 0x01     ; should be 0x01
-    bne DONE        ; if not, RAM is faulty
-    dec a           ; 0x01 goes to 0x00
-    ld  (cd), a     ; store 0x00 back in RAM
-    ld  a, (cd)     ; get contents again
-    cmp a, 0x00     ; should be 0x00
-    beq RAM_READ    ; test next location
+    dec (cd)        ; 0x02 goes to 0x01
+    beq DONE        ; but if zero, RAM is faulty
+    dec (cd)        ; 0x01 goes to 0x00
+    beq RAM_READ    ; if so, RAM OK: test next location
 
 DONE:
     dec cd          ; cd points to the highest usable address

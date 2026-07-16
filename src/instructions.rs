@@ -16,10 +16,14 @@ pub enum InstructionKind {
     Cmp(Reg),
     /// Decrement a register.
     Dec(Reg),
+    /// Decrement a memory location.
+    DecMem,
     /// Halt the CPU.
     Halt,
     /// Increment a register.
     Inc(Reg),
+    /// Increment a memory location.
+    IncMem,
     /// Load a register with an immediate operand.
     LdRegImm(Reg),
     /// Load a register from an indirect address in another register.
@@ -47,7 +51,9 @@ impl TryFrom<u8> for InstructionKind {
             0x2D => Ok(LdRegIndirect),
             0x2E => Ok(StoreRegIndirect),
             0x30..=0x3B => Ok(Inc(reg?)),
+            0x3D => Ok(IncMem),
             0x40..=0x4B => Ok(Dec(reg?)),
+            0x4D => Ok(DecMem),
             0x70..=0x7B => Ok(Cmp(reg?)),
             0xB0 => Ok(BranchAlways),
             0xB1 => Ok(BranchEq),
@@ -67,8 +73,10 @@ impl From<InstructionKind> for u8 {
             BranchNe => 0xB2,
             Cmp(reg) => 0x70 | u8::from(reg),
             Dec(reg) => 0x40 | u8::from(reg),
+            DecMem => 0x4D,
             Halt => 0x00,
             Inc(reg) => 0x30 | u8::from(reg),
+            IncMem => 0x3D,
             LdRegImm(reg) => 0x10 | u8::from(reg),
             LdRegIndirect => 0x2D,
             Nop => 0x01,
@@ -89,8 +97,10 @@ impl InstructionKind {
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
             Cmp(reg) => cpu.cmp(reg, cpu.op()),
             Dec(reg) => cpu.decrement(reg),
+            DecMem => cpu.dec_mem(cpu.op(), bus),
             Halt => cpu.halt(),
             Inc(reg) => cpu.increment(reg),
+            IncMem => cpu.inc_mem(cpu.op(), bus),
             LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
             LdRegIndirect => cpu.ld_reg_indirect(bus),
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
@@ -115,7 +125,7 @@ impl InstructionKind {
                     One
                 }
             }
-            StoreRegDirect(_) => Two,
+            DecMem | IncMem | StoreRegDirect(_) => Two,
         }
     }
 }
@@ -305,6 +315,25 @@ mod tests {
     }
 
     #[test]
+    fn dec_nn() {
+        let mut sys = System::default();
+        sys.run_program(&asm("
+            ld a, 0x02
+            ld 0x0010, a
+            dec (0x0010)
+            halt"))
+            .unwrap();
+        assert_eq!(sys.mem.get(0x0010), 0x01, "wrong memory contents");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
+        sys.run_program(&asm("
+            dec (0x0010)
+            halt"))
+            .unwrap();
+        assert_eq!(sys.mem.get(0x0010), 0x00, "wrong memory contents");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: dec to zero");
+    }
+
+    #[test]
     fn halt() {
         let mut sys = System::default();
         sys.run_program(&asm("halt")).unwrap();
@@ -334,14 +363,33 @@ mod tests {
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.regs.get(A), 0x0000, "wrong A");
-        assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc zero");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
         sys.run_program(&asm("
             ld ab, 0xFFFF
             inc ab
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.regs.get(AB), 0x0000, "wrong AB");
-        assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc zero");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
+    }
+
+    #[test]
+    fn inc_nn() {
+        let mut sys = System::default();
+        sys.run_program(&asm("
+            ld a, 0xFE
+            ld 0x0010, a
+            inc (0x0010)
+            halt"))
+            .unwrap();
+        assert_eq!(sys.mem.get(0x0010), 0xFF, "wrong memory contents");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
+        sys.run_program(&asm("
+            inc (0x0010)
+            halt"))
+            .unwrap();
+        assert_eq!(sys.mem.get(0x0010), 0x00, "wrong memory contents");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
     }
 
     #[test]

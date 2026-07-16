@@ -250,11 +250,23 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Missing or invalid register name
+    /// * Missing or invalid register name or address
     #[inline]
     pub fn gen_dec(&mut self) -> Result<()> {
-        let reg = self.expect_reg()?;
-        self.code.push(u8::from(Dec(reg)));
+        match self.next_token() {
+            Some(Register(reg)) => self.code.push(u8::from(Dec(reg))),
+            Some(ParenOpen) => match self.next_token() {
+                Some(WordLiteral(addr)) => {
+                    self.expect(&ParenClose)?;
+                    self.code.push(u8::from(DecMem));
+                    self.code.extend(addr.to_le_bytes());
+                }
+                Some(other) => bail!("expected address, got {other}"),
+                None => bail!("unexpected end of input"),
+            },
+            Some(other) => bail!("expected register or address, got {other}"),
+            None => bail!("unexpected end of input"),
+        }
         Ok(())
     }
 
@@ -279,11 +291,23 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Missing or invalid register name
+    /// * Missing or invalid register name or address
     #[inline]
     pub fn gen_inc(&mut self) -> Result<()> {
-        let reg = self.expect_reg()?;
-        self.code.push(u8::from(Inc(reg)));
+        match self.next_token() {
+            Some(Register(reg)) => self.code.push(u8::from(Inc(reg))),
+            Some(ParenOpen) => match self.next_token() {
+                Some(WordLiteral(addr)) => {
+                    self.expect(&ParenClose)?;
+                    self.code.push(u8::from(IncMem));
+                    self.code.extend(addr.to_le_bytes());
+                }
+                Some(other) => bail!("expected address, got {other}"),
+                None => bail!("unexpected end of input"),
+            },
+            Some(other) => bail!("expected register or address, got {other}"),
+            None => bail!("unexpected end of input"),
+        }
         Ok(())
     }
 
@@ -520,8 +544,10 @@ impl Iterator for Disassembler<'_> {
                 BranchNe => format!("bne {}", self.format_byte()),
                 Cmp(reg) => format!("cmp {reg}, {}", self.format_op_for_reg(reg)),
                 Dec(reg) => format!("dec {reg}"),
+                DecMem => format!("dec ({})", self.format_word()),
                 Halt => "halt".into(),
                 Inc(reg) => format!("inc {reg}"),
+                IncMem => format!("inc ({})", self.format_word()),
                 Nop => "nop".into(),
                 LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
                 LdRegIndirect => self.format_ld_reg_indirect(),
@@ -690,6 +716,8 @@ mod tests {
             ("dec g", &[u8::from(Dec(G))]),
             ("halt", &[u8::from(Halt)]),
             ("inc a", &[u8::from(Inc(A))]),
+            ("inc ef", &[u8::from(Inc(EF))]),
+            ("inc (0xCAFE)", &[u8::from(IncMem), 0xFE, 0xCA]),
             ("ld b, (cd)", &[u8::from(LdRegIndirect), 0x91]),
             ("ld (ef), a", &[u8::from(StoreRegIndirect), 0x0A]),
             ("ld b, 0xFF", &[u8::from(LdRegImm(B)), 0xFF]),
