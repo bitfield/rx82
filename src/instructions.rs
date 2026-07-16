@@ -1,10 +1,6 @@
 use anyhow::anyhow;
 
-use crate::{
-    bus::Bus,
-    cpu::Cpu,
-    regs::Reg,
-};
+use crate::{bus::Bus, cpu::Cpu, regs::Reg};
 
 /// Instruction kinds.
 #[non_exhaustive]

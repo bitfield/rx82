@@ -31,6 +31,10 @@ pub struct Assembler<'src> {
     pub debug: bool,
     /// Label table.
     pub labels: HashMap<String, u16>,
+    /// Are we on the second pass?
+    pub pass2: bool,
+    /// Source code being assembled.
+    pub source: &'src str,
 }
 
 impl<'src> From<&'src str> for Assembler<'src> {
@@ -41,6 +45,8 @@ impl<'src> From<&'src str> for Assembler<'src> {
             code: Vec::new(),
             debug: false,
             labels: HashMap::new(),
+            pass2: false,
+            source,
         }
     }
 }
@@ -51,22 +57,13 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Syntax errors
-    #[expect(
-        clippy::wildcard_enum_match_arm,
-        reason = "unexpected tokens are illegal"
-    )]
     #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
-        while let Some(token) = self.next_token() {
-            match token {
-                Comment(_) => {}
-                Keyword(kw) => self.assemble_kw(&kw)?,
-                LabelDef(label) => {
-                    self.labels.insert(label, self.offset());
-                }
-                unexpected => bail!("unexpected token {unexpected:?}"),
-            }
-        }
+        self.pass()?;
+        self.code.clear();
+        self.chars = self.source.chars().peekable();
+        self.pass2 = true;
+        self.pass()?;
         Ok(self.code.clone())
     }
 
@@ -130,8 +127,10 @@ impl Assembler<'_> {
     pub fn expect_displacement(&mut self) -> Result<u8> {
         match self.next_token() {
             Some(Identifier(label)) => {
-                let Some(&addr) = self.labels.get(&label) else {
-                    bail!("undefined label {label}")
+                let addr = match self.labels.get(&label) {
+                    Some(&addr) => addr,
+                    None if self.pass2 => bail!("undefined label {label}"),
+                    None => 0,
                 };
                 // Displacement is calculated relative to the address of the next
                 // instruction (i.e. PC+2)
@@ -406,6 +405,30 @@ impl Assembler<'_> {
     #[must_use]
     pub fn offset(&self) -> u16 {
         self.code.len() as u16
+    }
+
+    /// Runs an assembly pass.
+    ///
+    /// # Errors
+    ///
+    /// Syntax errors.
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "unexpected tokens are illegal"
+    )]
+    #[inline]
+    pub fn pass(&mut self) -> Result<()> {
+        while let Some(token) = self.next_token() {
+            match token {
+                Comment(_) => {}
+                Keyword(kw) => self.assemble_kw(&kw)?,
+                LabelDef(label) => {
+                    self.labels.insert(label, self.offset());
+                }
+                unexpected => bail!("unexpected token {unexpected:?}"),
+            }
+        }
+        Ok(())
     }
 
     /// Reads a comment token.
@@ -729,6 +752,19 @@ mod tests {
             0xF7,
             u8::from(Halt),
         ];
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn assembler_resolves_forward_labels() {
+        let source = "
+        bra AHEAD
+        halt
+    AHEAD:
+        halt
+";
+        let generated = asm(source);
+        let object = &[u8::from(BranchAlways), 0x01, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
 
