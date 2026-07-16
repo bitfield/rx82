@@ -464,7 +464,8 @@ impl Assembler<'_> {
     /// Reads an identifier, register name, or keyword.
     #[inline]
     pub fn read_identifier(&mut self) -> Token {
-        let ident: String = iter::from_fn(|| self.chars.next_if(|ch| ch.is_alphabetic())).collect();
+        let ident: String =
+            iter::from_fn(|| self.chars.next_if(|&ch| ch.is_alphabetic() || ch == '_')).collect();
         if self.debug {
             println!("ident: {ident}");
         }
@@ -730,9 +731,9 @@ mod tests {
         ld a, 0x06 ; about 1 second
     LOOP:
         ld cd, 0xFFFF ; inner loop
-    INNER:
+    INNER_LOOP:
         dec cd
-        bne INNER
+        bne INNER_LOOP
         dec a
         bne LOOP
         halt
