@@ -45,8 +45,8 @@ impl TryFrom<u8> for InstructionKind {
             0x10..=0x1B => Ok(LdRegImm(reg?)),
             0x20..=0x27 => Ok(StoreRegDirect(reg?)),
             0x2D => Ok(LdRegIndirect),
+            0x2E => Ok(StoreRegIndirect),
             0x30..=0x3B => Ok(Inc(reg?)),
-            0x3D => Ok(StoreRegIndirect),
             0x40..=0x4B => Ok(Dec(reg?)),
             0x70..=0x7B => Ok(Cmp(reg?)),
             0xB0 => Ok(BranchAlways),
@@ -73,7 +73,7 @@ impl From<InstructionKind> for u8 {
             LdRegIndirect => 0x2D,
             Nop => 0x01,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
-            StoreRegIndirect => 0x3D,
+            StoreRegIndirect => 0x2E,
         }
     }
 }
