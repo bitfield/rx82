@@ -1,7 +1,7 @@
 use core::time::Duration;
 use std::{thread::sleep, time::Instant};
 
-use crate::system::{Bus, Device};
+use crate::{bus::Bus, system::Device};
 
 /// The system clock.
 ///

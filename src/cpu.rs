@@ -1,9 +1,10 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
+    bus::Bus,
     instructions::{InstructionKind, Operands},
     regs::{Reg, Regs, source_and_target_from},
-    system::{Bstate, Bus, Device},
+    system::Device,
 };
 
 use State::*;
@@ -57,7 +58,7 @@ impl Device for Cpu {
                 match self.ins.operands() {
                     Operands::Zero => {
                         // No operands needed, go straight to 'execute'
-                        bus.pending_write.get_or_insert(vec![Bstate::Mem(false)]);
+                        bus.disable_mem();
                         Execute
                     }
                     Operands::One => {
@@ -72,6 +73,8 @@ impl Device for Cpu {
             }
             Execute => {
                 let ins = self.ins;
+                // default next state, but may be overridden by instruction
+                self.state = FetchOpcode;
                 ins.execute(self, bus);
                 self.state
             }
@@ -88,7 +91,6 @@ impl Device for Cpu {
                 FetchOpcode
             }
             ReadOp => {
-                // clear any junk left in the high byte
                 self.op_hi = 0;
                 self.op_lo = bus.data;
                 Execute
@@ -138,7 +140,7 @@ impl Cpu {
     /// Issues a memory fetch and advances PC.
     #[inline]
     pub fn fetch_and_advance(&mut self, bus: &mut Bus) {
-        self.mem_read(self.pc, bus);
+        bus.mem_read(self.pc);
         self.pc = self.pc.wrapping_add(1);
     }
 
@@ -167,32 +169,11 @@ impl Cpu {
     #[inline]
     pub fn ld_reg_indirect(&mut self, bus: &mut Bus) {
         if let Some((source, target)) = source_and_target_from(self.op() as u8) {
-            self.mem_read(self.regs.get(source), bus);
+            bus.mem_read(self.regs.get(source));
             self.state = WaitLoad(target);
         } else {
             self.illegal();
         }
-    }
-
-    /// Issues a memory read request for `addr`.
-    #[inline]
-    pub fn mem_read(&mut self, addr: u16, bus: &mut Bus) {
-        bus.pending_write.get_or_insert(vec![
-            Bstate::Addr(addr),
-            Bstate::Mem(true),
-            Bstate::Write(false),
-        ]);
-    }
-
-    /// Issues a memory write request for `addr` with `val`.
-    #[inline]
-    pub fn mem_write(&mut self, addr: u16, val: u8, bus: &mut Bus) {
-        bus.pending_write.get_or_insert(vec![
-            Bstate::Addr(addr),
-            Bstate::Data(val),
-            Bstate::Mem(true),
-            Bstate::Write(true),
-        ]);
     }
 
     /// Returns the 16-bit value of the two operand registers.
@@ -215,7 +196,7 @@ impl Cpu {
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn store_reg_direct(&mut self, reg: Reg, bus: &mut Bus) {
-        self.mem_write(self.op(), self.regs.get(reg) as u8, bus);
+        bus.mem_write(self.op(), self.regs.get(reg) as u8);
         self.state = FetchOpcode;
     }
 
@@ -224,7 +205,7 @@ impl Cpu {
     #[inline]
     pub fn store_reg_indirect(&mut self, bus: &mut Bus) {
         if let Some((source, target)) = source_and_target_from(self.op() as u8) {
-            self.mem_write(self.regs.get(target), self.regs.get(source) as u8, bus);
+            bus.mem_write(self.regs.get(target), self.regs.get(source) as u8);
             self.state = FetchOpcode;
         } else {
             self.illegal();

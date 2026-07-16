@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 
-use crate::system::{Bstate, Bus, Device};
+use crate::{bus::Bus, system::Device};
 
 /// The system memory.
 #[non_exhaustive]
@@ -23,7 +23,7 @@ impl Device for Memory {
             (true, false) => {
                 // Memory read request
                 let data = self.get(bus.addr);
-                bus.pending_write.get_or_insert(vec![Bstate::Data(data)]);
+                bus.write_data(data);
             }
             (true, true) => {
                 // Memory write request

@@ -1,9 +1,9 @@
 use anyhow::anyhow;
 
 use crate::{
-    cpu::{Cpu, State::*},
+    bus::Bus,
+    cpu::Cpu,
     regs::Reg,
-    system::Bus,
 };
 
 /// Instruction kinds.
@@ -100,9 +100,6 @@ impl InstructionKind {
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
             StoreRegIndirect => cpu.store_reg_indirect(bus),
             Nop | BranchEq | BranchNe => {}
-        }
-        if cpu.state == Execute {
-            cpu.state = FetchOpcode;
         }
     }
 
