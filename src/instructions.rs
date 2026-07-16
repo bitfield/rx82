@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::bail;
 
 use crate::{bus::Bus, cpu::Cpu, regs::Reg};
 
@@ -16,12 +16,16 @@ pub enum InstructionKind {
     Cmp(Reg),
     /// Decrement a register.
     Dec(Reg),
+    /// Decrement a memory location in a register.
+    DecIndirect,
     /// Decrement a memory location.
     DecMem,
     /// Halt the CPU.
     Halt,
     /// Increment a register.
     Inc(Reg),
+    /// Increment a memory location in a register.
+    IncIndirect,
     /// Increment a memory location.
     IncMem,
     /// Load a register with an immediate operand.
@@ -43,23 +47,25 @@ impl TryFrom<u8> for InstructionKind {
     fn try_from(opcode: u8) -> Result<Self, Self::Error> {
         use InstructionKind::*;
         let reg = Reg::try_from(opcode & 0x0F);
-        match opcode {
-            0x00 => Ok(Halt),
-            0x01 => Ok(Nop),
-            0x10..=0x1B => Ok(LdRegImm(reg?)),
-            0x20..=0x27 => Ok(StoreRegDirect(reg?)),
-            0x2D => Ok(LdRegIndirect),
-            0x2E => Ok(StoreRegIndirect),
-            0x30..=0x3B => Ok(Inc(reg?)),
-            0x3D => Ok(IncMem),
-            0x40..=0x4B => Ok(Dec(reg?)),
-            0x4D => Ok(DecMem),
-            0x70..=0x7B => Ok(Cmp(reg?)),
-            0xB0 => Ok(BranchAlways),
-            0xB1 => Ok(BranchEq),
-            0xB2 => Ok(BranchNe),
-            _ => Err(anyhow!("invalid opcode {opcode}")),
-        }
+        Ok(match opcode {
+            0x00 => Halt,
+            0x01 => Nop,
+            0x10..=0x1B => LdRegImm(reg?),
+            0x20..=0x27 => StoreRegDirect(reg?),
+            0x2D => LdRegIndirect,
+            0x2E => StoreRegIndirect,
+            0x30..=0x3B => Inc(reg?),
+            0x3C => IncIndirect,
+            0x3D => IncMem,
+            0x40..=0x4B => Dec(reg?),
+            0x4C => DecIndirect,
+            0x4D => DecMem,
+            0x70..=0x7B => Cmp(reg?),
+            0xB0 => BranchAlways,
+            0xB1 => BranchEq,
+            0xB2 => BranchNe,
+            _ => bail!("invalid opcode {opcode}"),
+        })
     }
 }
 
@@ -73,9 +79,11 @@ impl From<InstructionKind> for u8 {
             BranchNe => 0xB2,
             Cmp(reg) => 0x70 | u8::from(reg),
             Dec(reg) => 0x40 | u8::from(reg),
+            DecIndirect => 0x4C,
             DecMem => 0x4D,
             Halt => 0x00,
             Inc(reg) => 0x30 | u8::from(reg),
+            IncIndirect => 0x3C,
             IncMem => 0x3D,
             LdRegImm(reg) => 0x10 | u8::from(reg),
             LdRegIndirect => 0x2D,
@@ -97,9 +105,11 @@ impl InstructionKind {
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
             Cmp(reg) => cpu.cmp(reg, cpu.op()),
             Dec(reg) => cpu.decrement(reg),
+            DecIndirect => cpu.dec_indirect(bus),
             DecMem => cpu.dec_mem(cpu.op(), bus),
             Halt => cpu.halt(),
             Inc(reg) => cpu.increment(reg),
+            IncIndirect => cpu.inc_indirect(bus),
             IncMem => cpu.inc_mem(cpu.op(), bus),
             LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
             LdRegIndirect => cpu.ld_reg_indirect(bus),
@@ -117,7 +127,8 @@ impl InstructionKind {
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop => Zero,
-            BranchAlways | BranchEq | BranchNe | LdRegIndirect | StoreRegIndirect => One,
+            BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect | LdRegIndirect
+            | StoreRegIndirect => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -334,6 +345,26 @@ mod tests {
     }
 
     #[test]
+    fn dec_rr() {
+        let mut sys = System::default();
+        sys.run_program(&asm("
+            ld a, 0x02
+            ld ef, 0x0010
+            ld (ef), a
+            dec (ef)
+            halt"))
+            .unwrap();
+        assert_eq!(sys.mem.get(0x0010), 0x01, "wrong memory contents");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
+        sys.run_program(&asm("
+            dec (ef)
+            halt"))
+            .unwrap();
+        assert_eq!(sys.mem.get(0x0010), 0x00, "wrong memory contents");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: dec to zero");
+    }
+
+    #[test]
     fn halt() {
         let mut sys = System::default();
         sys.run_program(&asm("halt")).unwrap();
@@ -386,6 +417,26 @@ mod tests {
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
         sys.run_program(&asm("
             inc (0x0010)
+            halt"))
+            .unwrap();
+        assert_eq!(sys.mem.get(0x0010), 0x00, "wrong memory contents");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
+    }
+
+    #[test]
+    fn inc_rr() {
+        let mut sys = System::default();
+        sys.run_program(&asm("
+            ld a, 0xFE
+            ld cd, 0x0010
+            ld (cd), a
+            inc (cd)
+            halt"))
+            .unwrap();
+        assert_eq!(sys.mem.get(0x0010), 0xFF, "wrong memory contents");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
+        sys.run_program(&asm("
+            inc (cd)
             halt"))
             .unwrap();
         assert_eq!(sys.mem.get(0x0010), 0x00, "wrong memory contents");

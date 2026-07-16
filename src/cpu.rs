@@ -146,6 +146,20 @@ impl Cpu {
         self.flags.carry = lhs >= rhs;
     }
 
+    /// Decrements the value at address in `reg`, updating flags.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn dec_indirect(&mut self, bus: &mut Bus) {
+        if let Some((source, _)) = source_and_target_from(self.op() as u8)
+            && source.is16()
+        {
+            let addr = self.regs.get(source);
+            self.dec_mem(addr, bus);
+        } else {
+            self.illegal();
+        }
+    }
+
     /// Decrements the value in address `addr`, updating flags.
     #[inline]
     pub fn dec_mem(&mut self, addr: u16, bus: &mut Bus) {
@@ -178,6 +192,20 @@ impl Cpu {
     #[inline]
     pub fn illegal(&mut self) {
         self.halt = true;
+    }
+
+    /// Increments the value at address in `reg`, updating flags.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn inc_indirect(&mut self, bus: &mut Bus) {
+        if let Some((source, _)) = source_and_target_from(self.op() as u8)
+            && source.is16()
+        {
+            let addr = self.regs.get(source);
+            self.inc_mem(addr, bus);
+        } else {
+            self.illegal();
+        }
     }
 
     /// Increments the value in address `addr`, updating flags.

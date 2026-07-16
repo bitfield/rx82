@@ -13,8 +13,9 @@ RAM_READ:
     beq DONE        ; if so, all memory is present and OK
     dec (cd)        ; 0x02 goes to 0x01
     beq DONE        ; but if zero, RAM is faulty
+    inc (0x0000)    ; anti-aliasing tripwire
     dec (cd)        ; 0x01 goes to 0x00
-    beq RAM_READ    ; if so, RAM OK: test next location
+    beq RAM_READ    ; if zero, RAM OK: test next location
 
 DONE:
     dec cd          ; cd points to the highest usable address

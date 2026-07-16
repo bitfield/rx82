@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::{
     instructions::InstructionKind::{self, *},
-    regs::{self, Reg, source_and_target_from},
+    regs::{self, Reg, source_and_target_from, u8_from},
 };
 
 use Token::*;
@@ -256,6 +256,12 @@ impl Assembler<'_> {
         match self.next_token() {
             Some(Register(reg)) => self.code.push(u8::from(Dec(reg))),
             Some(ParenOpen) => match self.next_token() {
+                Some(Register(source)) => {
+                    self.expect(&ParenClose)?;
+                    self.code.push(u8::from(DecIndirect));
+                    let reg = u8_from(source, Reg::A); // dummy target
+                    self.code.push(reg);
+                }
                 Some(WordLiteral(addr)) => {
                     self.expect(&ParenClose)?;
                     self.code.push(u8::from(DecMem));
@@ -297,6 +303,12 @@ impl Assembler<'_> {
         match self.next_token() {
             Some(Register(reg)) => self.code.push(u8::from(Inc(reg))),
             Some(ParenOpen) => match self.next_token() {
+                Some(Register(source)) => {
+                    self.expect(&ParenClose)?;
+                    self.code.push(u8::from(IncIndirect));
+                    let reg = u8_from(source, Reg::A); // dummy target
+                    self.code.push(reg);
+                }
                 Some(WordLiteral(addr)) => {
                     self.expect(&ParenClose)?;
                     self.code.push(u8::from(IncMem));
@@ -544,9 +556,11 @@ impl Iterator for Disassembler<'_> {
                 BranchNe => format!("bne {}", self.format_byte()),
                 Cmp(reg) => format!("cmp {reg}, {}", self.format_op_for_reg(reg)),
                 Dec(reg) => format!("dec {reg}"),
+                DecIndirect => self.format_dec_indirect(),
                 DecMem => format!("dec ({})", self.format_word()),
                 Halt => "halt".into(),
                 Inc(reg) => format!("inc {reg}"),
+                IncIndirect => self.format_inc_indirect(),
                 IncMem => format!("inc ({})", self.format_word()),
                 Nop => "nop".into(),
                 LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
@@ -567,6 +581,34 @@ impl<'code> Disassembler<'code> {
     fn format_byte(&mut self) -> String {
         if let Some(op) = self.code.next() {
             format!("{op:#04X}")
+        } else {
+            "??? (no operand)".to_owned()
+        }
+    }
+
+    /// Reads an operand specifying the source register and formats the
+    /// instruction for display.
+    #[inline]
+    fn format_dec_indirect(&mut self) -> String {
+        if let Some(&regs) = self.code.next()
+            && let Some((source, _)) = source_and_target_from(regs)
+            && source.is16()
+        {
+            format!("dec ({source})")
+        } else {
+            "??? (no operand)".to_owned()
+        }
+    }
+
+    /// Reads an operand specifying the source register and formats the
+    /// instruction for display.
+    #[inline]
+    fn format_inc_indirect(&mut self) -> String {
+        if let Some(&regs) = self.code.next()
+            && let Some((source, _)) = source_and_target_from(regs)
+            && source.is16()
+        {
+            format!("inc ({source})")
         } else {
             "??? (no operand)".to_owned()
         }
@@ -714,9 +756,12 @@ mod tests {
             ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
             ("cmp d, 0x01", &[u8::from(Cmp(D)), 0x01]),
             ("dec g", &[u8::from(Dec(G))]),
+            ("dec (gh)", &[u8::from(DecIndirect), 0xB0]),
+            ("dec (0xBABE)", &[u8::from(DecMem), 0xBE, 0xBA]),
             ("halt", &[u8::from(Halt)]),
             ("inc a", &[u8::from(Inc(A))]),
             ("inc ef", &[u8::from(Inc(EF))]),
+            ("inc (cd)", &[u8::from(IncIndirect), 0x90]),
             ("inc (0xCAFE)", &[u8::from(IncMem), 0xFE, 0xCA]),
             ("ld b, (cd)", &[u8::from(LdRegIndirect), 0x91]),
             ("ld (ef), a", &[u8::from(StoreRegIndirect), 0x0A]),

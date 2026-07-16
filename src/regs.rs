@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 
 use core::{
     fmt::{Display, Formatter},
@@ -54,21 +54,21 @@ impl FromStr for Reg {
 
     #[inline]
     fn from_str(value: &str) -> Result<Self, anyhow::Error> {
-        match value {
-            "a" => Ok(Reg::A),
-            "b" => Ok(Reg::B),
-            "c" => Ok(Reg::C),
-            "d" => Ok(Reg::D),
-            "e" => Ok(Reg::E),
-            "f" => Ok(Reg::F),
-            "g" => Ok(Reg::G),
-            "h" => Ok(Reg::H),
-            "ab" => Ok(Reg::AB),
-            "cd" => Ok(Reg::CD),
-            "ef" => Ok(Reg::EF),
-            "gh" => Ok(Reg::GH),
+        Ok(match value {
+            "a" => Reg::A,
+            "b" => Reg::B,
+            "c" => Reg::C,
+            "d" => Reg::D,
+            "e" => Reg::E,
+            "f" => Reg::F,
+            "g" => Reg::G,
+            "h" => Reg::H,
+            "ab" => Reg::AB,
+            "cd" => Reg::CD,
+            "ef" => Reg::EF,
+            "gh" => Reg::GH,
             reg => bail!("invalid register {reg}"),
-        }
+        })
     }
 }
 
@@ -77,21 +77,21 @@ impl TryFrom<u8> for Reg {
 
     #[inline]
     fn try_from(id: u8) -> Result<Self, Self::Error> {
-        match id {
-            0x00 => Ok(Reg::A),
-            0x01 => Ok(Reg::B),
-            0x02 => Ok(Reg::C),
-            0x03 => Ok(Reg::D),
-            0x04 => Ok(Reg::E),
-            0x05 => Ok(Reg::F),
-            0x06 => Ok(Reg::G),
-            0x07 => Ok(Reg::H),
-            0x08 => Ok(Reg::AB),
-            0x09 => Ok(Reg::CD),
-            0x0A => Ok(Reg::EF),
-            0x0B => Ok(Reg::GH),
-            _ => Err(anyhow!("invalid register id {id:#04X}")),
-        }
+        Ok(match id {
+            0x00 => Reg::A,
+            0x01 => Reg::B,
+            0x02 => Reg::C,
+            0x03 => Reg::D,
+            0x04 => Reg::E,
+            0x05 => Reg::F,
+            0x06 => Reg::G,
+            0x07 => Reg::H,
+            0x08 => Reg::AB,
+            0x09 => Reg::CD,
+            0x0A => Reg::EF,
+            0x0B => Reg::GH,
+            _ => bail!("invalid register id {id:#04X}"),
+        })
     }
 }
 
