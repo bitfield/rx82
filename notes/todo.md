@@ -13,7 +13,7 @@ For `memcpy` we need:
 [X] Store register indirect (`ld (cd), a`)
 [X] load register indirect (`ld a, (cd)`)
 [X] Unconditional relative jump (`bra D`)
-[ ] Forward labels
+[X] Forward labels
 
 For `to_hex` we need:
 [ ] `trap N`
@@ -22,7 +22,6 @@ For `to_hex` we need:
 [ ] `and R, N`
 [ ] `lsr R, N`
 [ ] `call` / `ret`
-[ ] `bmi` / `bpl`
    
 For `memtest` we need:
 [X] memory write

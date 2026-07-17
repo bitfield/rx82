@@ -61,9 +61,9 @@ impl TryFrom<u8> for InstructionKind {
             0x4C => DecIndirect,
             0x4D => DecMem,
             0x70..=0x7B => Cmp(reg?),
-            0xB0 => BranchAlways,
-            0xB1 => BranchEq,
-            0xB2 => BranchNe,
+            0xF0 => BranchAlways,
+            0xF1 => BranchEq,
+            0xF2 => BranchNe,
             _ => bail!("invalid opcode {opcode}"),
         })
     }
@@ -74,9 +74,9 @@ impl From<InstructionKind> for u8 {
     fn from(ins: InstructionKind) -> Self {
         use InstructionKind::*;
         match ins {
-            BranchAlways => 0xB0,
-            BranchEq => 0xB1,
-            BranchNe => 0xB2,
+            BranchAlways => 0xF0,
+            BranchEq => 0xF1,
+            BranchNe => 0xF2,
             Cmp(reg) => 0x70 | u8::from(reg),
             Dec(reg) => 0x40 | u8::from(reg),
             DecIndirect => 0x4C,
