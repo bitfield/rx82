@@ -50,7 +50,7 @@ impl Memory {
     #[inline]
     #[must_use]
     pub fn get(&self, log_addr: u16) -> u8 {
-        let addr = log_addr.saturating_sub(self.start);
+        let addr = log_addr.strict_sub(self.start);
         self.data
             .get(usize::from(addr))
             .copied()

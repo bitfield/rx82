@@ -185,7 +185,6 @@ impl Cpu {
     #[inline]
     pub fn halt(&mut self) {
         self.halt = true;
-        self.state = Execute;
     }
 
     /// Raises an illegal instruction exception.

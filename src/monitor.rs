@@ -113,7 +113,7 @@ impl Monitor {
             print!("{base:04X}:");
             let mut offset = 0;
             for _ in 0..16_u8 {
-                let byte = self.sys.mem.get(base.wrapping_add(offset));
+                let byte = self.sys.peek_mem(base.wrapping_add(offset));
                 print!(" {byte:02X}");
                 offset = offset.wrapping_add(1);
             }
@@ -135,12 +135,14 @@ impl Monitor {
         }
         loop {
             self.sys.tick();
-            if self.sys.cpu.halt {
-                println!("halted");
-                break;
-            }
-            if self.step && self.sys.cpu.state == FetchOpcode {
-                break;
+            if self.sys.cpu.state == FetchOpcode {
+                if self.sys.cpu.halt {
+                    println!("halted");
+                    break;
+                }
+                if self.step {
+                    break;
+                }
             }
         }
         self.last_addr = Some(self.sys.cpu.pc);
@@ -156,9 +158,12 @@ impl Monitor {
 }
 
 /// Extracts the argument from a user command.
+#[expect(clippy::print_stderr, reason = "error")]
 fn parse_arg(cmd: &str) -> Option<u16> {
     match cmd.split_once(' ') {
-        Some((_, arg)) => u16::from_str_radix(arg, 16).ok(),
+        Some((_, arg)) => u16::from_str_radix(arg, 16)
+            .map_err(|err| eprintln!("parsing '{arg}' as hex literal: {err}"))
+            .ok(),
         None => None,
     }
 }

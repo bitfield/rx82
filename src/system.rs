@@ -90,12 +90,11 @@ impl Default for System {
             mem: Memory::default(),
             cycles: 0,
         };
-        let mut rom = Rom {
+        let rom = Rom {
             start: 0xC000,
             end: 0xFFFF,
-            data: vec![0; 0],
+            data: vec![0x10, 0xFF],
         };
-        rom.data.extend([0x00, 0x10]);
         sys.devices.push(Box::new(rom));
         sys
     }
@@ -105,7 +104,8 @@ impl System {
     /// Prints the current CPU state and the next instruction in memory.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
-    pub fn debug_print(&self) {
+    pub fn debug_print(&mut self) {
+        let next = self.disassemble_next();
         println!("  PC  A  B  C  D  E  F  G  H  ZC | NEXT");
         println!(
             "{:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X}  {:1b}{:1b} | {}",
@@ -120,14 +120,47 @@ impl System {
             self.cpu.regs.get(H) as u8,
             u8::from(self.cpu.flags.zero),
             u8::from(self.cpu.flags.carry),
-            disassemble(
-                self.mem
-                    .data
-                    .get(usize::from(self.cpu.pc)..)
-                    .unwrap_or_default()
-            )
-            .unwrap_or_default(),
+            next,
         );
+    }
+
+    /// Returns the disassembly of the instruction at PC.
+    #[inline]
+    #[must_use]
+    pub fn disassemble_next(&mut self) -> String {
+        let code = vec![
+            self.peek_mem(self.cpu.pc),
+            self.peek_mem(self.cpu.pc.wrapping_add(1)),
+            self.peek_mem(self.cpu.pc.wrapping_add(2)),
+        ];
+        disassemble(&code).unwrap_or_default()
+    }
+
+    /// Reads the contents of system memory at `addr`.
+    ///
+    /// This may be RAM, ROM, or a memory-mapped I/O device: the monitor puts the
+    /// requested address on the bus and ticks the system to service the request, then
+    /// reads back the contents of the data bus.
+    #[inline]
+    pub fn peek_mem(&mut self, addr: u16) -> u8 {
+        // Save current CPU/bus state
+        let halted = self.cpu.halt;
+        let bus_state = self.bus.clone();
+
+        // Halt the CPU and set up the bus request
+        self.cpu.halt = true;
+        self.bus.addr = addr;
+        self.bus.mem = true;
+        self.bus.write = false;
+
+        // Tick the system once to fulfil the request
+        self.tick();
+
+        // Restore the saved state
+        self.cpu.halt = halted;
+        let data = self.bus.data;
+        self.bus = bus_state;
+        data
     }
 
     /// Runs the system until halted.
