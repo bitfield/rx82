@@ -8,4 +8,5 @@ pub mod instructions;
 pub mod memory;
 pub mod monitor;
 pub mod regs;
+pub mod rom;
 pub mod system;

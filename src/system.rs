@@ -12,6 +12,7 @@ use crate::{
     },
     memory::Memory,
     regs::Reg::*,
+    rom::Rom,
 };
 
 /// The trait that all devices connected to the [`Bus`] implement.
@@ -79,7 +80,7 @@ impl Default for System {
     /// The default `System` has all-default devices.
     #[inline]
     fn default() -> Self {
-        Self {
+        let mut sys = Self {
             bus: Bus::default(),
             clock: Box::new(Clock::default()),
             cpu: Cpu::default(),
@@ -88,7 +89,15 @@ impl Default for System {
             history: Vec::new(),
             mem: Memory::default(),
             cycles: 0,
-        }
+        };
+        let mut rom = Rom {
+            start: 0xC000,
+            end: 0xFFFF,
+            data: vec![0; 0],
+        };
+        rom.data.extend([0x00, 0x10]);
+        sys.devices.push(Box::new(rom));
+        sys
     }
 }
 
@@ -113,7 +122,7 @@ impl System {
             u8::from(self.cpu.flags.carry),
             disassemble(
                 self.mem
-                    .0
+                    .data
                     .get(usize::from(self.cpu.pc)..)
                     .unwrap_or_default()
             )
@@ -149,10 +158,10 @@ impl System {
     pub fn tick(&mut self) {
         let state = self.cpu.state; // save before cpu.tick() overwrites it
         self.cpu.tick(&mut self.bus);
-        self.mem.tick(&mut self.bus);
         for device in &mut self.devices {
             device.tick(&mut self.bus);
         }
+        self.mem.tick(&mut self.bus);
         self.bus.reconcile();
         if self.debug {
             self.history.push(Snapshot {

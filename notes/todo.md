@@ -31,3 +31,6 @@ For `memtest` we need:
 For `hello` we further need:
 [X] `ld b`
 [ ] Assembler `.data` directive
+
+Other:
+[ ] Monitor memory dump should show ROM contents

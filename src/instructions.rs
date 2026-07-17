@@ -173,11 +173,17 @@ mod tests {
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.pc, 0x0082, "wrong PC after max forward branch");
-        sys.run_program(&asm("
-            beq 0x80
-            halt"))
+        sys.mem
+            .load(
+                0x1000,
+                &asm("
+                beq 0x80
+                halt"),
+            )
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0xFF83, "wrong PC after max backward branch");
+        sys.cpu.pc = 0x1000;
+        sys.run();
+        assert_eq!(sys.cpu.pc, 0x0F83, "wrong PC after max backward branch");
         sys.run_program(&asm("
             beq 0x01
             halt"))
