@@ -142,7 +142,8 @@ impl Assembler<'_> {
                 }
             }
             Some(ByteLiteral(dis)) => Ok(dis),
-            other => bail!("expected label or immediate displacement, got {other:?}"),
+            Some(other) => bail!("expected label or immediate byte displacement, got {other}"),
+            None => bail!("unexpected end of input"),
         }
     }
 
@@ -156,14 +157,14 @@ impl Assembler<'_> {
         Ok(if reg.is16() {
             let operand = match self.next_token() {
                 Some(WordLiteral(operand)) => operand,
-                Some(other) => bail!("expected immediate word, got {other:?}"),
+                Some(other) => bail!("expected immediate word, got {other}"),
                 None => bail!("unexpected end of input"),
             };
             Vec::from(operand.to_le_bytes())
         } else {
             let operand = match self.next_token() {
                 Some(ByteLiteral(operand)) => operand,
-                Some(other) => bail!("expected immediate byte, got {other:?}"),
+                Some(other) => bail!("expected immediate byte, got {other}"),
                 None => bail!("unexpected end of input"),
             };
             vec![operand]
@@ -179,7 +180,7 @@ impl Assembler<'_> {
     pub fn expect_reg(&mut self) -> Result<Reg> {
         let reg = match self.next_token() {
             Some(Register(reg)) => reg,
-            Some(other) => bail!("expected register name, got {other:?}"),
+            Some(other) => bail!("expected register name, got {other}"),
             None => bail!("unexpected end of input"),
         };
         Ok(reg)
@@ -194,8 +195,8 @@ impl Assembler<'_> {
     pub fn expect_reg16(&mut self) -> Result<Reg> {
         let reg = match self.next_token() {
             Some(Register(reg)) if reg.is16() => reg,
-            Some(Register(reg)) => bail!("expected 16-bit register name, got '{reg:?}'"),
-            Some(other) => bail!("expected register name, got {other:?}"),
+            Some(Register(reg)) => bail!("expected 16-bit register name, got '{reg}'"),
+            Some(other) => bail!("expected register name, got {other}"),
             None => bail!("unexpected end of input"),
         };
         Ok(reg)
@@ -210,8 +211,8 @@ impl Assembler<'_> {
     pub fn expect_reg8(&mut self) -> Result<Reg> {
         let reg = match self.next_token() {
             Some(Register(reg)) if !reg.is16() => reg,
-            Some(Register(reg)) => bail!("expected 8-bit register name, got '{reg:?}'"),
-            Some(other) => bail!("expected register name, got {other:?}"),
+            Some(Register(reg)) => bail!("expected 8-bit register name, got '{reg}'"),
+            Some(other) => bail!("expected register name, got {other}"),
             None => bail!("unexpected end of input"),
         };
         Ok(reg)
@@ -256,7 +257,7 @@ impl Assembler<'_> {
         match self.next_token() {
             Some(Register(reg)) => self.code.push(u8::from(Dec(reg))),
             Some(ParenOpen) => match self.next_token() {
-                Some(Register(source)) => {
+                Some(Register(source)) if source.is16() => {
                     self.expect(&ParenClose)?;
                     self.code.push(u8::from(DecIndirect));
                     let reg = u8_from(source, Reg::A); // dummy target
@@ -267,10 +268,10 @@ impl Assembler<'_> {
                     self.code.push(u8::from(DecMem));
                     self.code.extend(addr.to_le_bytes());
                 }
-                Some(other) => bail!("expected address, got {other}"),
+                Some(other) => bail!("expected 16-bit register or address, got {other}"),
                 None => bail!("unexpected end of input"),
             },
-            Some(other) => bail!("expected register or address, got {other}"),
+            Some(other) => bail!("expected register or indirect address, got {other}"),
             None => bail!("unexpected end of input"),
         }
         Ok(())
@@ -303,7 +304,7 @@ impl Assembler<'_> {
         match self.next_token() {
             Some(Register(reg)) => self.code.push(u8::from(Inc(reg))),
             Some(ParenOpen) => match self.next_token() {
-                Some(Register(source)) => {
+                Some(Register(source)) if source.is16() => {
                     self.expect(&ParenClose)?;
                     self.code.push(u8::from(IncIndirect));
                     let reg = u8_from(source, Reg::A); // dummy target
@@ -314,10 +315,10 @@ impl Assembler<'_> {
                     self.code.push(u8::from(IncMem));
                     self.code.extend(addr.to_le_bytes());
                 }
-                Some(other) => bail!("expected address, got {other}"),
+                Some(other) => bail!("expected 16-bit register or address, got {other}"),
                 None => bail!("unexpected end of input"),
             },
-            Some(other) => bail!("expected register or address, got {other}"),
+            Some(other) => bail!("expected register or indirect address, got {other}"),
             None => bail!("unexpected end of input"),
         }
         Ok(())
@@ -342,7 +343,7 @@ impl Assembler<'_> {
                 }
             }
             Some(WordLiteral(addr)) => self.gen_store_direct(addr),
-            Some(other) => bail!("expected register name, got {other:?}"),
+            Some(other) => bail!("expected register name, got {other}"),
             None => bail!("unexpected end of input"),
         }
     }
@@ -461,7 +462,7 @@ impl Assembler<'_> {
                 LabelDef(label) => {
                     self.labels.insert(label, self.offset());
                 }
-                unexpected => bail!("unexpected token {unexpected:?}"),
+                unexpected => bail!("unexpected token {unexpected}"),
             }
         }
         Ok(())
@@ -713,9 +714,9 @@ pub fn asm(source: &str) -> Vec<u8> {
 /// Useful for writing tests.
 #[inline]
 #[must_use]
-pub fn disassemble(code: &[u8]) -> Option<String> {
+pub fn disassemble(code: &[u8]) -> String {
     let mut dis = Disassembler::from(code);
-    dis.next()
+    dis.next().unwrap_or_default()
 }
 
 #[expect(clippy::unwrap_used, reason = "tests")]
@@ -739,7 +740,7 @@ mod tests {
     macro_rules! assert_disasm {
         ( $generated:expr, $source:expr ) => {
             assert_eq!(
-                &disassemble(&$generated).unwrap(),
+                &disassemble(&$generated),
                 $source,
                 "wrong disassembly for {}",
                 as_hex(&$generated)
@@ -751,11 +752,14 @@ mod tests {
     fn assembler_assembles_and_disassembles_instructions_correctly() {
         use Reg::*;
         let cases: &[(&str, &[u8])] = &[
+            ("", &[]),
             ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
             ("bne 0x01", &[u8::from(BranchNe), 0x01]),
             ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
             ("cmp d, 0x01", &[u8::from(Cmp(D)), 0x01]),
+            ("cmp gh, 0xDEAD", &[u8::from(Cmp(GH)), 0xAD, 0xDE]),
             ("dec g", &[u8::from(Dec(G))]),
+            ("dec ab", &[u8::from(Dec(AB))]),
             ("dec (gh)", &[u8::from(DecIndirect), 0xB0]),
             ("dec (0xBABE)", &[u8::from(DecMem), 0xBE, 0xBA]),
             ("halt", &[u8::from(Halt)]),
@@ -767,6 +771,7 @@ mod tests {
             ("ld (ef), a", &[u8::from(StoreRegIndirect), 0x0A]),
             ("ld b, 0xFF", &[u8::from(LdRegImm(B)), 0xFF]),
             ("ld cd, 0xBEEF", &[u8::from(LdRegImm(CD)), 0xEF, 0xBE]),
+            ("ld ab, 0x000F", &[u8::from(LdRegImm(AB)), 0x0F, 0x00]),
             ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
             ("nop", &[u8::from(Nop)]),
         ];
@@ -778,24 +783,42 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::expect_used, reason = "test")]
+    fn assembler_rejects_invalid_code() {
+        let cases: &[&str] = &[
+            "ld a",
+            "ld a, 0x1000",
+            "ld bogus, 0x01",
+            "ld ab, 0x00009",
+            "ld ef, 0x02",
+            "ld a, (bogus)",
+            "ld (0x0), b",
+            "ld 0x00AF, ab",
+            "bogus",
+            "inc ax",
+            "inc 0x0000",
+            "inc (a)",
+            "inc (0xFF)",
+            "dec (a)",
+            "cmp a, b, d",
+            "bra a",
+            "beq UNDEFINED_LABEL",
+            "bne 0x1000",
+        ];
+        for &source in cases {
+            let mut asm = Assembler::from(source);
+            asm.debug = true;
+            asm.assemble()
+                .expect_err(&format!("assembling invalid source '{source}' should fail"));
+        }
+    }
+
+    #[test]
     fn assembler_ignores_comments() {
         let source = "ld a, 0xFF ; loop count";
         let generated = asm(source);
         let object = &[u8::from(LdRegImm(Reg::A)), 0xFF];
         assert_asm!(source, generated, object);
-    }
-
-    #[test]
-    #[expect(clippy::expect_used, reason = "test")]
-    fn assembler_reports_errors_for_invalid_code() {
-        let cases: &[&str] = &["ld 0x00AF, ab"];
-        for &source in cases {
-            let mut asm = Assembler::from(source);
-            asm.debug = true;
-            asm.assemble()
-                .context(format!("assembling '{source}'"))
-                .expect_err("should be invalid");
-        }
     }
 
     #[test]

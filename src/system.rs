@@ -133,7 +133,7 @@ impl System {
             self.peek_mem(self.cpu.pc.wrapping_add(1)),
             self.peek_mem(self.cpu.pc.wrapping_add(2)),
         ];
-        disassemble(&code).unwrap_or_default()
+        disassemble(&code)
     }
 
     /// Reads the contents of system memory at `addr`.

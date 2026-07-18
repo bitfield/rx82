@@ -1,36 +1,40 @@
-For `countdown` we need:
-[X] decrement register (`dec a`)
-[X] Zero flag
-[X] Relative jump on non-zero (`bne D`)
-[X] Backward labels
-
-For `memcpy` we need:
-[X] cd register
-[X] load register direct 'ld cd, NN'
-[X] inc/dec reg pair (`inc cd`)
-[X] Relative jump on zero (`beq D`)
-[X] 8-bit compare immediate (`cmp b, N`)
-[X] Store register indirect (`ld (cd), a`)
-[X] load register indirect (`ld a, (cd)`)
-[X] Unconditional relative jump (`bra D`)
-[X] Forward labels
-
-For `to_hex` we need:
+For boot ROM we need:
+[ ] Load programs at 0x0100 instead of 0x0000
 [ ] `trap N`
 [ ] (simulated) BIOS putchar at trap 0x10
+[ ] ROM: run RAM test
+[ ] ROM: show startup message
+[ ] ROM: print decimal routine
+[ ] ROM: show bytes free message
+[ ] CPU: invoke monitor from trap
+[ ] CPU: reset vector
+[ ] ROM: include binary from file
+[ ] Assembler: Org directive
+[ ] Assembler: Dw directive 
+
+For `to_hex` we need:
+[ ] CPU: Stack pointer
 [ ] `push R` / `pop R`
 [ ] `and R, N`
 [ ] `lsr R, N`
 [ ] `call` / `ret`
    
-For `memtest` we need:
-[X] memory write
-[ ] 16-bit compare immediate (`cmp cd, NN`)
-[ ] Maybe: indirect inc/dec (`dec (cd)`)
-
-For `hello` we further need:
-[X] `ld b`
-[ ] Assembler `.data` directive
+Use case programs to write:
+[ ] 16-bit multiply routine
+[ ] Print status flags
 
 Other:
-[ ] Monitor memory dump should show ROM contents
+[ ] Monitor: memory dump should show ROM contents
+[ ] Monitor: bus tracing
+[ ] Monitor: disassembly
+[ ] Monitor: assembly
+[ ] Monitor: modify memory
+[ ] Monitor: command history/editing (`rustyline`)
+[ ] Assembler: define symbols (`=`)
+[ ] Assembler: format source file
+[ ] Assembler: file/line error reporting
+[ ] Assembler: fancy error reporting (`annotate-snippets-rs`)
+[ ] CPU: trap on illegal instruction
+[ ] Disassembler: SkoolKit-style HTML cross-linked listings
+[ ] System: emulated serial device
+[ ] ROM: write character to serial

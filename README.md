@@ -74,12 +74,12 @@ RMON v1.0 (C) 1977 Solid State Technologies, Inc.
 0000 00 00 00 00 00 00 00 00  00 | ld a, 0x00
 > h
 Commands:
+G [<address>] = Go (run till halted)
 H             = Help
 M [<address>] = Memory dump
 S [<address>] = Single step
 Q             = Quit
 Enter         = Repeat last command
-
 >
 ```
 
@@ -139,22 +139,44 @@ The processor status register PS contains the following flags:
 
 ## R8 assembly language
 
-The input format recognised by the R8 assembler is very similar to that of most Z80 or 6502 assemblers. Here's a simple example program:
+The input format recognised by the R8 assembler is very similar to that of most Z80 or 6502 assemblers. Here's a simple [example program](examples/ram_test.asm):
 
 ```asm
-; countdown timer
-    ld a, 0x06 ; about 1 second
-LOOP:
-    ld cd, 0xFFFF ; inner loop
-INNER:
+; RAM test
+    ld  cd, 0xFFFD  ; top of possible RAM
+    ld  a, 0x02
+
+RAM_FILL:
+    ld  (cd), a     ; write 0x02 to each location
     dec cd
-    bne INNER
-    dec a
-    bne LOOP
-    halt
+    cmp cd, 0x00FF  ; reached bottom of user memory?
+    bne RAM_FILL    ; if not, keep going
+
+RAM_READ:
+    inc cd          ; pointer to next test address
+    cmp cd, 0xFFFE  ; past top?
+    beq DONE        ; if so, all memory is present and OK
+    dec (cd)        ; 0x02 goes to 0x01
+    beq DONE        ; but if zero, RAM is faulty
+    inc (0x0000)    ; anti-aliasing tripwire
+    dec (cd)        ; 0x01 goes to 0x00
+    beq RAM_READ    ; if zero, RAM OK: test next location
+
+DONE:
+    dec cd          ; cd points to the highest usable address
 ```
 
 Whitespace is ignored, and only `0x`-prefixed hexadecimal numbers are recognised as literals.
+
+## Memory map
+
+| Address | Contents |
+| :--- | :---    |
+| 0x0000 | Trap/interrupt table |
+| 0x0080 | System data area |
+| 0x0100 | User RAM |
+| 0xC000 | ROM |
+| 0xFFFE | Reset vector |
 
 # Changelog
 

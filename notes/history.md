@@ -1,0 +1,24 @@
+History:
+
+For `countdown` we need:
+[X] decrement register (`dec a`)
+[X] Zero flag
+[X] Relative jump on non-zero (`bne D`)
+[X] Backward labels
+
+For `memcpy` we need:
+[X] cd register
+[X] load register direct 'ld cd, NN'
+[X] inc/dec reg pair (`inc cd`)
+[X] Relative jump on zero (`beq D`)
+[X] 8-bit compare immediate (`cmp b, N`)
+[X] Store register indirect (`ld (cd), a`)
+[X] load register indirect (`ld a, (cd)`)
+[X] Unconditional relative jump (`bra D`)
+[X] Forward labels
+
+For `memtest` we need:
+[X] memory write
+[X] 16-bit compare immediate (`cmp cd, NN`)
+[X] indirect inc/dec (`dec (cd)`)
+

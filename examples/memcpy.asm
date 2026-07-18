@@ -1,3 +1,4 @@
+; copy a block of memory
     ld cd, 0x1000 ; source address
     ld ef, 0x2000 ; destination address
     ld b, 0xFF    ; bytes to copy
