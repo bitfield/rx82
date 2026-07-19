@@ -132,56 +132,57 @@ mod tests {
             ..Default::default()
         };
         sys.mem.load(
-            0x0000,
+            0x0100,
             &asm("
                 ld a, 0xFF
                 nop
                 halt"),
         )?;
+        sys.cpu.pc = 0x0100;
         let ticks = vec![
             (
                 "initial",
                 &[Bstate::Addr(0x0000), Bstate::Data(0x00), Bstate::Mem(false)],
             ),
             (
-                "after fetchopcode at 0x0000",
-                &[Bstate::Addr(0x0000), Bstate::Data(0x00), Bstate::Mem(true)],
+                "after fetchopcode at 0x0100",
+                &[Bstate::Addr(0x0100), Bstate::Data(0x00), Bstate::Mem(true)],
             ),
             (
-                "after waitopcode at 0x0000",
-                &[Bstate::Addr(0x0000), Bstate::Data(0x10), Bstate::Mem(true)],
+                "after waitopcode at 0x0100",
+                &[Bstate::Addr(0x0100), Bstate::Data(0x10), Bstate::Mem(true)],
             ),
             (
                 "after decode ld a, 0xFF",
-                &[Bstate::Addr(0x0001), Bstate::Data(0x10), Bstate::Mem(true)],
+                &[Bstate::Addr(0x0101), Bstate::Data(0x10), Bstate::Mem(true)],
             ),
             (
                 "after waitop1of1",
-                &[Bstate::Addr(0x0001), Bstate::Data(0xFF), Bstate::Mem(true)],
+                &[Bstate::Addr(0x0101), Bstate::Data(0xFF), Bstate::Mem(true)],
             ),
             (
                 "after readop1of1",
-                &[Bstate::Addr(0x0001), Bstate::Data(0xFF), Bstate::Mem(true)],
+                &[Bstate::Addr(0x0101), Bstate::Data(0xFF), Bstate::Mem(true)],
             ),
             (
                 "after execute 'ld a, 0xff'",
-                &[Bstate::Addr(0x0001), Bstate::Data(0xFF), Bstate::Mem(true)],
+                &[Bstate::Addr(0x0101), Bstate::Data(0xFF), Bstate::Mem(true)],
             ),
             (
                 "after fetchopcode",
-                &[Bstate::Addr(0x0002), Bstate::Data(0xFF), Bstate::Mem(true)],
+                &[Bstate::Addr(0x0102), Bstate::Data(0xFF), Bstate::Mem(true)],
             ),
             (
                 "after waitopcode",
-                &[Bstate::Addr(0x0002), Bstate::Data(0x01), Bstate::Mem(true)],
+                &[Bstate::Addr(0x0102), Bstate::Data(0x01), Bstate::Mem(true)],
             ),
             (
                 "after decode nop",
-                &[Bstate::Addr(0x0002), Bstate::Data(0x01), Bstate::Mem(false)],
+                &[Bstate::Addr(0x0102), Bstate::Data(0x01), Bstate::Mem(false)],
             ),
             (
                 "after execute 'nop'",
-                &[Bstate::Addr(0x0002), Bstate::Data(0x01), Bstate::Mem(false)],
+                &[Bstate::Addr(0x0102), Bstate::Data(0x01), Bstate::Mem(false)],
             ),
         ];
 

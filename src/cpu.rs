@@ -359,26 +359,27 @@ mod tests {
         let mut sys = System::default();
         sys.mem
             .load(
-                0x0000,
+                0x0100,
                 &asm("
                     nop
                     halt"),
             )
             .unwrap();
+        sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
-        assert_eq!(sys.cpu.pc, 0x0000);
+        assert_eq!(sys.cpu.pc, 0x0100);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOpcode);
-        assert_eq!(sys.cpu.pc, 0x0001);
+        assert_eq!(sys.cpu.pc, 0x0101);
         sys.tick();
         assert_eq!(sys.cpu.state, Decode);
-        assert_eq!(sys.cpu.pc, 0x0001);
+        assert_eq!(sys.cpu.pc, 0x0101);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
-        assert_eq!(sys.cpu.pc, 0x0001);
+        assert_eq!(sys.cpu.pc, 0x0101);
         sys.tick();
         assert_eq!(sys.cpu.state, FetchOpcode);
-        assert_eq!(sys.cpu.pc, 0x0001);
+        assert_eq!(sys.cpu.pc, 0x0101);
     }
 
     #[test]
@@ -386,28 +387,29 @@ mod tests {
         let mut sys = System::default();
         sys.mem
             .load(
-                0x0000,
+                0x0100,
                 &asm("
                     ld a, 0xFF
                     halt"),
             )
             .unwrap();
+        sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
-        assert_eq!(sys.cpu.pc, 0x0001);
+        assert_eq!(sys.cpu.pc, 0x0101);
         assert_eq!(sys.cpu.state, WaitOpcode);
         sys.tick();
         assert_eq!(sys.cpu.state, Decode);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOp);
-        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.pc, 0x0102);
         sys.tick();
         assert_eq!(sys.cpu.state, ReadOp);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
         assert_eq!(sys.cpu.regs.get(A), 0x00FF);
-        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.pc, 0x0102);
     }
 
     #[test]
@@ -415,52 +417,54 @@ mod tests {
         let mut sys = System::default();
         sys.mem
             .load(
-                0x0000,
+                0x0100,
                 &asm("
                     ld ab, 0xBEEF
                     halt"),
             )
             .unwrap();
+        sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOpcode);
         sys.tick();
         assert_eq!(sys.cpu.state, Decode);
-        assert_eq!(sys.cpu.pc, 0x0001);
+        assert_eq!(sys.cpu.pc, 0x0101);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOp1of2);
         sys.tick();
         assert_eq!(sys.cpu.state, ReadOp1of2);
-        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.pc, 0x0102);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOp2of2);
         sys.tick();
         assert_eq!(sys.cpu.state, ReadOp2of2);
-        assert_eq!(sys.cpu.pc, 0x0003);
+        assert_eq!(sys.cpu.pc, 0x0103);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
         assert_eq!(sys.cpu.regs.get(AB), 0xBEEF);
-        assert_eq!(sys.cpu.pc, 0x0003);
+        assert_eq!(sys.cpu.pc, 0x0103);
     }
 
     #[test]
     fn cpu_states_are_correct_for_mem_read_instruction() {
         let mut sys = System::default();
-        sys.mem.set(0x0100, 0xFF);
-        sys.cpu.regs.set(Reg::CD, 0x0100);
+        sys.mem.set(0x0110, 0xFF);
+        sys.cpu.regs.set(Reg::CD, 0x0110);
         sys.mem
             .load(
-                0x0000,
+                0x0100,
                 &asm("
                     ld b, (cd)
                     halt"),
             )
             .unwrap();
+        sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOpcode);
-        assert_eq!(sys.cpu.pc, 0x0001);
+        assert_eq!(sys.cpu.pc, 0x0101);
         sys.tick();
         assert_eq!(sys.cpu.state, Decode);
         sys.tick();
@@ -470,13 +474,13 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
-        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.pc, 0x0102);
         assert_eq!(sys.cpu.state, WaitLoad(B));
         sys.tick();
         assert_eq!(sys.cpu.state, ReadLoad(B));
         sys.tick();
         assert_eq!(sys.cpu.regs.get(B), 0x00FF);
-        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.pc, 0x0102);
         assert_eq!(sys.cpu.state, FetchOpcode);
     }
 
@@ -485,12 +489,13 @@ mod tests {
         let mut sys = System::default();
         sys.mem
             .load(
-                0x0000,
+                0x0100,
                 &asm("
                     ld 0xBEEF, a
                     halt"),
             )
             .unwrap();
+        sys.cpu.pc = 0x0100;
         sys.cpu.regs.set(A, 0xFF);
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -499,21 +504,21 @@ mod tests {
         assert_eq!(sys.cpu.state, Decode);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOp1of2);
-        assert_eq!(sys.cpu.pc, 0x0002);
+        assert_eq!(sys.cpu.pc, 0x0102);
         sys.tick();
         assert_eq!(sys.cpu.state, ReadOp1of2);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOp2of2);
         sys.tick();
         assert_eq!(sys.cpu.state, ReadOp2of2);
-        assert_eq!(sys.cpu.pc, 0x0003);
+        assert_eq!(sys.cpu.pc, 0x0103);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
         assert_eq!(sys.cpu.state, WaitOpcode);
-        assert_eq!(sys.cpu.pc, 0x0004);
+        assert_eq!(sys.cpu.pc, 0x0104);
     }
 
     #[expect(clippy::bool_assert_comparison, reason = "clarity")]

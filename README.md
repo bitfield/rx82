@@ -176,6 +176,7 @@ Whitespace is ignored, and only `0x`-prefixed hexadecimal numbers are recognised
 | 0x0080 | System data area |
 | 0x0100 | User RAM |
 | 0xC000 | ROM |
+| 0xFF00 | System I/O area |
 | 0xFFFE | Reset vector |
 
 # Changelog

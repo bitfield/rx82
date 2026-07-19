@@ -167,12 +167,12 @@ mod tests {
             beq 0x00
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0003, "wrong PC after zero branch");
+        assert_eq!(sys.cpu.pc, 0x0103, "wrong PC after zero branch");
         sys.run_program(&asm("
             beq 0x7F
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0082, "wrong PC after max forward branch");
+        assert_eq!(sys.cpu.pc, 0x0182, "wrong PC after max forward branch");
         sys.mem
             .load(
                 0x1000,
@@ -188,26 +188,26 @@ mod tests {
             beq 0x01
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0004, "forward branch not taken");
+        assert_eq!(sys.cpu.pc, 0x0104, "forward branch not taken");
         sys.run_program(&asm("
             beq 0x01
             halt
             beq 0xFD"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0003, "backward branch not taken");
+        assert_eq!(sys.cpu.pc, 0x0103, "backward branch not taken");
         sys.run_program(&asm("
             beq 0x01
             halt
             inc a
             beq 0xFC"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0007, "backward branch taken");
+        assert_eq!(sys.cpu.pc, 0x0107, "backward branch taken");
         sys.run_program(&asm("
             inc a
             beq 0x01
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0004, "forward branch taken");
+        assert_eq!(sys.cpu.pc, 0x0104, "forward branch taken");
     }
 
     #[test]
@@ -219,14 +219,14 @@ mod tests {
             halt
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0003, "branch taken");
+        assert_eq!(sys.cpu.pc, 0x0103, "branch taken");
         sys.run_program(&asm("
             inc a
             bne 0x01
             halt
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0005, "branch not taken");
+        assert_eq!(sys.cpu.pc, 0x0105, "branch not taken");
     }
 
     #[test]
@@ -238,7 +238,7 @@ mod tests {
             halt
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0004, "branch not taken");
+        assert_eq!(sys.cpu.pc, 0x0104, "branch not taken");
     }
 
     #[test]
@@ -375,7 +375,7 @@ mod tests {
         let mut sys = System::default();
         sys.run_program(&asm("halt")).unwrap();
         assert!(sys.cpu.halt, "not halted");
-        assert_eq!(sys.cpu.pc, 0x0001, "wrong PC");
+        assert_eq!(sys.cpu.pc, 0x0101, "wrong PC");
     }
 
     #[test]
@@ -457,7 +457,7 @@ mod tests {
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.regs.get(A), 0x00FF, "wrong A");
-        assert_eq!(sys.cpu.pc, 0x0003, "wrong PC");
+        assert_eq!(sys.cpu.pc, 0x0103, "wrong PC");
     }
 
     #[test]
@@ -468,7 +468,7 @@ mod tests {
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.regs.get(AB), 0x00C0, "wrong AB");
-        assert_eq!(sys.cpu.pc, 0x0004, "wrong PC");
+        assert_eq!(sys.cpu.pc, 0x0104, "wrong PC");
     }
 
     #[test]
@@ -492,7 +492,7 @@ mod tests {
             nop
             halt"))
             .unwrap();
-        assert_eq!(sys.cpu.pc, 0x0002, "wrong PC");
+        assert_eq!(sys.cpu.pc, 0x0102, "wrong PC");
     }
 
     #[test]

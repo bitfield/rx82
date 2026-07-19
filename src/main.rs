@@ -65,7 +65,8 @@ fn main() -> Result<()> {
         Command::Mon { path: Some(path) } => {
             let mut mon = Monitor::default();
             let data = fs::read(path)?;
-            mon.sys.mem.load(0x0000, &data)?;
+            mon.sys.mem.load(0x0100, &data)?;
+            mon.sys.cpu.pc = 0x0100;
             mon.interact()
         }
         Command::Mon { path: None, .. } => Monitor::default().interact(),
@@ -73,7 +74,8 @@ fn main() -> Result<()> {
             let source = fs::read_to_string(&path)?;
             let data = Assembler::from(source.as_str()).assemble()?;
             let mut mon = Monitor::default();
-            mon.sys.mem.load(0x0000, &data)?;
+            mon.sys.mem.load(0x0100, &data)?;
+            mon.sys.cpu.pc = 0x0100;
             mon.interact()
         }
     }

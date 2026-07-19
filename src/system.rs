@@ -173,15 +173,15 @@ impl System {
         }
     }
 
-    /// Loads `program` at start of memory and runs until halted.
+    /// Loads `program` at start of user memory and runs until halted.
     ///
     /// # Errors
     ///
     /// If the program does not fit into memory.
     #[inline]
     pub fn run_program(&mut self, program: &[u8]) -> Result<()> {
-        self.mem.load(0x0000, program)?;
-        self.cpu.pc = 0x0000;
+        self.mem.load(0x0100, program)?;
+        self.cpu.pc = 0x0100;
         self.run();
         Ok(())
     }

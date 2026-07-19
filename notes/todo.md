@@ -1,7 +1,9 @@
 For boot ROM we need:
-[ ] Load programs at 0x0100 instead of 0x0000
-[ ] `trap N`
-[ ] (simulated) BIOS putchar at trap 0x10
+[X] Load programs at 0x0100 instead of 0x0000
+[ ] CPU: Stack pointer
+[ ] `push R` / `pop R`
+[ ] `trap N` / `rti`
+[ ] (simulated) BIOS putchar at trap 0x20
 [ ] ROM: run RAM test
 [ ] ROM: show startup message
 [ ] ROM: print decimal routine
@@ -13,18 +15,16 @@ For boot ROM we need:
 [ ] Assembler: Dw directive 
 
 For `to_hex` we need:
-[ ] CPU: Stack pointer
-[ ] `push R` / `pop R`
 [ ] `and R, N`
 [ ] `lsr R, N`
 [ ] `call` / `ret`
-   
+
 Use case programs to write:
 [ ] 16-bit multiply routine
 [ ] Print status flags
 
 Other:
-[ ] Monitor: memory dump should show ROM contents
+[X] Monitor: memory dump should show ROM contents
 [ ] Monitor: bus tracing
 [ ] Monitor: disassembly
 [ ] Monitor: assembly
