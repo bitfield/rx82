@@ -23,6 +23,7 @@ pub enum Reg {
     CD,
     EF,
     GH,
+    SP,
 }
 
 impl Display for Reg {
@@ -44,6 +45,7 @@ impl Display for Reg {
                 Reg::CD => "cd",
                 Reg::EF => "ef",
                 Reg::GH => "gh",
+                Reg::SP => "sp",
             }
         )
     }
@@ -67,6 +69,7 @@ impl FromStr for Reg {
             "cd" => Reg::CD,
             "ef" => Reg::EF,
             "gh" => Reg::GH,
+            "sp" => Reg::SP,
             reg => bail!("invalid register {reg}"),
         })
     }
@@ -90,6 +93,7 @@ impl TryFrom<u8> for Reg {
             0x09 => Reg::CD,
             0x0A => Reg::EF,
             0x0B => Reg::GH,
+            0x0C => Reg::SP,
             _ => bail!("invalid register id {id:#04X}"),
         })
     }
@@ -111,6 +115,7 @@ impl From<Reg> for u8 {
             Reg::CD => 0x09,
             Reg::EF => 0x0A,
             Reg::GH => 0x0B,
+            Reg::SP => 0x0C,
         }
     }
 }
@@ -135,6 +140,7 @@ pub struct Regs {
     rf: u8,
     rg: u8,
     rh: u8,
+    sp: u16,
 }
 
 impl Regs {
@@ -158,6 +164,7 @@ impl Regs {
             Reg::CD => u16::from_be_bytes([self.rc, self.rd]),
             Reg::EF => u16::from_be_bytes([self.re, self.rf]),
             Reg::GH => u16::from_be_bytes([self.rg, self.rh]),
+            Reg::SP => self.sp,
         }
     }
 
@@ -181,6 +188,7 @@ impl Regs {
             CD => [self.rc, self.rd] = val.to_be_bytes(),
             EF => [self.re, self.rf] = val.to_be_bytes(),
             GH => [self.rg, self.rh] = val.to_be_bytes(),
+            SP => self.sp = val,
         }
         self.get(reg)
     }

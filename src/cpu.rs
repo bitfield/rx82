@@ -526,11 +526,13 @@ mod tests {
     fn reset_resets_cpu() {
         let mut cpu = Cpu::default();
         cpu.regs.set(AB, 0xBEEF);
+        cpu.regs.set(SP, 0xFFFD);
         cpu.pc = 0xC000;
         cpu.flags.carry = true;
         cpu.flags.zero = true;
         cpu.reset();
         assert_eq!(cpu.regs.get(AB), 0x0000, "AB not reset");
+        assert_eq!(cpu.regs.get(SP), 0x0000, "AB not reset");
         assert_eq!(cpu.pc, 0x0000, "PC not reset");
         assert_eq!(cpu.flags.carry, false, "carry not reset");
         assert_eq!(cpu.flags.zero, false, "zero not reset");

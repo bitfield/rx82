@@ -106,10 +106,11 @@ impl System {
     #[inline]
     pub fn debug_print(&mut self) {
         let next = self.disassemble_next();
-        println!("  PC  A  B  C  D  E  F  G  H  ZC | NEXT");
+        println!("  PC   SP A  B  C  D  E  F  G  H  ZC | NEXT");
         println!(
-            "{:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X}  {:1b}{:1b} | {}",
+            "{:04X} {:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:1b}{:1b} | {}",
             self.cpu.pc,
+            self.cpu.regs.get(SP),
             self.cpu.regs.get(A) as u8,
             self.cpu.regs.get(B) as u8,
             self.cpu.regs.get(C) as u8,
