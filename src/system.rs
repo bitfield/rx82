@@ -106,7 +106,7 @@ impl System {
     #[inline]
     pub fn debug_print(&mut self) {
         let next = self.disassemble_next();
-        println!("  PC   SP A  B  C  D  E  F  G  H  ZC | NEXT");
+        println!("  PC   SP  A  B  C  D  E  F  G  H ZC | NEXT");
         println!(
             "{:04X} {:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:1b}{:1b} | {}",
             self.cpu.pc,
@@ -227,6 +227,7 @@ impl System {
             let mut addr = String::from("ADDR ");
             let mut data = String::from("DATA ");
             let mut mem = String::from("/MEM ");
+            let mut wrt = String::from("/WRT ");
             for snapshot in chunk {
                 write!(tick, " {:04X}", snapshot.tick).unwrap();
                 write!(header, "─────").unwrap();
@@ -237,7 +238,17 @@ impl System {
                     mem,
                     "{}",
                     if snapshot.bus.mem {
-                        " ████"
+                        " ─MEM"
+                    } else {
+                        " ────"
+                    }
+                )
+                .unwrap();
+                write!(
+                    wrt,
+                    "{}",
+                    if snapshot.bus.write {
+                        " ─WRT"
                     } else {
                         " ────"
                     }
@@ -250,8 +261,23 @@ impl System {
             println!("{addr}");
             println!("{data}");
             println!("{mem}");
+            println!("{wrt}");
             println!();
         }
+    }
+
+    /// Runs `program` and prints a trace.
+    ///
+    /// # Errors
+    ///
+    /// As for [`run_program`](Self::run_program).
+    #[inline]
+    pub fn trace_program(&mut self, program: &[u8]) -> Result<()> {
+        self.debug = true;
+        self.history = Vec::new();
+        self.run_program(program)?;
+        self.trace();
+        Ok(())
     }
 }
 
@@ -263,14 +289,10 @@ mod tests {
     #[expect(clippy::unwrap_used, reason = "test")]
     #[test]
     fn trace_formatting_copes_with_long_lines() {
-        let mut sys = System {
-            debug: true,
-            ..System::default()
-        };
+        let mut sys = System::default();
         let mut nops = vec![u8::from(Nop); 7];
         nops.push(u8::from(Halt));
-        sys.run_program(&nops).unwrap();
-        sys.trace();
+        sys.trace_program(&nops).unwrap();
         // panic!("uncomment me to check trace formatting");
     }
 }

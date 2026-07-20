@@ -70,8 +70,8 @@ The monitor displays the current CPU registers and the next instruction in memor
 
 ```txt
 RMON v1.0 (C) 1977 Solid State Technologies, Inc.
-  PC  A  B  C  D  E  F  G  H  ZC | NEXT
-0000 00 00 00 00 00 00 00 00  00 | ld a, 0x00
+  PC   SP  A  B  C  D  E  F  G  H ZC | NEXT
+0100 0000 00 00 00 00 00 00 00 00 00 | ld cd, 0x1000
 > h
 Commands:
 G [<address>] = Go (run till halted)

@@ -125,6 +125,12 @@ impl Device for Cpu {
             WaitOp1of2 => ReadOp1of2,
             WaitOp2of2 => ReadOp2of2,
             WaitOpcode => Decode,
+            WaitWrite(mut addr, val) => {
+                bus.mem_write(addr, val);
+                addr = addr.wrapping_sub(1);
+                self.regs.set(Reg::SP, addr);
+                FetchOpcode
+            }
         };
     }
 }
@@ -240,6 +246,24 @@ impl Cpu {
         u16::from_be_bytes([self.op_hi, self.op_lo])
     }
 
+    /// Executes a push instruction with `reg`.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn push(&mut self, reg: Reg, bus: &mut Bus) {
+        let mut addr = self.regs.get(Reg::SP);
+        let val = self.regs.get(reg);
+        if reg.is16() {
+            let [hi, lo] = val.to_be_bytes();
+            bus.mem_write(addr, lo);
+            self.state = WaitWrite(addr.wrapping_sub(1), hi);
+        } else {
+            bus.mem_write(addr, self.regs.get(reg) as u8);
+            self.state = FetchOpcode;
+        }
+        addr = addr.wrapping_sub(1);
+        self.regs.set(Reg::SP, addr);
+    }
+
     /// Resets the CPU to its power-on state.
     ///
     /// The initial state is: all registers and flags zero, PC zero, not halted, state
@@ -317,6 +341,8 @@ pub enum State {
     WaitOp2of2,
     /// Waits for an opcode fetch to complete.
     WaitOpcode,
+    /// Waits for a memory write, before writing another value.
+    WaitWrite(u16, u8),
 }
 
 impl Display for State {
@@ -342,6 +368,7 @@ impl Display for State {
                 ReadInc(_) => "RINC",
                 WaitDec(_) => "WDEC",
                 WaitInc(_) => "WINC",
+                WaitWrite(_, _) => "WWRT",
             }
         )
     }

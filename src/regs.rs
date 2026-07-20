@@ -125,7 +125,7 @@ impl Reg {
     #[inline]
     #[must_use]
     pub fn is16(&self) -> bool {
-        matches!(self, Reg::AB | Reg::CD | Reg::EF | Reg::GH)
+        matches!(self, Reg::AB | Reg::CD | Reg::EF | Reg::GH | Reg::SP)
     }
 }
 
@@ -247,5 +247,14 @@ mod tests {
         assert_eq!(regs.get(AB), 0xBEEF, "wrong AB");
         assert_eq!(regs.get(A), 0xBE, "wrong A");
         assert_eq!(regs.get(B), 0xEF, "wrong B");
+    }
+
+    #[test]
+    fn addressing_sp_works() {
+        let mut regs = Regs::default();
+        let sp = Reg::SP;
+        regs.set(sp, 0xFFFF);
+        assert!(sp.is16(), "SP should be 16-bit");
+        assert_eq!(regs.get(sp), 0xFFFF, "wrong SP");
     }
 }

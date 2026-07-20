@@ -17,7 +17,7 @@ use Token::*;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "beq", "bne", "bra", "cmp", "dec", "halt", "inc", "ld", "nop",
+    "beq", "bne", "bra", "cmp", "dec", "halt", "inc", "ld", "nop", "push",
 ];
 
 /// Assembles a given program.
@@ -84,6 +84,7 @@ impl Assembler<'_> {
             "inc" => self.gen_inc(),
             "ld" => self.gen_ld(),
             "nop" => self.gen_implied(Nop),
+            "push" => self.gen_push(),
             _ => bail!("unknown keyword '{kw}'"),
         }
     }
@@ -380,6 +381,18 @@ impl Assembler<'_> {
         Ok(())
     }
 
+    /// Generates a push instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Invalid register name
+    #[inline]
+    pub fn gen_push(&mut self) -> Result<()> {
+        let reg = self.expect_reg()?;
+        self.code.push(u8::from(Push(reg)));
+        Ok(())
+    }
+
     /// Generates a store register direct instruction.
     ///
     /// # Errors
@@ -566,6 +579,7 @@ impl Iterator for Disassembler<'_> {
                 Nop => "nop".into(),
                 LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
                 LdRegIndirect => self.format_ld_reg_indirect(),
+                Push(reg) => format!("push {reg}"),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
                 StoreRegIndirect => self.format_store_reg_indirect(),
             }
@@ -772,6 +786,7 @@ mod tests {
             ("ld b, 0xFF", &[u8::from(LdRegImm(B)), 0xFF]),
             ("ld cd, 0xBEEF", &[u8::from(LdRegImm(CD)), 0xEF, 0xBE]),
             ("ld ab, 0x000F", &[u8::from(LdRegImm(AB)), 0x0F, 0x00]),
+            ("ld sp, 0x010F", &[u8::from(LdRegImm(SP)), 0x0F, 0x01]),
             ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
             ("nop", &[u8::from(Nop)]),
         ];
@@ -900,7 +915,7 @@ mod tests {
         // Load immediate without a following operand
         assert_disasm!([0x10], "ld a, ??? (no operand)");
         // Invalid opcode
-        assert_disasm!([0x1C, 0xFF], "??? (0x1C)");
+        assert_disasm!([0xFF, 0xFF], "??? (0xFF)");
     }
 
     fn as_hex(data: &[u8]) -> String {
