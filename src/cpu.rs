@@ -101,7 +101,8 @@ impl Device for Cpu {
                 FetchOpcode
             }
             ReadLoad(reg) => {
-                self.regs.set(reg, u16::from(bus.data));
+                self.op_lo = bus.data;
+                self.regs.set(reg, self.op());
                 FetchOpcode
             }
             ReadOp => {
@@ -118,6 +119,14 @@ impl Device for Cpu {
                 self.op_hi = bus.data;
                 Execute
             }
+            ReadStack1of2(reg) => {
+                self.op_hi = bus.data;
+                let mut addr = self.regs.get(Reg::SP);
+                addr = addr.wrapping_add(1);
+                bus.mem_read(addr);
+                self.regs.set(Reg::SP, addr);
+                WaitLoad(reg)
+            }
             WaitDec(addr) => ReadDec(addr),
             WaitInc(addr) => ReadInc(addr),
             WaitLoad(reg) => ReadLoad(reg),
@@ -125,7 +134,9 @@ impl Device for Cpu {
             WaitOp1of2 => ReadOp1of2,
             WaitOp2of2 => ReadOp2of2,
             WaitOpcode => Decode,
-            WaitWrite(mut addr, val) => {
+            WaitStack1of2(reg) => ReadStack1of2(reg),
+            WaitPush(val) => {
+                let mut addr = self.regs.get(Reg::SP);
                 bus.mem_write(addr, val);
                 addr = addr.wrapping_sub(1);
                 self.regs.set(Reg::SP, addr);
@@ -246,6 +257,21 @@ impl Cpu {
         u16::from_be_bytes([self.op_hi, self.op_lo])
     }
 
+    /// Executes a pop instruction with `reg`.
+    #[inline]
+    pub fn pop(&mut self, reg: Reg, bus: &mut Bus) {
+        let mut addr = self.regs.get(Reg::SP);
+        addr = addr.wrapping_add(1);
+        bus.mem_read(addr);
+        self.regs.set(Reg::SP, addr);
+        if reg.is16() {
+            self.state = WaitStack1of2(reg);
+        } else {
+            self.op_hi = 0;
+            self.state = WaitLoad(reg);
+        }
+    }
+
     /// Executes a push instruction with `reg`.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
@@ -255,7 +281,7 @@ impl Cpu {
         if reg.is16() {
             let [hi, lo] = val.to_be_bytes();
             bus.mem_write(addr, lo);
-            self.state = WaitWrite(addr.wrapping_sub(1), hi);
+            self.state = WaitPush(hi);
         } else {
             bus.mem_write(addr, self.regs.get(reg) as u8);
             self.state = FetchOpcode;
@@ -327,6 +353,8 @@ pub enum State {
     ReadOp1of2,
     /// Reads the second of two operands from the bus.
     ReadOp2of2,
+    /// Reads the first of two stack values from the bus.
+    ReadStack1of2(Reg),
     /// Waits for a byte from memory for a decrement instruction.
     WaitDec(u16),
     /// Waits for a byte from memory for an increment instruction.
@@ -341,8 +369,10 @@ pub enum State {
     WaitOp2of2,
     /// Waits for an opcode fetch to complete.
     WaitOpcode,
-    /// Waits for a memory write, before writing another value.
-    WaitWrite(u16, u8),
+    /// Waits for a stack push, before pushing another value.
+    WaitPush(u8),
+    /// Waits for the first of 2 stack pops to a register.
+    WaitStack1of2(Reg),
 }
 
 impl Display for State {
@@ -359,6 +389,7 @@ impl Display for State {
                 ReadOp => "RDOP",
                 ReadOp1of2 => "RO12",
                 ReadOp2of2 => "RO22",
+                ReadStack1of2(_) => "RS12",
                 WaitLoad(_) => "WTLD",
                 WaitOp => "WTOP",
                 WaitOp1of2 => "WO12",
@@ -368,7 +399,8 @@ impl Display for State {
                 ReadInc(_) => "RINC",
                 WaitDec(_) => "WDEC",
                 WaitInc(_) => "WINC",
-                WaitWrite(_, _) => "WWRT",
+                WaitStack1of2(_) => "WS12",
+                WaitPush(_) => "WWRT",
             }
         )
     }
@@ -548,6 +580,66 @@ mod tests {
         assert_eq!(sys.cpu.pc, 0x0104);
     }
 
+    #[test]
+    fn cpu_states_are_correct_for_16_bit_pop_instruction() {
+        let mut sys = System::default();
+        sys.mem.load(0xBFFE, &[0xBA, 0xBE]).unwrap();
+        sys.cpu.regs.set(SP, 0xBFFD);
+        sys.mem
+            .load(
+                0x0100,
+                &asm("
+                    pop cd
+                    halt"),
+            )
+            .unwrap();
+        sys.cpu.pc = 0x0100;
+        assert_eq!(sys.cpu.state, FetchOpcode);
+        sys.tick();
+        assert_eq!(sys.cpu.state, WaitOpcode);
+        sys.tick();
+        assert_eq!(sys.cpu.state, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.state, Execute);
+        sys.tick();
+        assert_eq!(sys.cpu.state, WaitStack1of2(CD));
+        sys.tick();
+        assert_eq!(sys.cpu.state, ReadStack1of2(CD));
+        sys.tick();
+        assert_eq!(sys.cpu.state, WaitLoad(CD));
+        sys.tick();
+        assert_eq!(sys.cpu.state, ReadLoad(CD));
+        sys.tick();
+        assert_eq!(sys.cpu.state, FetchOpcode);
+    }
+
+    #[test]
+    fn cpu_states_are_correct_for_16_bit_push_instruction() {
+        let mut sys = System::default();
+        sys.cpu.regs.set(SP, 0xBFFF);
+        sys.cpu.regs.set(AB, 0xCAFE);
+        sys.mem
+            .load(
+                0x0100,
+                &asm("
+                    push ab
+                    halt"),
+            )
+            .unwrap();
+        sys.cpu.pc = 0x0100;
+        assert_eq!(sys.cpu.state, FetchOpcode);
+        sys.tick();
+        assert_eq!(sys.cpu.state, WaitOpcode);
+        sys.tick();
+        assert_eq!(sys.cpu.state, Decode);
+        sys.tick();
+        assert_eq!(sys.cpu.state, Execute);
+        sys.tick();
+        assert_eq!(sys.cpu.state, WaitPush(0xCA));
+        sys.tick();
+        assert_eq!(sys.cpu.state, FetchOpcode);
+    }
+
     #[expect(clippy::bool_assert_comparison, reason = "clarity")]
     #[test]
     fn reset_resets_cpu() {
@@ -559,7 +651,7 @@ mod tests {
         cpu.flags.zero = true;
         cpu.reset();
         assert_eq!(cpu.regs.get(AB), 0x0000, "AB not reset");
-        assert_eq!(cpu.regs.get(SP), 0x0000, "AB not reset");
+        assert_eq!(cpu.regs.get(SP), 0x0000, "SP not reset");
         assert_eq!(cpu.pc, 0x0000, "PC not reset");
         assert_eq!(cpu.flags.carry, false, "carry not reset");
         assert_eq!(cpu.flags.zero, false, "zero not reset");

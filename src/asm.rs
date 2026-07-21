@@ -17,7 +17,7 @@ use Token::*;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "beq", "bne", "bra", "cmp", "dec", "halt", "inc", "ld", "nop", "push",
+    "beq", "bne", "bra", "cmp", "dec", "halt", "inc", "ld", "nop", "pop", "push",
 ];
 
 /// Assembles a given program.
@@ -84,6 +84,7 @@ impl Assembler<'_> {
             "inc" => self.gen_inc(),
             "ld" => self.gen_ld(),
             "nop" => self.gen_implied(Nop),
+            "pop" => self.gen_pop(),
             "push" => self.gen_push(),
             _ => bail!("unknown keyword '{kw}'"),
         }
@@ -381,6 +382,18 @@ impl Assembler<'_> {
         Ok(())
     }
 
+    /// Generates a pop instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Invalid register name
+    #[inline]
+    pub fn gen_pop(&mut self) -> Result<()> {
+        let reg = self.expect_reg()?;
+        self.code.push(u8::from(Pop(reg)));
+        Ok(())
+    }
+
     /// Generates a push instruction.
     ///
     /// # Errors
@@ -579,6 +592,7 @@ impl Iterator for Disassembler<'_> {
                 Nop => "nop".into(),
                 LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
                 LdRegIndirect => self.format_ld_reg_indirect(),
+                Pop(reg) => format!("pop {reg}"),
                 Push(reg) => format!("push {reg}"),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
                 StoreRegIndirect => self.format_store_reg_indirect(),
@@ -789,6 +803,8 @@ mod tests {
             ("ld sp, 0x010F", &[u8::from(LdRegImm(SP)), 0x0F, 0x01]),
             ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
             ("nop", &[u8::from(Nop)]),
+            ("pop e", &[u8::from(Pop(E))]),
+            ("push c", &[u8::from(Push(C))]),
         ];
         for &(source, object) in cases {
             let generated = asm(source);
@@ -801,24 +817,26 @@ mod tests {
     #[expect(clippy::expect_used, reason = "test")]
     fn assembler_rejects_invalid_code() {
         let cases: &[&str] = &[
-            "ld a",
-            "ld a, 0x1000",
-            "ld bogus, 0x01",
-            "ld ab, 0x00009",
-            "ld ef, 0x02",
-            "ld a, (bogus)",
-            "ld (0x0), b",
-            "ld 0x00AF, ab",
-            "bogus",
-            "inc ax",
-            "inc 0x0000",
-            "inc (a)",
-            "inc (0xFF)",
-            "dec (a)",
-            "cmp a, b, d",
-            "bra a",
             "beq UNDEFINED_LABEL",
             "bne 0x1000",
+            "bogus",
+            "bra a",
+            "cmp a, b, d",
+            "dec (a)",
+            "inc (0xFF)",
+            "inc (a)",
+            "inc 0x0000",
+            "inc ax",
+            "ld (0x0), b",
+            "ld 0x00AF, ab",
+            "ld a",
+            "ld a, (bogus)",
+            "ld a, 0x1000",
+            "ld ab, 0x00009",
+            "ld bogus, 0x01",
+            "ld ef, 0x02",
+            "push",
+            "pop 0x01",
         ];
         for &source in cases {
             let mut asm = Assembler::from(source);
