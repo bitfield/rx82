@@ -15,6 +15,8 @@ use crate::{
     rom::Rom,
 };
 
+pub const ROM_DATA: &[u8] = include_bytes!("../sys/rx82_rom.bin");
+
 /// The trait that all devices connected to the [`Bus`] implement.
 pub trait Device {
     /// Notifies the device that a new clock cycle has begun.
@@ -93,7 +95,7 @@ impl Default for System {
         let rom = Rom {
             start: 0xC000,
             end: 0xFFFF,
-            data: vec![0x10, 0xFF],
+            data: Vec::from(ROM_DATA),
         };
         sys.devices.push(Box::new(rom));
         sys

@@ -1,7 +1,10 @@
 For boot ROM we need:
 [X] Load programs at 0x0100 instead of 0x0000
-[ ] CPU: Stack pointer
-[ ] `push R` / `pop R`
+[X] CPU: Stack pointer
+[X] `push R` / `pop R`
+[X] ROM: include binary from file
+[ ] Asm/CPU: `ld R, R`
+[ ] CPU: reset vector
 [ ] `trap N` / `rti`
 [ ] (simulated) BIOS putchar at trap 0x20
 [ ] ROM: run RAM test
@@ -9,8 +12,6 @@ For boot ROM we need:
 [ ] ROM: print decimal routine
 [ ] ROM: show bytes free message
 [ ] CPU: invoke monitor from trap
-[ ] CPU: reset vector
-[ ] ROM: include binary from file
 [ ] Assembler: Org directive
 [ ] Assembler: Dw directive 
 
