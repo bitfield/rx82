@@ -32,6 +32,8 @@ pub enum InstructionKind {
     LdRegImm(Reg),
     /// Load a register from an indirect address in another register.
     LdRegIndirect,
+    /// Load a register from another register.
+    LdRegReg,
     /// No operation.
     Nop,
     /// Pop a register value from the stack.
@@ -58,6 +60,7 @@ impl TryFrom<u8> for InstructionKind {
             0x20..=0x27 => StoreRegDirect(reg?),
             0x2D => LdRegIndirect,
             0x2E => StoreRegIndirect,
+            0x2F => LdRegReg,
             0x30..=0x3C => Inc(reg?),
             0x3D => IncIndirect,
             0x3E => IncMem,
@@ -93,6 +96,7 @@ impl From<InstructionKind> for u8 {
             IncMem => 0x3E,
             LdRegImm(reg) => 0x10 | u8::from(reg),
             LdRegIndirect => 0x2D,
+            LdRegReg => 0x2F,
             Nop => 0x01,
             Pop(reg) => 0xE0 | u8::from(reg),
             Push(reg) => 0xD0 | u8::from(reg),
@@ -121,6 +125,7 @@ impl InstructionKind {
             IncMem => cpu.inc_mem(cpu.op(), bus),
             LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
             LdRegIndirect => cpu.ld_reg_indirect(bus),
+            LdRegReg => cpu.ld_reg_reg(),
             Pop(reg) => cpu.pop(reg, bus),
             Push(reg) => cpu.push(reg, bus),
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
@@ -138,7 +143,7 @@ impl InstructionKind {
         match *self {
             Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) => Zero,
             BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect | LdRegIndirect
-            | StoreRegIndirect => One,
+            | LdRegReg | StoreRegIndirect => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -516,6 +521,22 @@ mod tests {
         sys.debug_print();
         assert_hex!(sys.cpu.regs.get(B), 0xFF, "wrong B");
         assert_hex!(sys.cpu.regs.get(C), 0xFF, "wrong C");
+    }
+
+    #[test]
+    fn ld_reg_reg() {
+        let mut sys = System::default();
+        sys.trace_program(&asm("
+            ld a, 0xFF
+            ld b, a
+            ld cd, ab
+            ld e, c
+            halt"))
+            .unwrap();
+        sys.debug_print();
+        assert_hex!(sys.cpu.regs.get(B), 0xFF, "wrong B");
+        assert_hex!(sys.cpu.regs.get(CD), 0xFFFF, "wrong CD");
+        assert_hex!(sys.cpu.regs.get(E), 0xFF, "wrong E");
     }
 
     #[test]

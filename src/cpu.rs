@@ -250,6 +250,19 @@ impl Cpu {
         }
     }
 
+    /// Executes a load register register instruction.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
+    #[inline]
+    pub fn ld_reg_reg(&mut self) {
+        if let Some((source, target)) = source_and_target_from(self.op() as u8)
+            && source.is16() == target.is16()
+        {
+            self.regs.set(target, self.regs.get(source));
+        } else {
+            self.illegal();
+        }
+    }
+
     /// Returns the 16-bit value of the two operand registers.
     #[inline]
     #[must_use]

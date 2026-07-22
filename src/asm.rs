@@ -335,32 +335,36 @@ impl Assembler<'_> {
     pub fn gen_ld(&mut self) -> Result<()> {
         match self.next_token() {
             Some(ParenOpen) => self.gen_store_indirect(),
-            Some(Register(reg)) => {
+            Some(Register(target)) => {
                 self.expect(&Comma)?;
                 self.skip_whitespace();
-                if let Some(&'(') = self.chars.peek() {
-                    self.gen_ld_reg_indirect(reg)
-                } else {
-                    self.gen_ld_imm(reg)
+                match self.next_token() {
+                    Some(ParenOpen) => self.gen_ld_reg_indirect(target),
+                    Some(Register(source)) if source.is16() == target.is16() => {
+                        self.code.push(u8::from(LdRegReg));
+                        self.code.push(regs::u8_from(source, target));
+                        Ok(())
+                    }
+                    Some(Register(source)) => bail!("expected same size register, got '{source}'"),
+                    Some(WordLiteral(op)) if target.is16() => {
+                        self.code.push(u8::from(LdRegImm(target)));
+                        self.code.extend(op.to_le_bytes());
+                        Ok(())
+                    }
+                    Some(op @ WordLiteral(_)) => bail!("expected immediate byte, got {op}"),
+                    Some(ByteLiteral(op)) if !target.is16() => {
+                        self.code.extend([u8::from(LdRegImm(target)), op]);
+                        Ok(())
+                    }
+                    Some(op @ ByteLiteral(_)) => bail!("expected immediate word, got {op}"),
+                    Some(other) => bail!("unexpected token {other}"),
+                    None => bail!("unexpected end of input"),
                 }
             }
             Some(WordLiteral(addr)) => self.gen_store_direct(addr),
             Some(other) => bail!("expected register name, got {other}"),
             None => bail!("unexpected end of input"),
         }
-    }
-
-    /// Generates a load register immediate instruction.
-    ///
-    /// # Errors
-    /// * Missing comma after register name
-    /// * Missing or wrong size operand
-    #[inline]
-    pub fn gen_ld_imm(&mut self, reg: Reg) -> Result<()> {
-        self.code.push(u8::from(LdRegImm(reg)));
-        let op = self.expect_op_for_reg(reg)?;
-        self.code.extend(op);
-        Ok(())
     }
 
     /// Generates a load register immediate instruction.
@@ -375,7 +379,6 @@ impl Assembler<'_> {
             bail!("expected 8-bit register, got '{target}'")
         }
         self.code.push(u8::from(LdRegIndirect));
-        self.expect(&ParenOpen)?;
         let source = self.expect_reg16()?;
         self.expect(&ParenClose)?;
         self.code.push(regs::u8_from(source, target));
@@ -592,6 +595,7 @@ impl Iterator for Disassembler<'_> {
                 Nop => "nop".into(),
                 LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
                 LdRegIndirect => self.format_ld_reg_indirect(),
+                LdRegReg => self.format_ld_reg_reg(),
                 Pop(reg) => format!("pop {reg}"),
                 Push(reg) => format!("push {reg}"),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
@@ -651,6 +655,19 @@ impl<'code> Disassembler<'code> {
             && let Some((source, target)) = source_and_target_from(regs)
         {
             format!("ld {target}, ({source})")
+        } else {
+            "??? (no operand)".to_owned()
+        }
+    }
+
+    /// Reads an operand specifying source and target registers and formats the
+    /// instruction for display.
+    #[inline]
+    fn format_ld_reg_reg(&mut self) -> String {
+        if let Some(&regs) = self.code.next()
+            && let Some((source, target)) = source_and_target_from(regs)
+        {
+            format!("ld {target}, {source}")
         } else {
             "??? (no operand)".to_owned()
         }
@@ -795,6 +812,7 @@ mod tests {
             ("inc ef", &[u8::from(Inc(EF))]),
             ("inc (cd)", &[u8::from(IncIndirect), 0x90]),
             ("inc (0xCAFE)", &[u8::from(IncMem), 0xFE, 0xCA]),
+            ("ld a, b", &[u8::from(LdRegReg), 0x10]),
             ("ld b, (cd)", &[u8::from(LdRegIndirect), 0x91]),
             ("ld (ef), a", &[u8::from(StoreRegIndirect), 0x0A]),
             ("ld b, 0xFF", &[u8::from(LdRegImm(B)), 0xFF]),
@@ -830,6 +848,7 @@ mod tests {
             "ld (0x0), b",
             "ld 0x00AF, ab",
             "ld a",
+            "ld a, cd",
             "ld a, (bogus)",
             "ld a, 0x1000",
             "ld ab, 0x00009",
