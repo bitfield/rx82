@@ -71,7 +71,7 @@ The monitor displays the current CPU registers and the next instruction in memor
 ```txt
 RMON v1.0 (C) 1977 Solid State Technologies, Inc.
   PC   SP  A  B  C  D  E  F  G  H ZC | NEXT
-0100 0000 00 00 00 00 00 00 00 00 00 | ld cd, 0x1000
+C022 BFFF 02 00 BF FF 00 00 00 00 00 | halt
 > h
 Commands:
 G [<address>] = Go (run till halted)
@@ -105,7 +105,7 @@ To dump memory from a specific address, enter the address in hex:
 
 ```txt
 > m fff0
-FFF0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+FFF0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 C0
 0000: 10 06 19 FF FF 49 B2 FD 40 B2 F7 00 00 00 00 00
 ...
 ```
@@ -126,18 +126,51 @@ This will print the disassembled listing.
 
 The RX82 is a single-board computer with one R8 CPU clocked at 4Mhz, 64KiB of static RAM, an 8-bit data bus, and a 16-bit address bus.
 
-## The R8 CPU
+## Memory map
 
-The R8 is an 8-bit CPU with some 16-bit features. It has eight 8-bit registers: A, B, C, D, E, F, G, and H. Similar to the Z80, these can also be addressed as four 16-bit register pairs: AB, CD, EF, and GH.
+| Address | Contents |
+| :--- | :---    |
+| 0x0000 | Trap/interrupt table |
+| 0x0080 | System data area |
+| 0x0100 | User RAM |
+| 0xC000 | ROM |
+| 0xFF00 | System I/O area |
+| 0xFFFE | Reset vector |
+
+## Boot process
+
+At power on, the CPU loads the reset vector at 0xFFFE, which in the RX82 system holds the ROM entry point, 0xC000. Execution begins here and a simple RAM test is performed to find the highest writable address in memory. The stack pointer is initialised to this address.
+
+Finally, the interactive monitor is invoked.
+
+# R8 technical manual
+
+The R8 is a little-endian CPU with an 8-bit data bus, a 16-bit address bus, and a 16-bit ALU.
+
+## Registers
+
+The CPU has eight 8-bit registers: A, B, C, D, E, F, G, and H. As with the Z80, these can also be addressed as 16-bit register pairs: AB, CD, EF, and GH.
 
 The 16-bit address bus allows the R8 to address up to 64KiB of memory, and the program counter register PC holds the 16-bit address of the next memory location to fetch from.
+
+## Flags
 
 The processor status register PS contains the following flags:
 
 * **Carry** (bit 0) — After addition, this is the carry result. After subtraction or comparison, this flag is set if no borrow occurred (that is, for X - Y, if X >= Y). Increment and decrement instructions do not affect the carry flag.
 * **Zero** (bit 1) — After instructions with a value result, this flag is set if the result is zero, or cleared otherwise.
 
-## R8 assembly language
+## Stack
+
+The hardware stack is governed by the stack pointer register SP, which should be initialised to a suitable address in RAM. The stack grows downwards unboundedly. SP always points to the next location where a value will be pushed: that is, an address one byte lower than the address of the current top-of-stack value.
+
+16-bit registers and return addresses are pushed in little-endian order: that is, the low byte is pushed first, followed by the high byte.
+
+## Reset
+
+On reset, all registers and flags are zeroed and cleared, and PC is initialised from the little-endian reset vector at 0xFFFE.
+
+# Programming the R8
 
 The input format recognised by the R8 assembler is very similar to that of most Z80 or 6502 assemblers. Here's a simple [example program](examples/ram_test.asm):
 
@@ -167,17 +200,6 @@ DONE:
 ```
 
 Whitespace is ignored, and only `0x`-prefixed hexadecimal numbers are recognised as literals.
-
-## Memory map
-
-| Address | Contents |
-| :--- | :---    |
-| 0x0000 | Trap/interrupt table |
-| 0x0080 | System data area |
-| 0x0100 | User RAM |
-| 0xC000 | ROM |
-| 0xFF00 | System I/O area |
-| 0xFFFE | Reset vector |
 
 # Changelog
 

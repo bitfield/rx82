@@ -92,6 +92,7 @@ impl Monitor {
         println!("{BANNER}");
         self.step = true;
         self.last_cmd = Some(Step);
+        self.sys.reset();
         self.sys.debug_print();
         loop {
             match self.get_command()? {

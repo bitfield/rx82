@@ -9,6 +9,8 @@ use crate::{
 
 use State::*;
 
+pub const VEC_RESET: u16 = 0xFFFE;
+
 /// The system CPU.
 #[non_exhaustive]
 #[derive(Debug)]
@@ -49,6 +51,7 @@ impl Default for Cpu {
 
 impl Device for Cpu {
     /// Transitions to the next state.
+    #[expect(clippy::too_many_lines, reason = "it's just long")]
     #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         self.state = match self.state {
@@ -119,6 +122,16 @@ impl Device for Cpu {
                 self.op_hi = bus.data;
                 Execute
             }
+            ReadReset1of2 => {
+                self.op_lo = bus.data;
+                bus.mem_read(VEC_RESET.wrapping_add(1));
+                WaitReset2of2
+            }
+            ReadReset2of2 => {
+                self.op_hi = bus.data;
+                self.pc = self.op();
+                FetchOpcode
+            }
             ReadStack1of2(reg) => {
                 self.op_hi = bus.data;
                 let mut addr = self.regs.get(Reg::SP);
@@ -134,6 +147,8 @@ impl Device for Cpu {
             WaitOp1of2 => ReadOp1of2,
             WaitOp2of2 => ReadOp2of2,
             WaitOpcode => Decode,
+            WaitReset1of2 => ReadReset1of2,
+            WaitReset2of2 => ReadReset2of2,
             WaitStack1of2(reg) => ReadStack1of2(reg),
             WaitPush(val) => {
                 let mut addr = self.regs.get(Reg::SP);
@@ -305,11 +320,13 @@ impl Cpu {
 
     /// Resets the CPU to its power-on state.
     ///
-    /// The initial state is: all registers and flags zero, PC zero, not halted, state
-    /// [`FetchOpcode`](State::FetchOpcode).
+    /// The initial state is: all registers and flags zero, not halted, state
+    /// [`FetchOpcode`](State::FetchOpcode), and PC = the reset vector.
     #[inline]
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self, bus: &mut Bus) {
         *self = Self::default();
+        bus.mem_read(VEC_RESET);
+        self.state = WaitReset1of2;
     }
 
     /// Executes a store register direct instruction.
@@ -366,6 +383,10 @@ pub enum State {
     ReadOp1of2,
     /// Reads the second of two operands from the bus.
     ReadOp2of2,
+    /// Reads the low byte of the reset vector from the bus.
+    ReadReset1of2,
+    /// Reads the high byte of the reset vector from the bus.
+    ReadReset2of2,
     /// Reads the first of two stack values from the bus.
     ReadStack1of2(Reg),
     /// Waits for a byte from memory for a decrement instruction.
@@ -384,6 +405,10 @@ pub enum State {
     WaitOpcode,
     /// Waits for a stack push, before pushing another value.
     WaitPush(u8),
+    /// Waits for the low byte of the reset vector.
+    WaitReset1of2,
+    /// Waits for the high byte of the reset vector.
+    WaitReset2of2,
     /// Waits for the first of 2 stack pops to a register.
     WaitStack1of2(Reg),
 }
@@ -414,6 +439,10 @@ impl Display for State {
                 WaitInc(_) => "WINC",
                 WaitStack1of2(_) => "WS12",
                 WaitPush(_) => "WWRT",
+                ReadReset1of2 => "RR12",
+                ReadReset2of2 => "RR22",
+                WaitReset1of2 => "WR12",
+                WaitReset2of2 => "WR22",
             }
         )
     }
@@ -656,17 +685,26 @@ mod tests {
     #[expect(clippy::bool_assert_comparison, reason = "clarity")]
     #[test]
     fn reset_resets_cpu() {
-        let mut cpu = Cpu::default();
-        cpu.regs.set(AB, 0xBEEF);
-        cpu.regs.set(SP, 0xFFFD);
-        cpu.pc = 0xC000;
-        cpu.flags.carry = true;
-        cpu.flags.zero = true;
-        cpu.reset();
-        assert_eq!(cpu.regs.get(AB), 0x0000, "AB not reset");
-        assert_eq!(cpu.regs.get(SP), 0x0000, "SP not reset");
-        assert_eq!(cpu.pc, 0x0000, "PC not reset");
-        assert_eq!(cpu.flags.carry, false, "carry not reset");
-        assert_eq!(cpu.flags.zero, false, "zero not reset");
+        let mut sys = System::default();
+        sys.cpu.regs.set(AB, 0xBEEF);
+        sys.cpu.regs.set(SP, 0xFFFD);
+        sys.cpu.pc = 0x0000;
+        sys.cpu.flags.carry = true;
+        sys.cpu.flags.zero = true;
+        sys.cpu.reset(&mut sys.bus);
+        assert_eq!(sys.cpu.state, WaitReset1of2);
+        sys.tick();
+        assert_eq!(sys.cpu.state, ReadReset1of2);
+        sys.tick();
+        assert_eq!(sys.cpu.state, WaitReset2of2);
+        sys.tick();
+        assert_eq!(sys.cpu.state, ReadReset2of2);
+        sys.tick();
+        assert_eq!(sys.cpu.state, FetchOpcode);
+        assert_eq!(sys.cpu.regs.get(AB), 0x0000, "AB not reset");
+        assert_eq!(sys.cpu.regs.get(SP), 0x0000, "SP not reset");
+        assert_eq!(sys.cpu.pc, 0xC000, "PC not initialized from reset vector");
+        assert_eq!(sys.cpu.flags.carry, false, "carry not reset");
+        assert_eq!(sys.cpu.flags.zero, false, "zero not reset");
     }
 }

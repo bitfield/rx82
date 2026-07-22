@@ -1,0 +1,4063 @@
+
+running 45 tests
+ident: ld
+ident: ld
+ident: bra
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x06)
+token: Comment("about 1 second")
+ident: LOOP
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: Keyword("bra")
+ident: AHEAD
+token: Identifier("AHEAD")
+ident: beq
+ident: LOOP
+token: LabelDef("LOOP")
+token: Keyword("beq")
+ident: UNDEFINED_LABEL
+ident: beq
+token: Identifier("UNDEFINED_LABEL")
+token: Keyword("beq")
+ident: beq
+token: ByteLiteral(0xF0)
+ident: beq
+token: Keyword("beq")
+token: LabelDef("LOOP")
+token: ByteLiteral(0xF0)
+token: ByteLiteral(0xFF)
+ident: ld
+token: Comment("loop count")
+token: Keyword("ld")
+ident: ld
+token: Keyword("beq")
+ident: halt
+test asm::tests::disassembler_copes_with_invalid_code ... token: Keyword("halt")
+ident: AHEAD
+ident: bne
+ident: UNDEFINED_LABEL
+token: Keyword("bne")
+token: Identifier("UNDEFINED_LABEL")
+token: LabelDef("AHEAD")
+ident: bne
+ident: nop
+ident: halt
+token: Keyword("bne")
+token: Keyword("nop")
+ident: nop
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x01)
+ok
+token: ByteLiteral(0xFF)
+token: Comment("loop count")
+token: Keyword("halt")
+ident: bra
+token: Keyword("bra")
+ident: AHEAD
+token: Identifier("AHEAD")
+ident: halt
+token: Keyword("halt")
+ident: AHEAD
+token: LabelDef("AHEAD")
+ident: halt
+token: Keyword("halt")
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+test asm::tests::disassembler_correctly_disassembles_multiline_programs ... ok
+ident: nop
+token: Keyword("nop")
+ident: nop
+test asm::tests::assembler_ignores_comments ... ok
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: cd
+test asm::tests::assembler_resolves_forward_labels ... ok
+ident: bne
+token: Keyword("bne")
+token: ByteLiteral(0x01)
+ident: bra
+token: Keyword("bra")
+token: ByteLiteral(0x99)
+ident: bra
+token: Keyword("bra")
+token: ByteLiteral(0x99)
+ident: cmp
+token: Keyword("cmp")
+ident: d
+token: Register(D)
+token: Comma
+token: ByteLiteral(0x01)
+ident: cmp
+token: Keyword("cmp")
+ident: d
+token: Register(D)
+token: Comma
+token: ByteLiteral(0x01)
+ident: cmp
+token: Keyword("cmp")
+ident: gh
+token: Register(GH)
+token: Comma
+token: WordLiteral(0xDEAD)
+ident: cmp
+token: Keyword("cmp")
+ident: gh
+token: Register(GH)
+token: Comma
+token: WordLiteral(0xDEAD)
+ident: dec
+token: Keyword("dec")
+ident: g
+token: Register(G)
+ident: dec
+token: Keyword("dec")
+ident: g
+token: Register(G)
+ident: dec
+token: Keyword("dec")
+ident: ab
+token: Register(AB)
+ident: dec
+token: Keyword("dec")
+ident: ab
+token: Register(AB)
+ident: dec
+token: Keyword("dec")
+token: ParenOpen
+ident: gh
+token: Register(GH)
+token: ParenClose
+ident: dec
+token: Keyword("dec")
+token: ParenOpen
+ident: gh
+token: Register(GH)
+token: ParenClose
+ident: dec
+token: Keyword("dec")
+token: ParenOpen
+token: WordLiteral(0xBABE)
+token: ParenClose
+ident: dec
+token: Keyword("dec")
+token: ParenOpen
+token: WordLiteral(0xBABE)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+ident: halt
+token: Keyword("halt")
+ident: inc
+token: Keyword("inc")
+ident: a
+token: Register(A)
+ident: inc
+token: Keyword("inc")
+ident: a
+token: Register(A)
+ident: inc
+token: Keyword("inc")
+ident: ef
+token: Register(EF)
+ident: inc
+token: Keyword("inc")
+ident: ef
+token: Register(EF)
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+token: WordLiteral(0xCAFE)
+token: ParenClose
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+token: WordLiteral(0xCAFE)
+token: ParenClose
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+ident: b
+token: Register(B)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+ident: b
+token: Register(B)
+ident: ld
+token: Keyword("ld")
+ident: b
+token: Register(B)
+token: Comma
+token: ParenOpen
+ident: push
+token: Keyword("push")
+ident: ab
+token: Register(AB)
+ident: halt
+token: Keyword("halt")
+ident: push
+token: Keyword("push")
+ident: ab
+token: Register(AB)
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+test asm::tests::get_displacement_fn_rejects_out_of_range_displacement ... ok
+ident: ld
+ident: pop
+token: Keyword("pop")
+ident: cd
+token: Register(CD)
+ident: cd
+DCOD -> EXEC
+token: Register(CD)
+token: ParenClose
+ident: ld
+token: Keyword("ld")
+ident: b
+token: Register(B)
+token: Comma
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: ld
+token: Keyword("ld")
+token: ParenOpen
+ident: ef
+token: Register(EF)
+token: ParenClose
+token: Comma
+ident: a
+token: Register(A)
+ident: ld
+token: Keyword("ld")
+token: ParenOpen
+ident: ef
+token: Register(EF)
+token: ParenClose
+token: Comma
+ident: a
+token: Register(A)
+ident: ld
+token: Keyword("ld")
+ident: b
+token: Register(B)
+token: Comma
+token: ByteLiteral(0xFF)
+ident: ld
+token: Keyword("ld")
+ident: b
+token: Register(B)
+token: Comma
+token: ByteLiteral(0xFF)
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xBEEF)
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xBEEF)
+ident: ld
+token: Keyword("ld")
+ident: ab
+token: Register(AB)
+token: Comma
+token: WordLiteral(0x000F)
+ident: ld
+token: Keyword("ld")
+ident: ab
+token: Register(AB)
+token: Comma
+token: WordLiteral(0x000F)
+ident: ld
+token: Keyword("ld")
+ident: sp
+token: Register(SP)
+token: Comma
+token: WordLiteral(0x010F)
+ident: ld
+token: Keyword("ld")
+ident: sp
+token: Register(SP)
+token: Comma
+token: WordLiteral(0x010F)
+ident: ld
+token: Keyword("ld")
+token: WordLiteral(0x00AF)
+token: Comma
+ident: h
+token: Register(H)
+ident: ld
+token: Keyword("ld")
+token: WordLiteral(0x00AF)
+token: Comma
+ident: h
+token: Register(H)
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: pop
+token: Keyword("pop")
+ident: e
+token: Register(E)
+ident: pop
+token: Keyword("pop")
+ident: e
+token: Register(E)
+ident: push
+token: Keyword("push")
+ident: c
+token: Register(C)
+ident: push
+token: Keyword("push")
+ident: c
+token: Register(C)
+token: WordLiteral(0x1000)
+ident: bogus
+token: Identifier("bogus")
+ident: bra
+token: Keyword("bra")
+ident: a
+token: Register(A)
+ident: cmp
+token: Keyword("cmp")
+ident: a
+token: Register(A)
+token: Comma
+ident: b
+token: Register(B)
+ident: dec
+token: Keyword("dec")
+token: ParenOpen
+ident: a
+token: Register(A)
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+token: ByteLiteral(0xFF)
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+ident: a
+token: Register(A)
+ident: inc
+token: Keyword("inc")
+token: WordLiteral(0x0000)
+ident: inc
+token: Keyword("inc")
+ident: ax
+token: Identifier("ax")
+ident: ld
+token: Keyword("ld")
+ident: nop
+token: Register(CD)
+token: Comma
+EXEC -> WWRT
+ident: nop
+token: Keyword("nop")
+WWRT -> FOPC
+ident: halt
+token: Keyword("halt")
+ident: nop
+token: Keyword("nop")
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+test asm::tests::assembler_assembles_and_disassembles_instructions_correctly ... ok
+token: ParenOpen
+token: Illegal("0")
+ident: ld
+token: Keyword("ld")
+test cpu::tests::cpu_states_are_correct_for_16_bit_push_instruction ... token: WordLiteral(0x00AF)
+token: Comma
+ok
+ident: halt
+token: Keyword("halt")
+ident: pop
+token: Keyword("pop")
+ident: cd
+token: Register(CD)
+test cpu::tests::cpu_states_are_correct_for_1_byte_instruction ... ok
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("ld")
+ident: a
+token: WordLiteral(0xFFFF)
+token: Comment("inner loop")
+ident: INNER_LOOP
+token: LabelDef("INNER_LOOP")
+ident: dec
+token: Keyword("dec")
+ident: cd
+token: Register(CD)
+ident: bne
+token: Keyword("bne")
+ident: INNER_LOOP
+token: Identifier("INNER_LOOP")
+ident: dec
+token: Keyword("dec")
+ident: a
+token: Register(A)
+ident: bne
+token: Keyword("bne")
+ident: LOOP
+token: Identifier("LOOP")
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x06)
+token: Comment("about 1 second")
+ident: LOOP
+token: LabelDef("LOOP")
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xFFFF)
+token: Comment("inner loop")
+ident: INNER_LOOP
+token: LabelDef("INNER_LOOP")
+ident: dec
+token: Keyword("dec")
+ident: cd
+token: Register(CD)
+ident: bne
+token: Keyword("bne")
+ident: INNER_LOOP
+token: Identifier("INNER_LOOP")
+ident: dec
+token: Keyword("dec")
+ident: a
+token: Register(A)
+ident: bne
+token: Keyword("bne")
+ident: LOOP
+token: Identifier("LOOP")
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0xFF)
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0xFF)
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+token: Keyword("nop")
+ident: ab
+ident: nop
+token: Register(AB)
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+ident: cd
+token: Register(CD)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+ident: bogus
+token: Identifier("bogus")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: WordLiteral(0x1000)
+ident: ld
+ident: halt
+token: Keyword("ld")
+ident: b
+ident: ld
+token: Keyword("ld")
+ident: ab
+token: Register(AB)
+token: Comma
+token: Keyword("halt")
+test asm::tests::assembler_resolves_backward_labels ... ok
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> WS12
+WS12 -> RS12
+RS12 -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+token: Register(B)
+token: Comma
+token: ParenOpen
+ident: nop
+token: Register(A)
+token: Comma
+ident: ld
+token: WordLiteral(0xBEEF)
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: ab
+token: Register(AB)
+token: Comma
+token: WordLiteral(0xBEEF)
+test cpu::tests::cpu_states_are_correct_for_16_bit_pop_instruction ... ok
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+token: ByteLiteral(0xFF)
+token: Keyword("ld")
+ident: nop
+token: Keyword("nop")
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0xFF)
+ident: nop
+token: Keyword("nop")
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+ident: ld
+token: Keyword("ld")
+token: WordLiteral(0xBEEF)
+token: Comma
+ident: a
+token: Register(A)
+ident: halt
+token: Keyword("nop")
+ident: nop
+ident: ab
+token: Register(AB)
+token: Comma
+token: Illegal("00009")
+ident: ld
+test bus::tests::program_executes_with_correct_bus_states ... ok
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: b
+token: Register(B)
+token: Comma
+token: ParenOpen
+ident: cd
+token: Register(CD)
+test cpu::tests::cpu_states_are_correct_for_3_byte_instruction ... ok
+token: Keyword("ld")
+ident: bogus
+token: Identifier("bogus")
+ident: ld
+token: Keyword("ld")
+ident: ef
+token: Register(EF)
+token: Comma
+token: ByteLiteral(0x02)
+WR12 -> RR12
+ident: push
+token: Keyword("push")
+token: Keyword("halt")
+RDOP -> EXEC
+ident: ld
+EXEC -> FOPC
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+RR12 -> WR22
+WR22 -> RR22
+RR22 -> FOPC
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+ident: beq
+token: Keyword("beq")
+token: ByteLiteral(0x00)
+ident: halt
+token: Keyword("halt")
+ident: beq
+token: Keyword("beq")
+token: ByteLiteral(0x00)
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+ident: bne
+token: Keyword("bne")
+token: ByteLiteral(0x01)
+ident: halt
+token: Keyword("halt")
+ident: halt
+token: Keyword("halt")
+ident: bne
+token: Keyword("bne")
+token: ByteLiteral(0x01)
+ident: pop
+token: Keyword("pop")
+token: ByteLiteral(0x01)
+test cpu::tests::cpu_states_are_correct_for_2_byte_instruction ... ok
+test cpu::tests::reset_resets_cpu ... ok
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+test cpu::tests::cpu_states_are_correct_for_mem_read_instruction ... ok
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009
+───────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0102 0102
+DATA  ──00 ──F1 ──F1 ──00 ──00 ──00 ──00 ──00 ──00 ──00
+token: Keyword("ld")
+token: WordLiteral(0xBEEF)
+token: Comma
+ident: a
+token: Register(A)
+token: Keyword("nop")
+ident: halt
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x01)
+ident: cmp
+token: Keyword("cmp")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x01)
+ident: halt
+token: Keyword("halt")
+ident: ld
+ident: dec
+ident: halt
+test asm::tests::assembler_rejects_invalid_code ... token: Keyword("halt")
+ok
+token: Keyword("halt")
+ident: nop
+FOPC -> WOPC
+WOPC -> DCOD
+ident: bra
+token: Keyword("bra")
+token: Keyword("dec")
+ident: a
+token: Register(A)
+ident: halt
+token: Keyword("halt")
+ident: dec
+token: Keyword("dec")
+ident: a
+token: Register(A)
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+token: Keyword("ld")
+token: ByteLiteral(0x01)
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+ident: halt
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: a
+ident: ld
+token: Register(A)
+token: Comma
+token: Keyword("halt")
+ident: beq
+token: Keyword("beq")
+token: ByteLiteral(0x7F)
+ident: halt
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009
+───────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0102 0102
+token: Keyword("ld")
+DATA  ──00 ──F2 ──F2 ──01 ──01 ──01 ──01 ──00 ──00 ──00
+token: ByteLiteral(0x01)
+ident: halt
+ident: cmp
+DCOD -> WO12
+token: Keyword("cmp")
+WO12 -> RO12
+ident: nop
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+ident: a
+token: Register(A)
+token: Comma
+token: Keyword("halt")
+ident: a
+token: ByteLiteral(0x02)
+ident: bra
+token: Keyword("nop")
+ident: nop
+EXEC -> FOPC
+token: Register(A)
+FOPC -> WOPC
+ident: ld
+WOPC -> DCOD
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+token: Keyword("nop")
+
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("bra")
+token: Comma
+token: Keyword("ld")
+test cpu::tests::cpu_states_are_correct_for_mem_write_instruction ... oktoken: WordLiteral(0x0010)
+ident: inc
+token: Keyword("inc")
+token: Keyword("nop")
+ident: a
+token: Register(A)
+ident: nop
+token: Keyword("nop")
+ident: bne
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("halt")
+token: ByteLiteral(0x01)
+ident: beq
+token: Keyword("beq")
+token: ByteLiteral(0x7F)
+ident: halt
+token: Keyword("halt")
+ident: nop
+ident: halt
+token: Keyword("halt")
+token: Comma
+ident: a
+token: Register(A)
+ident: dec
+token: Keyword("dec")
+token: ParenOpen
+token: WordLiteral(0x0010)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+
+token: ByteLiteral(0x01)
+token: Keyword("bne")
+ident: halt
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: ByteLiteral(0x02)
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009
+───────────────────────────────────────────────────────
+ident: ld
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+token: Keyword("ld")
+token: ByteLiteral(0x01)
+token: Keyword("halt")
+ident: ld
+FOPC -> WOPC
+WOPC -> DCOD
+FOPC -> WOPC
+DCOD -> EXEC
+EXEC -> FOPC
+ident: halt
+ident: halt
+token: Keyword("nop")
+WOPC -> DCOD
+ADDR  0100 0100 0101 0101 0101 0101 0103 0103 0103 0103
+DATA  ──00 ──F0 ──F0 ──01 ──01 ──01 ──01 ──00 ──00 ──00
+token: WordLiteral(0x0010)
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: Comma
+TICK  0000 0001 0002 0003 0004 0005 0006 0007
+─────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101
+DATA  ──00 ──40 ──40 ──40 ──40 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Keyword("halt")
+token: Keyword("halt")
+ident: nop
+FOPC -> WOPC
+token: Keyword("nop")
+token: ByteLiteral(0x02)
+ident: a
+token: Register(A)
+DCOD -> WTOP
+ident: dec
+ident: nop
+token: Keyword("dec")
+token: Keyword("nop")
+test instructions::tests::bra ... token: ParenOpen
+ident: nop
+token: Keyword("nop")
+ident: halt
+WOPC -> DCOD
+token: Keyword("halt")
+ok
+DCOD -> WTOP
+token: WordLiteral(0x0010)
+WTOP -> RDOP
+ident: ld
+WTOP -> RDOP
+token: ParenClose
+ident: ld
+token: Keyword("ld")
+token: Keyword("ld")
+ident: ef
+ident: nop
+token: Register(EF)
+token: Keyword("nop")
+ident: nop
+ident: sp
+token: Comma
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: WordLiteral(0x0010)
+ident: ld
+token: Keyword("ld")
+ident: inc
+token: ParenOpen
+token: Keyword("inc")
+ident: ef
+token: Register(EF)
+token: ParenClose
+token: Comma
+token: Register(SP)
+token: Comma
+token: WordLiteral(0xFF01)
+ident: dec
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("dec")
+ident: sp
+token: Register(SP)
+ident: halt
+WOPC -> DCOD
+TICK  000A 000B 000C 000D 000E 000F 0010 0011 0012 0013
+───────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0181 0181 0181 0181
+ident: a
+DATA  ──00 ──F1 ──F1 ──7F ──7F ──7F ──7F ──00 ──00 ──00
+token: Register(A)
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+ident: dec
+token: Keyword("dec")
+RDOP -> EXEC
+token: ParenOpen
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+ident: a
+token: Register(A)
+token: Keyword("halt")
+DCOD -> WTOP
+ident: bne
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+ident: ld
+token: Keyword("nop")
+token: Keyword("bne")
+ident: nop
+token: ByteLiteral(0x01)
+token: Keyword("nop")
+ident: halt
+ident: nop
+token: Keyword("nop")
+DCOD -> WTOP
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+token: Keyword("halt")
+
+ident: ef
+token: Register(EF)
+token: ParenClose
+ident: halt
+ident: halt
+ident: nop
+ident: beq
+FOPC -> WOPC
+token: Keyword("ld")
+ident: halt
+token: Keyword("halt")
+token: Keyword("halt")
+ident: ld
+FOPC -> WOPC
+WOPC -> DCOD
+WOPC -> DCOD
+DCOD -> EXEC
+ident: sp
+token: Register(SP)
+WTOP -> RDOP
+token: Comma
+token: Keyword("nop")
+token: WordLiteral(0xFF01)
+ident: nop
+ident: dec
+EXEC -> FOPC
+RDOP -> EXEC
+token: Keyword("beq")
+token: Keyword("nop")
+token: ByteLiteral(0x80)
+ident: nop
+ident: halt
+token: Keyword("nop")
+token: Keyword("halt")
+token: Keyword("halt")
+token: Keyword("ld")
+ident: beq
+token: Keyword("beq")
+ident: halt
+ident: a
+token: Register(A)
+token: Comma
+FOPC -> WOPC
+token: Keyword("dec")
+ident: nop
+token: Keyword("nop")
+ident: nop
+EXEC -> FOPC
+DCOD -> EXEC
+EXEC -> FOPC
+WOPC -> DCOD
+ident: sp
+token: Register(SP)
+token: ByteLiteral(0x80)
+ident: halt
+ident: halt
+token: Keyword("halt")
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+token: ByteLiteral(0x02)
+ident: ld
+WO22 -> RO22
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0103 0103 0104 0104 0104 0104
+DATA  ──00 ──10 ──10 ──01 ──01 ──01 ──01 ──70 ──70 ──01 ──01 ──01 ──01 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+DCOD -> WTOP
+ident: ld
+WTOP -> RDOP
+FOPC -> WOPC
+token: Keyword("nop")
+token: Keyword("ld")
+RO22 -> EXEC
+token: Keyword("halt")
+EXEC -> FOPC
+token: Keyword("ld")
+FOPC -> WOPC
+ident: a
+WOPC -> DCOD
+WOPC -> DCOD
+ident: nop
+RDOP -> EXEC
+FOPC -> WOPC
+EXEC -> FOPC
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+token: Register(A)
+token: Comma
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+token: Keyword("nop")
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: ByteLiteral(0x03)
+ident: cmp
+token: Keyword("cmp")
+ident: a
+ident: nop
+WOPC -> DCOD
+DCOD -> EXEC
+DCOD -> EXEC
+EXEC -> FOPC
+ident: ef
+TICK  0008 0009 000A 000B 000C 000D 000E 000F 0010 0011 0012 0013 0014 0015 0016 0017
+token: Register(EF)
+─────────────────────────────────────────────────────────────────────────────────────
+token: Comma
+token: WordLiteral(0x0010)
+token: Keyword("nop")
+ident: ld
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Register(A)
+token: Comma
+WTOP -> RDOP
+token: Keyword("ld")
+RDOP -> EXEC
+DCOD -> WO12
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+WO12 -> RO12
+TICK  000A 000B 000C 000D 000E 000F 0010 0011 0012 0013 0014 0015 0016 0017
+───────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+token: ParenOpen
+ADDR  0100 0100 0100 0100 0101 0101 0102 0102 0102 0102 0104 0104 0104 0104
+ident: ef
+DATA  ──00 ──30 ──30 ──30 ──30 ──F2 ──F2 ──01 ──01 ──01 ──01 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0103 0103 0104 0104 0104 0104
+DATA  ──00 ──1C ──1C ──01 ──01 ──FF ──FF ──FF ──FF ──4C ──4C ──4C ──4C ──00 ──00 ──00
+
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: ByteLiteral(0x07)
+token: Keyword("nop")
+ident: halt
+ident: nop
+token: Register(EF)
+token: ParenClose
+EXEC -> FOPC
+token: Comma
+ident: a
+ident: ld
+token: Register(A)
+token: Keyword("nop")
+EXEC -> FOPC
+EXEC -> FOPC
+token: Keyword("ld")
+ident: dec
+TICK  0000 0001 0002 0003
+─────────────────────────
+CPU   FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100
+DATA  ──00 ──00 ──00 ──00
+FOPC -> WOPC
+ident: nop
+token: Keyword("dec")
+token: ParenOpen
+token: Keyword("halt")
+FOPC -> WOPC
+ident: ld
+/MEM  ─MEM ─MEM ──── ────
+WOPC -> DCOD
+/WRT  ──── ──── ──── ────
+
+test instructions::tests::bne ... ident: ef
+oktoken: Register(EF)
+
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+WOPC -> DCOD
+FOPC -> WOPC
+DCOD -> EXEC
+WOPC -> DCOD
+EXEC -> FOPC
+token: Keyword("ld")
+ident: a
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> WDEC
+WDEC -> RDEC
+RDEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x03)
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+ident: beq
+test instructions::tests::halt ... token: Keyword("beq")
+DCOD -> WTOP
+WTOP -> RDOP
+token: ByteLiteral(0x01)
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x01)
+ident: halt
+ident: inc
+token: Keyword("halt")
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC
+RDOP -> EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0104 0104 0104 0010 0105 0105
+EXEC -> FOPC
+okFOPC -> WOPC
+WOPC -> DCOD
+
+token: Keyword("nop")
+token: Keyword("inc")
+ident: cmp
+token: Keyword("cmp")
+ident: beq
+token: Keyword("beq")
+ident: nop
+ident: a
+token: Register(A)
+token: Comma
+ident: dec
+token: ByteLiteral(0x07)
+ident: d
+ident: halt
+token: Register(D)
+token: Keyword("halt")
+ident: halt
+token: Keyword("halt")
+token: Keyword("nop")
+ident: nop
+ident: inc
+FOPC -> WOPC
+token: Keyword("inc")
+WOPC -> DCOD
+ident: d
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+token: Keyword("dec")
+ident: a
+token: Register(A)
+ident: halt
+token: Register(D)
+DATA  ──00 ──10 ──10 ──02 ──02 ──02 ──02 ──20 ──20 ──10 ──10 ──00 ──00 ──02 ──02 ──4E
+EXEC -> FOPC
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+FOPC -> WOPC
+ident: ld
+token: Keyword("nop")
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+WOPC -> DCOD
+ident: halt
+token: Keyword("halt")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+token: ByteLiteral(0x01)
+DCOD -> WO12
+ident: halt
+WO12 -> RO12
+token: Keyword("halt")
+DCOD -> WTOP
+WTOP -> RDOP
+FOPC -> WOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+RO12 -> WO22
+WOPC -> DCOD
+WO22 -> RO22
+DCOD -> WTOP
+RO22 -> EXEC
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ────
+
+token: Keyword("halt")
+RDOP -> EXEC
+ident: ld
+token: ByteLiteral(0xFE)
+FOPC -> WOPC
+WOPC -> DCOD
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B
+─────────────────────────────────────────────────────────────────
+EXEC -> FOPC
+FOPC -> WOPC
+ident: ld
+DCOD -> EXEC
+token: Keyword("ld")
+EXEC -> FOPC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+WOPC -> DCOD
+DCOD -> WTOP
+DCOD -> EXEC
+EXEC -> FOPC
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+TICK  0000 0001 0002 0003 0004 0005 0006 0007
+─────────────────────────────────────────────
+token: Keyword("ld")
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B 001C 001D 001E 001F
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0103 0103 0104 0104 0104 0104
+DATA  ──00 ──10 ──10 ──03 ──03 ──03 ──03 ──70 ──70 ──07 ──07 ──07 ──07 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: WordLiteral(0x0010)
+token: Comma
+ident: nop
+CPU   DCOD WO12 RO12 WO22 RO22 EXEC WDEC RDEC FOPC WOPC DCOD EXEC
+ADDR  0106 0106 0107 0107 0107 0010 0010 0010 0108 0108 0108 0108
+DATA  ──4E ──10 ──10 ──00 ──00 ──00 ──02 ──01 ──01 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ──── ──── ────
+
+ident: a
+ident: dec
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101
+DATA  ──00 ──33 ──33 ──33 ──33 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Register(A)
+ident: inc
+token: Keyword("inc")
+DCOD -> WTOP
+ident: ld
+WTOP -> RDOP
+token: Keyword("nop")
+token: Keyword("dec")
+token: ParenOpen
+ident: a
+ident: ab
+WTOP -> RDOP
+token: Keyword("ld")
+RDOP -> EXEC
+ident: nop
+ident: inc
+token: WordLiteral(0x0010)
+token: Register(A)
+token: Comma
+token: Register(AB)
+RDOP -> EXEC
+ident: halt
+EXEC -> WDEC
+token: Keyword("halt")
+WDEC -> RDEC
+ident: inc
+token: Keyword("nop")
+token: Keyword("inc")
+token: ByteLiteral(0x01)
+RDEC -> FOPC
+ident: a
+token: Register(A)
+EXEC -> FOPC
+token: Comma
+token: ByteLiteral(0x07)
+ident: cmp
+FOPC -> WOPC
+token: Keyword("cmp")
+token: Keyword("inc")
+ident: a
+ident: ab
+token: Register(AB)
+ident: nop
+ident: halt
+token: Keyword("nop")
+token: Keyword("halt")
+WOPC -> DCOD
+FOPC -> WOPC
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x03)
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x07)
+ident: cmp
+token: Keyword("cmp")
+ident: a
+token: Register(A)
+token: Comma
+token: ByteLiteral(0x03)
+token: ParenOpen
+ident: dec
+token: Keyword("dec")
+token: ParenClose
+WOPC -> DCOD
+ident: halt
+DCOD -> EXEC
+token: Keyword("halt")
+token: WordLiteral(0x0010)
+ident: a
+token: ParenClose
+token: Register(A)
+FOPC -> WOPC
+WOPC -> DCOD
+ident: halt
+DCOD -> EXEC
+EXEC -> FOPC
+ident: dec
+ident: nop
+DCOD -> EXEC
+EXEC -> FOPC
+ident: halt
+ident: halt
+token: Keyword("halt")
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+FOPC -> WOPC
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC
+token: Keyword("halt")
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0104 0104 0104 0104 0105 0105
+DATA  ──00 ──10 ──10 ──02 ──02 ──02 ──02 ──1A ──1A ──10 ──10 ──00 ──00 ──00 ──00 ──2E
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+WOPC -> DCOD
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+TICK  001E 001F 0020 0021 0022 0023 0024 0025 0026 0027
+───────────────────────────────────────────────────────
+FOPC -> WOPC
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+token: Keyword("halt")
+token: Keyword("nop")
+FOPC -> WOPC
+ident: nop
+WOPC -> DCOD
+WOPC -> DCOD
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B 001C 001D 001E 001F
+ADDR  0100 0100 0101 0101 0101 0101 0103 0103 0103 0103
+─────────────────────────────────────────────────────────────────────────────────────
+DATA  ──00 ──F1 ──F1 ──01 ──01 ──01 ──01 ──00 ──00 ──00
+CPU   DCOD WTOP RDOP EXEC FOPC WOPC DCOD WTOP RDOP EXEC WDEC RDEC FOPC WOPC DCOD EXEC
+ADDR  0106 0106 0106 0010 0107 0107 0108 0108 0108 0010 0010 0010 0109 0109 0109 0109
+DATA  ──2E ──0A ──0A ──02 ──02 ──4D ──4D ──A0 ──A0 ──A0 ──02 ──01 ──01 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ─WRT ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ──── ──── ────
+
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+ident: dec
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+token: Keyword("dec")
+
+DCOD -> WTOP
+ident: ld
+ident: beq
+token: Keyword("ld")
+ident: a
+token: Keyword("beq")
+token: ByteLiteral(0x01)
+DCOD -> EXEC
+ident: halt
+token: Register(A)
+token: ParenOpen
+ident: ef
+token: Register(EF)
+token: ParenClose
+token: Keyword("dec")
+token: ParenOpen
+token: WordLiteral(0x0010)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+ident: halt
+FOPC -> WOPC
+token: Keyword("halt")
+WOPC -> DCOD
+ident: dec
+DCOD -> WO12
+token: Keyword("dec")
+token: ParenOpen
+ident: ef
+token: Register(EF)
+token: ParenClose
+token: Comma
+ident: halt
+DCOD -> EXEC
+EXEC -> FOPC
+EXEC -> FOPC
+token: Keyword("nop")
+token: ByteLiteral(0xFE)
+token: Keyword("halt")
+WTOP -> RDOP
+FOPC -> WOPC
+RDOP -> EXEC
+WOPC -> DCOD
+EXEC -> FOPC
+WO12 -> RO12
+ident: nop
+DCOD -> WTOP
+WTOP -> RDOP
+FOPC -> WOPC
+WOPC -> DCOD
+RO12 -> WO22
+WO22 -> RO22
+FOPC -> WOPC
+token: Keyword("nop")
+token: Keyword("halt")
+RDOP -> EXEC
+EXEC -> WDEC
+DCOD -> WTOP
+WDEC -> RDEC
+WTOP -> RDOP
+RO22 -> EXEC
+ident: ld
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+RDOP -> EXEC
+EXEC -> FOPC
+ident: nop
+token: Keyword("ld")
+token: Keyword("nop")
+token: WordLiteral(0x0010)
+TICK  0008 0009 000A 000B 000C 000D 000E 000F
+─────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101
+ident: nop
+TICK  0018 0019 001A 001B 001C 001D 001E 001F 0020 0021 0022 0023 0024 0025
+token: Comma
+───────────────────────────────────────────────────────────────────────────
+ident: a
+token: Register(A)
+ident: beq
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+EXEC -> WDEC
+token: WordLiteral(0x0010)
+token: ParenClose
+DATA  ──00 ──38 ──38 ──38 ──38 ──00 ──00 ──00
+ident: halt
+token: Keyword("halt")
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0102 0102 0103 0103 0103 0103
+FOPC -> WOPC
+FOPC -> WOPC
+WOPC -> DCOD
+WDEC -> RDEC
+DCOD -> WTOP
+RDEC -> FOPC
+WTOP -> RDOP
+RDOP -> EXEC
+WOPC -> DCOD
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+RDEC -> FOPC
+FOPC -> WOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("beq")
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ────
+
+DCOD -> EXEC
+  PC   SP  A  B  C  D  E  F  G  H ZC | NEXT
+EXEC -> FOPC
+WO12 -> RO12
+token: ByteLiteral(0xFD)
+token: Keyword("nop")
+ident: beq
+DATA  ──00 ──10 ──10 ──01 ──01 ──01 ──01 ──40 ──40 ──40 ──40 ──00 ──00 ──00
+token: Keyword("beq")
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+WOPC -> DCOD
+ident: ld
+token: Keyword("ld")
+ident: ef
+TICK  0020 0021 0022 0023 0024 0025 0026 0027 0028 0029 002A 002B 002C 002D 002E 002F
+token: Register(EF)
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0103 0103 0104 0104 0104 0104
+DCOD -> EXEC
+DATA  ──00 ──10 ──10 ──07 ──07 ──07 ──07 ──70 ──70 ──03 ──03 ──03 ──03 ──00 ──00 ──00
+EXEC -> FOPC
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+token: Comma
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+RO12 -> WO22
+WO22 -> RO22
+
+ident: ld
+0102 0000 00 01 00 01 00 00 00 00 00 | halt
+TICK  001C 001D 001E 001F 0020 0021 0022 0023 0024 0025 0026 0027 0028 0029
+ident: nop
+ident: ld
+───────────────────────────────────────────────────────────────────────────
+token: Keyword("nop")
+token: Keyword("ld")
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC WDEC RDEC FOPC WOPC DCOD EXEC
+ident: nop
+ADDR  0100 0100 0101 0101 0102 0102 0102 0010 0010 0010 0103 0103 0103 0103
+token: Keyword("nop")
+DATA  ──00 ──4E ──4E ──10 ──10 ──00 ──00 ──00 ──01 ──00 ──00 ──00 ──00 ──00
+token: ByteLiteral(0x01)
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+token: Keyword("ld")
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ──── ──── ────
+
+RO22 -> EXEC
+token: WordLiteral(0x0001)
+ident: dec
+token: Keyword("dec")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+test instructions::tests::dec_nn ... ident: gh
+token: Register(GH)
+token: Comma
+okident: a
+token: WordLiteral(0xFF03)
+token: Register(A)
+ident: halt
+ident: ef
+token: Keyword("halt")
+token: Register(EF)
+ident: beq
+token: Keyword("beq")
+DCOD -> EXEC
+ident: halt
+token: Keyword("halt")
+EXEC -> FOPC
+ident: cmp
+FOPC -> WOPC
+ident: nop
+WOPC -> DCOD
+token: ByteLiteral(0xFD)
+DCOD -> WO12
+token: Comma
+FOPC -> WOPC
+token: ByteLiteral(0xFF)
+token: Keyword("cmp")
+
+ident: ld
+WOPC -> DCOD
+EXEC -> FOPC
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+TICK  0020 0021 0022 0023 0024 0025 0026 0027 0028 0029 002A 002B
+─────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC WDEC RDEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0010 0010 0010 0102 0102 0102 0102
+DATA  ──00 ──4D ──4D ──A0 ──A0 ──A0 ──01 ──00 ──00 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ──── ──── ────
+
+ident: nop
+token: Keyword("nop")
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+test instructions::tests::dec_rr ... ok
+token: Keyword("ld")
+EXEC -> WINC
+EXEC -> FOPC
+FOPC -> WOPC
+ident: inc
+token: Keyword("inc")
+ident: a
+token: Register(A)
+ident: halt
+token: Keyword("halt")
+ident: gh
+ident: nop
+token: Keyword("nop")
+ident: nop
+WINC -> RINC
+WOPC -> DCOD
+DCOD -> WTOP
+RINC -> FOPC
+FOPC -> WOPC
+WTOP -> RDOP
+RDOP -> EXEC
+token: Register(GH)
+token: Comma
+ident: ld
+token: WordLiteral(0xFF03)
+token: Keyword("nop")
+ident: nop
+ident: ef
+token: Register(EF)
+token: Comma
+ident: ld
+EXEC -> FOPC
+FOPC -> WOPC
+token: Keyword("ld")
+ident: halt
+WOPC -> DCOD
+token: WordLiteral(0x0001)
+token: Keyword("ld")
+ident: dec
+ident: a
+token: Register(A)
+token: Comma
+WOPC -> DCOD
+ident: ld
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("nop")
+token: ByteLiteral(0xFF)
+token: Keyword("ld")
+token: Keyword("halt")
+token: Keyword("dec")
+ident: ef
+ident: nop
+ident: a
+token: Register(A)
+DCOD -> EXEC
+token: Comma
+EXEC -> FOPC
+token: ByteLiteral(0xFE)
+token: Register(EF)
+ident: ld
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+ident: halt
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0104 0104 0104 0010 0105 0105
+DATA  ──00 ──10 ──10 ──FE ──FE ──FE ──FE ──20 ──20 ──10 ──10 ──00 ──00 ──FE ──FE ──3E
+ident: ld
+token: Keyword("ld")
+ident: ab
+TICK  0028 0029 002A 002B 002C 002D 002E 002F 0030 0031 0032 0033 0034 0035 0036 0037
+token: Register(AB)
+token: Comma
+token: WordLiteral(0x00C0)
+token: Keyword("halt")
+ident: ld
+ident: inc
+token: Keyword("ld")
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0103 0103 0104 0104 0104 0104 0102 0102 0102 0102
+DATA  ──00 ──F1 ──F1 ──01 ──01 ──01 ──01 ──F1 ──F1 ──FD ──FD ──FD ──FD ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Keyword("ld")
+ident: cd
+ident: gh
+token: Register(CD)
+token: Register(GH)
+token: Comma
+token: Comma
+token: WordLiteral(0x0010)
+ident: sp
+token: Keyword("nop")
+ident: beq
+ident: nop
+token: Register(SP)
+token: Keyword("nop")
+token: Comma
+ident: nop
+token: WordLiteral(0xBEEF)
+token: Keyword("nop")
+ident: ld
+token: Keyword("ld")
+token: ParenOpen
+ident: nop
+FOPC -> WOPC
+token: Keyword("nop")
+token: Keyword("inc")
+ident: nop
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ────
+
+WOPC -> DCOD
+DCOD -> WO12
+ident: a
+token: Keyword("nop")
+token: WordLiteral(0xFF03)
+ident: halt
+ident: cmp
+token: Keyword("halt")
+ident: cd
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B
+token: Register(CD)
+token: Keyword("beq")
+ident: nop
+─────────────────────────────────────────────────────────────────
+CPU   DCOD WO12 RO12 WO22 RO22 EXEC WINC RINC FOPC WOPC DCOD EXEC
+ADDR  0106 0106 0107 0107 0107 0010 0010 0010 0108 0108 0108 0108
+DATA  ──3E ──10 ──10 ──00 ──00 ──00 ──FE ──FF ──FF ──00 ──00 ──00
+token: Keyword("cmp")
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+ident: gh
+token: Register(GH)
+token: Comma
+token: ParenClose
+token: WordLiteral(0xFF03)
+/WRT  ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ──── ──── ────
+ident: halt
+
+token: Keyword("nop")
+ident: ld
+ident: inc
+WO12 -> RO12
+token: Keyword("inc")
+RO12 -> WO22
+token: ParenOpen
+WO22 -> RO22
+token: WordLiteral(0x0010)
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Comma
+token: ParenClose
+ident: a
+token: Register(A)
+token: ByteLiteral(0x01)
+ident: nop
+ident: halt
+DCOD -> EXEC
+token: Keyword("halt")
+EXEC -> FOPC
+ident: inc
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("nop")
+ident: halt
+token: Keyword("inc")
+token: Keyword("ld")
+ident: inc
+ident: ab
+token: Register(A)
+token: Register(AB)
+ident: halt
+token: Keyword("halt")
+token: Keyword("halt")
+FOPC -> WOPC
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+ident: beq
+token: WordLiteral(0x0010)
+ident: a
+token: ParenClose
+token: Register(A)
+ident: halt
+token: Comma
+token: Keyword("halt")
+WOPC -> DCOD
+FOPC -> WOPC
+token: Keyword("halt")
+WOPC -> DCOD
+token: Keyword("inc")
+DCOD -> WO12
+token: ParenOpen
+ident: cd
+TICK  0026 0027 0028 0029 002A 002B 002C 002D 002E 002F 0030 0031 0032 0033 0034 0035
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0103 0103 0104 0104 0104 0104
+token: WordLiteral(0x00C0)
+ident: ld
+FOPC -> WOPC
+DCOD -> WTOP
+WOPC -> DCOD
+WTOP -> RDOP
+DCOD -> WO12
+token: Register(CD)
+token: Keyword("beq")
+token: Keyword("ld")
+ident: LOOP
+ident: beq
+token: Identifier("LOOP")
+WO12 -> RO12
+ident: LOOP
+token: ParenClose
+token: LabelDef("LOOP")
+DATA  ──00 ──1A ──1A ──01 ──01 ──00 ──00 ──00 ──00 ──4A ──4A ──4A ──4A ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+RDOP -> EXEC
+token: Keyword("beq")
+token: ByteLiteral(0xFC)
+ident: sp
+ident: beq
+token: Register(SP)
+RO12 -> WO22
+token: Comma
+WO22 -> RO22
+token: WordLiteral(0xBEEF)
+RO22 -> EXEC
+EXEC -> WINC
+WINC -> RINC
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("beq")
+test instructions::tests::dec ... ok
+ident: nop
+EXEC -> FOPC
+DCOD -> EXEC
+token: ByteLiteral(0x01)
+RINC -> FOPC
+ident: halt
+ident: halt
+EXEC -> FOPC
+TICK  0030 0031 0032 0033 0034 0035 0036 0037 0038 0039 003A 003B 003C 003D 003E 003F
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC
+token: Keyword("halt")
+token: Keyword("halt")
+FOPC -> WOPC
+ident: ld
+WOPC -> DCOD
+FOPC -> WOPC
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("nop")
+FOPC -> WOPC
+token: Keyword("ld")
+WOPC -> DCOD
+ident: halt
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0105 0105 0105 0105
+DATA  ──00 ──1B ──1B ──03 ──03 ──FF ──FF ──FF ──FF ──7B ──7B ──03 ──03 ──FF ──FF ──FF
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+ident: a
+
+token: Register(A)
+token: Comma
+WOPC -> DCOD
+DCOD -> WO12
+TICK  0040 0041 0042 0043
+─────────────────────────
+WO12 -> RO12
+CPU   FOPC WOPC DCOD EXEC
+ADDR  0106 0106 0106 0106
+DATA  ──FF ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ────
+
+ident: ld
+ident: ld
+token: ByteLiteral(0xFE)
+ident: nop
+token: Keyword("ld")
+token: Keyword("nop")
+TICK  0013 0014 0015 0016 0017 0018 0019 001A 001B 001C 001D 001E 001F 0020
+───────────────────────────────────────────────────────────────────────────
+token: Keyword("halt")
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0102 0102 0103 0103 0103 0103
+DATA  ──00 ──10 ──10 ──FF ──FF ──FF ──FF ──30 ──30 ──30 ──30 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+RO12 -> WO22
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+ident: inc
+
+token: Keyword("ld")
+ident: ab
+ident: ld
+token: Keyword("ld")
+token: Register(AB)
+ident: ab
+token: Register(AB)
+WO22 -> RO22
+token: Comma
+token: WordLiteral(0xFFFF)
+DCOD -> EXEC
+RO22 -> EXEC
+token: Keyword("inc")
+EXEC -> FOPC
+ident: a
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+EXEC -> FOPC
+ident: nop
+token: Keyword("nop")
+token: Register(A)
+token: Comma
+TICK  001C 001D 001E 001F 0020 0021 0022 0023 0024 0025 0026 0027 0028 0029
+ident: inc
+FOPC -> WOPC
+ident: a
+token: Register(A)
+ident: nop
+ident: beq
+token: Keyword("nop")
+───────────────────────────────────────────────────────────────────────────
+ident: nop
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC WINC RINC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0102 0102 0102 0010 0010 0010 0103 0103 0103 0103
+DATA  ──00 ──3E ──3E ──10 ──10 ──00 ──00 ──00 ──FF ──00 ──00 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+token: Keyword("nop")
+ident: nop
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ──── ──── ────
+token: Keyword("beq")
+
+token: Comma
+token: ByteLiteral(0xFC)
+token: WordLiteral(0x0010)
+token: Keyword("inc")
+ident: ab
+token: Comma
+token: Register(AB)
+token: Keyword("nop")
+ident: halt
+token: Keyword("halt")
+ident: ld
+ident: ld
+token: ByteLiteral(0xFF)
+token: Keyword("ld")
+ident: nop
+token: Keyword("nop")
+WOPC -> DCOD
+token: Keyword("ld")
+token: WordLiteral(0x0003)
+token: ParenOpen
+ident: ab
+ident: cmp
+test instructions::tests::inc_nn ... token: Register(AB)
+token: Comma
+okident: nop
+ident: cd
+token: Register(CD)
+token: ParenClose
+token: Comma
+
+FOPC -> WOPC
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+DCOD -> WO12
+ident: nop
+WO12 -> RO12
+ident: a
+token: Register(A)
+token: Keyword("cmp")
+ident: ab
+token: Register(AB)
+RO12 -> WO22
+WOPC -> DCOD
+token: WordLiteral(0xFFFF)
+ident: inc
+token: Keyword("inc")
+token: Comma
+ident: ab
+ident: halt
+token: Register(AB)
+WO22 -> RO22
+ident: halt
+RO22 -> EXEC
+token: Keyword("nop")
+token: Keyword("halt")
+ident: inc
+ident: ld
+token: Keyword("inc")
+token: Keyword("ld")
+EXEC -> FOPC
+DCOD -> WTOP
+token: Keyword("halt")
+FOPC -> WOPC
+token: ParenOpen
+FOPC -> WOPC
+ident: a
+WOPC -> DCOD
+token: Register(A)
+token: Comma
+DCOD -> WO12
+WO12 -> RO12
+token: ByteLiteral(0xFF)
+RO12 -> WO22
+WO22 -> RO22
+ident: halt
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+token: Keyword("halt")
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+ident: nop
+token: Keyword("halt")
+token: Keyword("nop")
+FOPC -> WOPC
+token: WordLiteral(0xFF07)
+WTOP -> RDOP
+ident: ld
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+ident: nop
+WOPC -> DCOD
+ident: halt
+RDOP -> EXEC
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("halt")
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+DCOD -> EXEC
+EXEC -> FOPC
+ident: ld
+─────────────────────────────────────────────────────────────────────────────────────
+token: Keyword("ld")
+token: Keyword("nop")
+EXEC -> FOPC
+ident: nop
+FOPC -> WOPC
+token: Keyword("nop")
+WOPC -> DCOD
+FOPC -> WOPC
+token: Keyword("ld")
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0105 0105 0105 0105
+DATA  ──00 ──18 ──18 ──C0 ──C0 ──00 ──00 ──00 ──00 ──1C ──1C ──EF ──EF ──BE ──BE ──BE
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+EXEC -> FOPC
+FOPC -> WOPC
+TICK  0010 0011 0012 0013
+WOPC -> DCOD
+─────────────────────────
+WOPC -> DCOD
+DCOD -> WTOP
+CPU   FOPC WOPC DCOD EXEC
+ADDR  0106 0106 0106 0106
+ident: a
+DATA  ──BE ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ────
+
+WTOP -> RDOP
+token: Register(A)
+token: Comma
+DCOD -> WTOP
+WTOP -> RDOP
+ident: nop
+TICK  0021 0022 0023 0024 0025 0026 0027 0028 0029 002A 002B 002C 002D 002E 002F 0030
+token: Keyword("nop")
+─────────────────────────────────────────────────────────────────────────────────────
+ident: nop
+RDOP -> EXEC
+token: Keyword("nop")
+EXEC -> FOPC
+ident: ab
+token: Register(AB)
+token: Comma
+ident: nop
+FOPC -> WOPC
+test instructions::tests::ld_reg_imm16 ... WOPC -> DCOD
+RDOP -> EXEC
+DCOD -> EXEC
+ok
+DCOD -> WO12
+WO12 -> RO12
+token: Keyword("nop")
+EXEC -> FOPC
+token: ByteLiteral(0xFF)
+ident: ld
+RO12 -> WO22
+token: Keyword("ld")
+token: WordLiteral(0x0003)
+EXEC -> FOPC
+ident: cmp
+FOPC -> WOPC
+WOPC -> DCOD
+ident: nop
+TICK  0038 0039 003A 003B 003C 003D 003E 003F 0040 0041 0042 0043 0044 0045 0046 0047
+token: Keyword("nop")
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD WTOP RDOP EXEC
+ADDR  0100 0100 0101 0101 0101 0101 0103 0103 0103 0103 0104 0104 0105 0105 0105 0105
+DATA  ──00 ──F1 ──F1 ──01 ──01 ──01 ──01 ──30 ──30 ──30 ──30 ──F1 ──F1 ──FC ──FC ──FC
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ──── ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("cmp")
+DCOD -> WTOP
+ident: ld
+DCOD -> EXEC
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0103 0103 0104 0104 0104 0104
+EXEC -> FOPC
+token: WordLiteral(0x0100)
+token: Comma
+WTOP -> RDOP
+RDOP -> EXEC
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009
+EXEC -> FOPC
+───────────────────────────────────────────────────────
+DATA  ──00 ──18 ──18 ──FF ──FF ──FF ──FF ──FF ──FF ──38 ──38 ──38 ──38 ──00 ──00 ──00
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0102 0102
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+DATA  ──00 ──10 ──10 ──FF ──FF ──FF ──FF ──00 ──00 ──00
+ident: ab
+token: Register(AB)
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+ident: a
+token: Register(A)
+ident: nop
+token: Keyword("ld")
+TICK  0048 0049 004A 004B
+─────────────────────────
+token: Comma
+CPU   FOPC WOPC DCOD EXEC
+token: WordLiteral(0xFF07)
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+ident: ld
+token: Keyword("ld")
+ident: cd
+ident: a
+token: Register(A)
+token: Comma
+token: Keyword("nop")
+FOPC -> WOPC
+WOPC -> DCOD
+ADDR  0106 0106 0106 0106
+DCOD -> WTOP
+ident: halt
+test instructions::tests::ld_reg_imm8 ... token: Keyword("halt")
+ident: nop
+token: Register(CD)
+token: Comma
+DATA  ──FC ──00 ──00 ──00
+token: WordLiteral(0x0100)
+/MEM  ─MEM ─MEM ──── ────
+ident: ld
+/WRT  ──── ──── ──── ────
+
+token: ByteLiteral(0xFF)
+ident: inc
+token: Keyword("inc")
+ident: a
+ident: ld
+token: Register(A)
+ident: beq
+token: Keyword("nop")
+token: Keyword("beq")
+token: Keyword("ld")
+token: ByteLiteral(0x01)
+ident: halt
+token: Keyword("halt")
+ident: b
+ident: inc
+FOPC -> WOPC
+
+ident: nop
+ident: ld
+oktoken: Keyword("ld")
+ident: sp
+
+token: Register(SP)
+token: Comma
+token: Register(B)
+token: Keyword("inc")
+ident: a
+token: Keyword("ld")
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+token: Comma
+RO22 -> EXEC
+token: ParenOpen
+EXEC -> FOPC
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: ld
+ident: b
+token: Register(B)
+token: Comma
+token: WordLiteral(0xFFFF)
+ident: inc
+token: Keyword("inc")
+ident: sp
+token: Register(SP)
+token: Register(A)
+token: Keyword("ld")
+ident: sp
+token: Register(SP)
+token: Comma
+token: WordLiteral(0x0100)
+ident: ld
+token: Keyword("ld")
+ident: c
+token: Register(C)
+token: Comma
+token: ParenOpen
+ident: sp
+token: Register(SP)
+token: ParenClose
+ident: halt
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("halt")
+ident: ld
+ident: nop
+token: Keyword("ld")
+token: Keyword("nop")
+ident: halt
+ident: a
+token: Register(A)
+token: Comma
+ident: beq
+token: Keyword("beq")
+token: ByteLiteral(0x01)
+ident: halt
+token: Keyword("nop")
+ident: a
+token: Register(A)
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: ByteLiteral(0xFF)
+token: Keyword("halt")
+ident: nop
+ident: ld
+token: Keyword("ld")
+token: WordLiteral(0x0100)
+token: Comma
+ident: a
+token: Register(A)
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0x0100)
+ident: halt
+token: Keyword("halt")
+token: Keyword("halt")
+ident: ld
+ident: nop
+WTOP -> RDOP
+RDOP -> EXEC
+token: Comma
+token: Keyword("nop")
+ident: nop
+EXEC -> WINC
+WINC -> RINC
+RINC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+FOPC -> WOPC
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("ld")
+token: Keyword("nop")
+ident: sp
+token: Register(SP)
+token: Comma
+WOPC -> DCOD
+token: WordLiteral(0xFFFF)
+token: Keyword("nop")
+ident: nop
+FOPC -> WOPC
+WOPC -> DCOD
+ident: ab
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+token: Register(AB)
+ident: ld
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+ident: inc
+token: Keyword("inc")
+token: Keyword("nop")
+ident: nop
+─────────────────────────────────────────────────────────────────────────────────────
+ident: halt
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC
+token: Keyword("halt")
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0104 0104 0104 0104 0105 0105
+EXEC -> FOPC
+FOPC -> WOPC
+FOPC -> WOPC
+ident: sp
+DCOD -> EXEC
+token: Register(SP)
+EXEC -> FOPC
+ident: ld
+ident: halt
+token: Keyword("halt")
+token: Keyword("ld")
+WOPC -> DCOD
+token: Keyword("ld")
+DCOD -> EXEC
+ident: b
+EXEC -> FOPC
+WOPC -> DCOD
+DATA  ──00 ──10 ──10 ──FE ──FE ──FE ──FE ──19 ──19 ──10 ──10 ──00 ──00 ──00 ──00 ──2E
+FOPC -> WOPC
+ident: e
+token: Register(E)
+token: Comma
+FOPC -> WOPC
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+TICK  0044 0045 0046 0047 0048 0049 004A 004B 004C 004D 004E 004F 0050 0051 0052 0053
+ident: c
+─────────────────────────────────────────────────────────────────────────────────────
+token: Register(C)
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC
+ident: halt
+token: Keyword("halt")
+token: Keyword("nop")
+ident: ld
+WOPC -> DCOD
+token: Keyword("ld")
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B 001C 001D 001E 001F
+ident: a
+─────────────────────────────────────────────────────────────────────────────────────
+token: Register(A)
+WOPC -> DCOD
+token: Comma
+DCOD -> WTOP
+ident: nop
+WTOP -> RDOP
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0105 0105 0105 0105
+token: Register(B)
+CPU   DCOD WTOP RDOP EXEC FOPC WOPC DCOD WTOP RDOP EXEC WINC RINC FOPC WOPC DCOD EXEC
+token: Comma
+ADDR  0106 0106 0106 0010 0107 0107 0108 0108 0108 0010 0010 0010 0109 0109 0109 0109
+DATA  ──2E ──09 ──09 ──FE ──FE ──3D ──3D ──90 ──90 ──90 ──FE ──FF ──FF ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ─WRT ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ──── ──── ────
+token: ByteLiteral(0xFF)
+ident: ld
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+token: Keyword("nop")
+token: Keyword("ld")
+ident: nop
+ident: b
+token: Keyword("nop")
+token: Register(B)
+ident: nop
+token: Keyword("nop")
+DCOD -> EXEC
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+ident: nop
+token: Keyword("nop")
+TICK  0000 0001 0002 0003 0004 0005 0006 0007
+─────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101
+
+DATA  ──00 ──01 ──01 ──01 ──01 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ────
+
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+ident: inc
+token: Keyword("inc")
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+DATA  ──00 ──18 ──18 ──03 ──03 ──00 ──00 ──00 ──00 ──78 ──78 ──07 ──07 ──FF ──FF ──FF
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+ident: nop
+token: Keyword("nop")
+token: Comma
+ident: a
+token: Register(A)
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+ident: ab
+token: Register(AB)
+TICK  0054 0055 0056 0057
+─────────────────────────
+CPU   FOPC WOPC DCOD EXEC
+ADDR  0106 0106 0106 0106
+DATA  ──FF ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ────
+
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0x0107)
+ident: cmp
+token: Keyword("cmp")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0x0103)
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0x0107)
+ident: ld
+FOPC -> WOPC
+RDOP -> EXEC
+token: ParenOpen
+EXEC -> WINC
+ident: cd
+token: Register(CD)
+ident: cmp
+token: Keyword("ld")
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+WINC -> RINC
+RINC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+TICK  0031 0032 0033 0034 0035 0036 0037 0038 0039 003A 003B 003C 003D 003E 003F 0040
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0103 0103 0104 0104 0104 0104
+DATA  ──00 ──1C ──1C ──FF ──FF ──FF ──FF ──FF ──FF ──3C ──3C ──3C ──3C ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+TICK  0020 0021 0022 0023 0024 0025 0026 0027 0028 0029 002A 002B
+─────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC WINC RINC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0101 0101 0101 0010 0010 0010 0102 0102 0102 0102
+DATA  ──00 ──3D ──3D ──90 ──90 ──90 ──FF ──00 ──00 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ──── ──── ────
+
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: ParenClose
+ident: ld
+token: Keyword("ld")
+ident: sp
+token: Register(SP)
+token: Comma
+token: WordLiteral(0x0100)
+test instructions::tests::nop ... ident: ld
+TICK  004C 004D 004E 004F 0050 0051 0052 0053 0054 0055 0056 0057 0058 0059
+token: Keyword("ld")
+───────────────────────────────────────────────────────────────────────────
+ident: c
+token: Register(C)
+ident: e
+token: Register(E)
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0103 0103
+DATA  ──00 ──30 ──30 ──30 ──30 ──F1 ──F1 ──01 ──01 ──01 ──01 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Comma
+token: Keyword("cmp")
+token: ParenOpen
+token: Comma
+okident: c
+
+token: Register(C)
+ident: sp
+ident: halt
+ident: nop
+ident: cd
+token: Register(SP)
+token: ParenClose
+token: Keyword("halt")
+ident: halt
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("halt")
+DCOD -> WTOP
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("nop")
+token: Register(CD)
+ident: nop
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+test instructions::tests::inc ... ok
+WTOP -> RDOP
+token: Comma
+RO12 -> WO22
+test instructions::tests::inc_rr ... ok
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+ident: ld
+token: Keyword("ld")
+ident: sp
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("nop")
+token: Register(SP)
+token: Comma
+token: WordLiteral(0xBFFC)
+DCOD -> WTOP
+token: WordLiteral(0x0103)
+ident: halt
+test instructions::tests::beq ... ok
+ident: pop
+token: Keyword("pop")
+ident: gh
+token: Register(GH)
+ident: pop
+token: Keyword("halt")
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+ident: ld
+token: Keyword("ld")
+ident: sp
+DCOD -> WO12
+ident: nop
+EXEC -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+WO12 -> RO12
+token: Keyword("nop")
+RO12 -> WO22
+ident: nop
+WO22 -> RO22
+WTOP -> RDOP
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("nop")
+token: Keyword("pop")
+ident: b
+token: Register(B)
+FOPC -> WOPC
+ident: halt
+token: Keyword("halt")
+ident: nop
+ident: ld
+token: Keyword("ld")
+ident: ef
+token: Register(EF)
+DCOD -> EXEC
+RDOP -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+token: Comma
+token: WordLiteral(0xBABE)
+ident: ld
+ident: ld
+token: Keyword("ld")
+token: Keyword("ld")
+ident: a
+ident: a
+token: Register(A)
+RDOP -> EXEC
+token: Comma
+EXEC -> FOPC
+ident: ld
+token: Register(SP)
+token: Comma
+token: ByteLiteral(0xFF)
+token: WordLiteral(0xBFFF)
+ident: ld
+token: Register(A)
+token: Keyword("ld")
+ident: ld
+token: Keyword("ld")
+ident: a
+EXEC -> FOPC
+token: Register(A)
+token: Comma
+token: Comma
+token: ByteLiteral(0xFF)
+token: ByteLiteral(0xFF)
+ident: push
+token: ParenOpen
+ident: ef
+token: Register(EF)
+token: Keyword("ld")
+ident: sp
+WOPC -> DCOD
+token: Register(SP)
+token: Comma
+DCOD -> EXEC
+EXEC -> FOPC
+TICK  0058 0059 005A 005B 005C 005D 005E 005F 0060 0061 0062 0063 0064 0065 0066 0067
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC
+token: Keyword("push")
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0105 0105 0105 0105
+DATA  ──00 ──19 ──19 ──07 ──07 ──01 ──01 ──01 ──01 ──79 ──79 ──03 ──03 ──01 ──01 ──01
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+token: WordLiteral(0xBFFC)
+FOPC -> WOPC
+WOPC -> DCOD
+ident: pop
+token: Keyword("pop")
+ident: a
+token: Register(A)
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+ident: ld
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0104 0104 0104 0100 0105 0105
+DATA  ──00 ──10 ──10 ──FF ──FF ──FF ──FF ──20 ──20 ──00 ──00 ──01 ──01 ──FF ──FF ──19
+DCOD -> WTOP
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+WTOP -> RDOP
+RDOP -> EXEC
+ident: gh
+EXEC -> FOPC
+token: Register(GH)
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ────
+
+TICK  0068 0069 006A 006B
+ident: pop
+─────────────────────────
+token: Keyword("pop")
+CPU   FOPC WOPC DCOD EXEC
+ident: b
+ADDR  0106 0106 0106 0106
+DATA  ──01 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ────
+
+FOPC -> WOPC
+WOPC -> DCOD
+token: ParenClose
+token: Comma
+token: Register(B)
+ident: halt
+token: Keyword("halt")
+ident: ld
+ident: ld
+token: Keyword("ld")
+token: Keyword("ld")
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B 001C 001D 001E 001F
+token: Keyword("ld")
+─────────────────────────────────────────────────────────────────────────────────────
+ident: cd
+token: Register(CD)
+ident: cd
+token: Comma
+token: Register(CD)
+DCOD -> EXEC
+token: Comma
+EXEC -> FOPC
+FOPC -> WOPC
+token: Keyword("nop")
+WOPC -> DCOD
+token: WordLiteral(0xCAFE)
+DCOD -> WO12
+ident: push
+CPU   DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC WTLD RDLD FOPC WOPC
+ADDR  0106 0106 0107 0107 0107 0107 0108 0108 0109 0109 0109 0100 0100 0100 010A 010A
+ident: nop
+DATA  ──19 ──00 ──00 ──01 ──01 ──01 ──01 ──2D ──2D ──91 ──91 ──91 ──FF ──FF ──FF ──1C
+token: WordLiteral(0xBEEF)
+token: Comma
+WO12 -> RO12
+ident: a
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+token: Register(A)
+─────────────────────────────────────────────────────────────────────────────────────
+ident: halt
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+token: Keyword("halt")
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+token: WordLiteral(0xFFFF)
+ident: a
+token: Keyword("push")
+ident: cd
+
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WTOP
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0103 0103 0104 0104 0105 0105
+DATA  ──00 ──10 ──10 ──FF ──FF ──FF ──FF ──2F ──2F ──01 ──01 ──01 ──01 ──2F ──2F ──89
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> WS12
+WS12 -> RS12
+token: Register(A)
+ident: halt
+ident: ld
+token: Register(CD)
+ident: cmp
+ident: halt
+token: Keyword("cmp")
+ident: a
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B
+token: Register(A)
+─────────────────────────────────────────────────────────────────
+CPU   RDOP EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0105 0105 0106 0106 0107 0107 0107 0107 0108 0108 0108 0108
+DATA  ──89 ──89 ──89 ──2F ──2F ──24 ──24 ──24 ──24 ──00 ──00 ──00
+token: Keyword("halt")
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+TICK  0020 0021 0022 0023 0024 0025 0026 0027 0028 0029 002A 002B 002C 002D 002E 002F
+token: Keyword("nop")
+ident: nop
+token: Comma
+RS12 -> WTLD
+token: Keyword("halt")
+token: Keyword("ld")
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC WTLD RDLD FOPC WOPC
+ADDR  010B 010B 010C 010C 010C 010C 010D 010D 010E 010E 010E 0100 0100 0100 010F 010F
+DATA  ──1C ──00 ──00 ──01 ──01 ──01 ──01 ──2D ──2D ──C2 ──C2 ──C2 ──FF ──FF ──FF ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+token: Keyword("nop")
+token: ByteLiteral(0x00)
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+ident: a
+
+token: Register(A)
+token: Comma
+token: ByteLiteral(0xFF)
+  PC   SP  A  B  C  D  E  F  G  H ZC | NEXT
+0109 0000 FF FF FF FF FF 00 00 00 00 | halt
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+TICK  0030 0031
+───────────────
+CPU   DCOD EXEC
+ADDR  010F 010F
+DATA  ──00 ──00
+/MEM  ──── ────
+/WRT  ──── ────
+
+WTLD -> RDLD
+  PC   SP  A  B  C  D  E  F  G  H ZC | NEXT
+0110 0100 FF FF FF 00 00 00 00 00 00 | halt
+RDLD -> FOPC
+FOPC -> WOPC
+ident: ld
+token: Keyword("ld")
+token: WordLiteral(0xBEEF)
+token: Comma
+ident: a
+token: Register(A)
+ident: halt
+token: Keyword("halt")
+ident: halt
+FOPC -> WOPC
+WOPC -> DCOD
+WOPC -> DCOD
+ident: ld
+ident: nop
+token: Keyword("ld")
+test instructions::tests::ld_reg_reg ... token: Keyword("halt")
+ident: sp
+token: Register(SP)
+ident: ld
+token: Comma
+DCOD -> WTOP
+token: WordLiteral(0xBFFF)
+DCOD -> EXEC
+ident: ld
+EXEC -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+token: Keyword("ld")
+okident: ef
+
+token: Register(EF)
+token: Comma
+ident: ld
+token: Keyword("ld")
+token: WordLiteral(0xBABE)
+ident: cd
+test instructions::tests::ld_reg_indirect ... token: Register(CD)
+token: Comma
+token: WordLiteral(0xFFFF)
+ok
+ident: cmp
+ident: ld
+FOPC -> WOPC
+token: Keyword("ld")
+token: Keyword("nop")
+WTOP -> RDOP
+ident: nop
+RDOP -> EXEC
+token: Keyword("nop")
+ident: nop
+token: Keyword("cmp")
+ident: a
+token: Register(A)
+token: Comma
+token: Keyword("nop")
+token: ByteLiteral(0x00)
+ident: nop
+token: Keyword("nop")
+test memory::tests::load_checks_bounds_correctly ... ok
+ident: nop
+token: Keyword("nop")
+ident: nop
+ident: a
+ident: halt
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: Register(A)
+ident: dec
+token: Keyword("ld")
+token: Comma
+token: ByteLiteral(0xFF)
+ident: push
+token: Keyword("push")
+token: Keyword("nop")
+token: Keyword("dec")
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+ident: a
+─────────────────────────────────────────────────────────────────────────────────────
+token: Register(A)
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD EXEC WS12 RS12 WTLD RDLD
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0103 BFFD BFFD BFFE BFFE BFFE
+test regs::tests::addressing_individual_regs_works ... ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Keyword("halt")
+token: Comma
+ident: a
+FOPC -> WOPC
+token: Register(A)
+WOPC -> DCOD
+ident: a
+ident: nop
+token: Keyword("nop")
+ident: nop
+DCOD -> WO12
+token: Register(A)
+WO12 -> RO12
+ident: halt
+token: WordLiteral(0xCAFE)
+EXEC -> FOPC
+ident: push
+token: Keyword("nop")
+token: Keyword("push")
+ident: nop
+ident: cd
+token: Register(CD)
+RO12 -> WO22
+token: Keyword("nop")
+WO22 -> RO22
+token: Comma
+FOPC -> WOPC
+token: ByteLiteral(0xFF)
+okident: halt
+token: Keyword("halt")
+DATA  ──00 ──1C ──1C ──FC ──FC ──BF ──BF ──BF ──BF ──EB ──EB ──EB ──01 ──01 ──02 ──02
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+WOPC -> DCOD
+ident: nop
+token: Keyword("halt")
+token: Keyword("nop")
+ident: dec
+RO22 -> EXEC
+token: Keyword("dec")
+EXEC -> FOPC
+ident: a
+token: Register(A)
+FOPC -> WOPC
+WOPC -> DCOD
+
+ident: halt
+token: Keyword("halt")
+
+ident: nop
+ident: ld
+FOPC -> WOPC
+DCOD -> WTOP
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+FOPC -> WOPC
+RO22 -> EXEC
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019
+───────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC WTLD RDLD FOPC WOPC DCOD EXEC
+token: Keyword("ld")
+ADDR  0104 0104 0104 BFFF BFFF BFFF 0105 0105 0105 0105
+token: ParenOpen
+DCOD -> WO12
+EXEC -> FOPC
+WO12 -> RO12
+FOPC -> WOPC
+RO12 -> WO22
+WO22 -> RO22
+WOPC -> DCOD
+DCOD -> WTOP
+WOPC -> DCOD
+DCOD -> EXEC
+token: Keyword("nop")
+EXEC -> FOPC
+WTOP -> RDOP
+FOPC -> WOPC
+RDOP -> EXEC
+WOPC -> DCOD
+DCOD -> EXEC
+ident: ef
+EXEC -> FOPC
+token: Register(EF)
+DATA  ──02 ──E1 ──E1 ──E1 ──03 ──03 ──03 ──00 ──00 ──00
+EXEC -> FOPC
+/MEM  ─MEM ─MEM ──── ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+FOPC -> WOPC
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+WTOP -> RDOP
+test regs::tests::addressing_reg_pairs_works ... TICK  0000 0001 0002 0003 0004 0005 0006 0007
+─────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101
+WOPC -> DCOD
+DATA  ──00 ──40 ──40 ──40 ──40 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ────
+
+RO22 -> EXEC
+EXEC -> FOPC
+ident: nop
+token: Keyword("nop")
+ident: nop
+ident: inc
+token: Keyword("inc")
+ident: a
+token: Register(A)
+FOPC -> WOPC
+WOPC -> DCOD
+RDOP -> EXEC
+token: ParenClose
+token: Comma
+ident: halt
+token: Keyword("halt")
+ident: inc
+token: Keyword("inc")
+DCOD -> EXEC
+EXEC -> FOPC
+ident: a
+token: Register(A)
+DCOD -> EXEC
+ident: a
+token: Register(A)
+ident: halt
+FOPC -> WOPC
+token: Keyword("halt")
+WOPC -> DCOD
+FOPC -> WOPC
+DCOD -> EXEC
+WOPC -> DCOD
+EXEC -> FOPC
+EXEC -> FOPC
+EXEC -> FOPC
+TICK  006C 006D 006E 006F 0070 0071 0072 0073 0074 0075 0076 0077 0078 0079 007A 007B
+DCOD -> EXEC
+─────────────────────────────────────────────────────────────────────────────────────
+EXEC -> FOPC
+token: Keyword("nop")
+okTICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+─────────────────────────────────────────────────────────────────────────────────────
+
+CPU   FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC
+ADDR  0100 0100 0101 0101 0101 0101 0102 0102 0103 0103 0104 0104 0104 BEEF 0105 0105
+ident: nop
+DATA  ──00 ──10 ──10 ──FF ──FF ──FF ──FF ──20 ──20 ──EF ──EF ──BE ──BE ──FF ──FF ──00
+token: Keyword("nop")
+FOPC -> WOPC
+ident: halt
+FOPC -> WOPC
+token: Keyword("halt")
+WOPC -> DCOD
+FOPC -> WOPC
+WOPC -> DCOD
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+DCOD -> WO12
+WO12 -> RO12
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ─WRT ──── ────
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+DCOD -> WO12
+WO12 -> RO12
+ident: nop
+RO12 -> WO22
+WO22 -> RO22
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC
+RO22 -> EXEC
+EXEC -> FOPC
+WOPC -> DCOD
+DCOD -> WTOP
+token: Keyword("nop")
+
+WTOP -> RDOP
+RDOP -> EXEC
+ident: nop
+TICK  0010 0011
+───────────────
+CPU   DCOD EXEC
+ADDR  0105 0105
+DATA  ──00 ──00
+/MEM  ──── ────
+/WRT  ──── ────
+
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> WWRT
+TICK  0008 0009 000A 000B 000C 000D 000E 000F
+─────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101
+DATA  ──00 ──30 ──30 ──30 ──30 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ────
+
+EXEC -> FOPC
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0104 0104 0105 0105
+DATA  ──00 ──19 ──19 ──FF ──FF ──FF ──FF ──FF ──FF ──70 ──70 ──00 ──00 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+test instructions::tests::pop ... ok
+TICK  007C 007D
+───────────────
+CPU   DCOD EXEC
+ADDR  0105 0105
+DATA  ──00 ──00
+/MEM  ──── ────
+/WRT  ──── ────
+
+ident: inc
+token: Keyword("inc")
+ident: a
+token: Register(A)
+ident: halt
+token: Keyword("halt")
+ident: inc
+token: Keyword("inc")
+ident: a
+token: Register(A)
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+test regs::tests::addressing_sp_works ... okWWRT -> FOPC
+FOPC -> WOPC
+FOPC -> WOPC
+WOPC -> DCOD
+
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> FOPC
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+test instructions::tests::store_reg_direct ... TICK  0010 0011 0012 0013 0014 0015 0016 0017
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+ident: nop
+─────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101
+DATA  ──00 ──30 ──30 ──30 ──30 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ────
+
+ident: dec
+token: Keyword("dec")
+ident: a
+token: Register(A)
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xBFFF)
+EXEC -> FOPC
+FOPC -> WOPC
+ident: halt
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC
+ident: ld
+token: Keyword("halt")
+token: Keyword("nop")
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0104 0104 0105 0105
+DATA  ──00 ──1C ──1C ──FF ──FF ──BF ──BF ──BF ──BF ──10 ──10 ──FF ──FF ──FF ──FF ──D0
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+ident: nop
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: dec
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+ok─────────────────────────────────────────────────────────────────────────────────────
+
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC FOPC WOPC
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0104 0104 0105 0105
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B 001C 001D 001E 001F
+DATA  ──00 ──1A ──1A ──BE ──BE ──BA ──BA ──BA ──BA ──10 ──10 ──FF ──FF ──FF ──FF ──2E
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+token: Keyword("dec")
+DCOD -> EXEC
+ident: a
+token: Register(A)
+TICK  0010 0011 0012 0013 0014 0015 0016 0017
+─────────────────────────────────────────────
+CPU   DCOD WTOP RDOP EXEC FOPC WOPC DCOD EXEC
+ADDR  0106 0106 0106 BABE 0107 0107 0107 0107
+DATA  ──2E ──0A ──0A ──FF ──FF ──00 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ─WRT ──── ──── ──── ────
+
+EXEC -> FOPC
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   DCOD EXEC FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD EXEC WWRT FOPC
+ADDR  0105 BFFF 0106 0106 0107 0107 0108 0108 0108 0108 0109 0109 0109 BFFE BFFD 010A
+DATA  ──D0 ──FF ──FF ──19 ──19 ──FE ──FE ──CA ──CA ──CA ──CA ──D9 ──D9 ──FE ──CA ──CA
+ident: halt
+/MEM  ──── ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ──── ─MEM ─MEM ─MEM
+token: Keyword("halt")
+token: Keyword("ld")
+FOPC -> WOPC
+ident: nop
+test instructions::tests::cmp ... token: Keyword("nop")
+ident: nop
+FOPC -> WOPC
+WOPC -> DCOD
+WOPC -> DCOD
+DCOD -> EXEC
+DCOD -> EXEC
+okEXEC -> FOPC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+EXEC -> FOPC
+ident: cd
+FOPC -> WOPC
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("nop")
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+
+WOPC -> DCOD
+DCOD -> EXEC
+test instructions::tests::store_reg_indirect ... ok
+/WRT  ──── ─WRT ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ─WRT ─WRT ────
+
+ident: nop
+token: Keyword("nop")
+ident: ld
+token: Keyword("ld")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+EXEC -> FOPC
+token: Keyword("nop")
+ident: nop
+DCOD -> EXEC
+EXEC -> FOPC
+TICK  0020 0021 0022
+────────────────────
+CPU   WOPC DCOD EXEC
+ADDR  010A 010A 010A
+DATA  ──00 ──00 ──00
+/MEM  ─MEM ──── ────
+/WRT  ──── ──── ────
+
+TICK  0018 0019 001A 001B 001C 001D 001E 001F
+ident: cd
+─────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101
+DATA  ──00 ──40 ──40 ──40 ──40 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+FOPC -> WOPC
+/WRT  ──── ──── ──── ──── ──── ──── ──── ────
+test instructions::tests::push ... token: Register(CD)
+ok
+
+token: Comma
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+token: WordLiteral(0xBFFF)
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+test instructions::tests::zero_flag ... ok
+ident: ld
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+ident: nop
+token: Keyword("nop")
+ident: nop
+ident: cd
+FOPC -> WOPC
+token: Keyword("nop")
+token: Register(CD)
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: ParenClose
+ident: nop
+ident: halt
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0100 0100 0100 0100 0101 0101 0101 0101 0102 0102 0102 0102 0103 0103 0103 0103
+DATA  ──00 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Keyword("nop")
+token: Keyword("halt")
+ident: nop
+FOPC -> WOPC
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+TICK  0010 0011 0012 0013 0014 0015 0016 0017 0018 0019 001A 001B 001C 001D 001E 001F
+WOPC -> DCOD
+ident: nop
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC FOPC WOPC DCOD EXEC
+ADDR  0104 0104 0104 0104 0105 0105 0105 0105 0106 0106 0106 0106 0107 0107 0107 0107
+DATA  ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──01 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ──── ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+token: Keyword("nop")
+test system::tests::trace_formatting_copes_with_long_lines ... ok
+ident: nop
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+token: Keyword("nop")
+FOPC -> WOPC
+WOPC -> DCOD
+ident: nop
+DCOD -> WTOP
+WTOP -> RDOP
+token: Keyword("nop")
+ident: nop
+RDOP -> EXEC
+EXEC -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+TICK  0000 0001 0002 0003 0004 0005 0006 0007 0008 0009 000A 000B 000C 000D 000E 000F
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC WTLD RDLD
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0104 BFFF BFFF BFFF
+DATA  ──00 ──19 ──19 ──FF ──FF ──BF ──BF ──BF ──BF ──2D ──2D ──90 ──90 ──90 ──00 ──00
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+TICK  0010 0011 0012 0013
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: nop
+token: Keyword("nop")
+ident: beq
+token: Keyword("beq")
+ident: LOOP
+token: Identifier("LOOP")
+─────────────────────────
+CPU   FOPC WOPC DCOD EXEC
+ADDR  0105 0105 0105 0105
+DATA  ──00 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ────
+
+test asm::tests::get_displacement_fn_calculates_correct_max_displacements ... ok
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xB000)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xB000)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+TICK  0014 0015 0016 0017 0018 0019 001A 001B 001C 001D 001E 001F 0020 0021 0022 0023
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC WTLD RDLD
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0104 B000 B000 B000
+DATA  ──00 ──19 ──19 ──00 ──00 ──B0 ──B0 ──B0 ──B0 ──2D ──2D ──90 ──90 ──90 ──F0 ──F0
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+TICK  0024 0025 0026 0027
+─────────────────────────
+CPU   FOPC WOPC DCOD EXEC
+ADDR  0105 0105 0105 0105
+DATA  ──F0 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ────
+
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xB001)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xB001)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+TICK  0028 0029 002A 002B 002C 002D 002E 002F 0030 0031 0032 0033 0034 0035 0036 0037
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC WTLD RDLD
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0104 B001 B001 B001
+DATA  ──00 ──19 ──19 ──01 ──01 ──B0 ──B0 ──B0 ──B0 ──2D ──2D ──90 ──90 ──90 ──F1 ──F1
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+TICK  0038 0039 003A 003B
+─────────────────────────
+CPU   FOPC WOPC DCOD EXEC
+ADDR  0105 0105 0105 0105
+DATA  ──F1 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ────
+
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xB002)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+ident: ld
+token: Keyword("ld")
+ident: cd
+token: Register(CD)
+token: Comma
+token: WordLiteral(0xB002)
+ident: ld
+token: Keyword("ld")
+ident: a
+token: Register(A)
+token: Comma
+token: ParenOpen
+ident: cd
+token: Register(CD)
+token: ParenClose
+ident: halt
+token: Keyword("halt")
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WO12
+WO12 -> RO12
+RO12 -> WO22
+WO22 -> RO22
+RO22 -> EXEC
+EXEC -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> WTOP
+WTOP -> RDOP
+RDOP -> EXEC
+EXEC -> WTLD
+WTLD -> RDLD
+RDLD -> FOPC
+FOPC -> WOPC
+WOPC -> DCOD
+DCOD -> EXEC
+EXEC -> FOPC
+TICK  003C 003D 003E 003F 0040 0041 0042 0043 0044 0045 0046 0047 0048 0049 004A 004B
+─────────────────────────────────────────────────────────────────────────────────────
+CPU   FOPC WOPC DCOD WO12 RO12 WO22 RO22 EXEC FOPC WOPC DCOD WTOP RDOP EXEC WTLD RDLD
+ADDR  0100 0100 0101 0101 0102 0102 0102 0102 0103 0103 0104 0104 0104 B002 B002 B002
+DATA  ──00 ──19 ──19 ──02 ──02 ──B0 ──B0 ──B0 ──B0 ──2D ──2D ──90 ──90 ──90 ──F2 ──F2
+/MEM  ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM ─MEM
+/WRT  ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ──── ────
+
+TICK  004C 004D 004E 004F
+─────────────────────────
+CPU   FOPC WOPC DCOD EXEC
+ADDR  0105 0105 0105 0105
+DATA  ──F2 ──00 ──00 ──00
+/MEM  ─MEM ─MEM ──── ────
+/WRT  ──── ──── ──── ────
+
+test rom::tests::rom_responds_to_in_range_requests ... ok
+
+test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

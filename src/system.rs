@@ -6,10 +6,7 @@ use crate::{
     asm::disassemble,
     bus::Bus,
     clock::Clock,
-    cpu::{
-        Cpu,
-        State::{self, FetchOpcode},
-    },
+    cpu::{Cpu, State},
     memory::Memory,
     regs::Reg::*,
     rom::Rom,
@@ -92,10 +89,13 @@ impl Default for System {
             mem: Memory::default(),
             cycles: 0,
         };
+        let mut data = Vec::from(ROM_DATA);
+        data.resize(0x3FFE, 0);
+        data.extend([0x00, 0xC0]);
         let rom = Rom {
             start: 0xC000,
             end: 0xFFFF,
-            data: Vec::from(ROM_DATA),
+            data,
         };
         sys.devices.push(Box::new(rom));
         sys
@@ -166,11 +166,20 @@ impl System {
         data
     }
 
+    /// Resets the system (by triggering a CPU reset).
+    ///
+    /// This resets the CPU to its default state and starts execution from the reset
+    /// vector. Memory and other devices are not affected.
+    #[inline]
+    pub fn reset(&mut self) {
+        self.cpu.reset(&mut self.bus);
+        self.run();
+    }
+
     /// Runs the system until halted.
     #[inline]
     pub fn run(&mut self) {
         self.cpu.halt = false;
-        self.cpu.state = FetchOpcode;
         while !self.cpu.halt {
             self.tick();
         }
