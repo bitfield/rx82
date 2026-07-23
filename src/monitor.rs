@@ -34,7 +34,6 @@ use Command::*;
 
 /// The interactive CLI system monitor.
 #[non_exhaustive]
-#[derive(Default)]
 pub struct Monitor {
     /// Last address referenced.
     pub last_addr: Option<u16>,
@@ -44,6 +43,20 @@ pub struct Monitor {
     pub step: bool,
     /// The running system.
     pub sys: System,
+}
+
+impl Default for Monitor {
+    #[inline]
+    fn default() -> Self {
+        let mut sys = System::default();
+        sys.reset();
+        Self {
+            last_addr: None,
+            last_cmd: None,
+            step: false,
+            sys,
+        }
+    }
 }
 
 impl Monitor {
@@ -92,7 +105,6 @@ impl Monitor {
         println!("{BANNER}");
         self.step = true;
         self.last_cmd = Some(Step);
-        self.sys.reset();
         self.sys.debug_print();
         loop {
             match self.get_command()? {

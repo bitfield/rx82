@@ -12,6 +12,8 @@ pub enum InstructionKind {
     BranchEq,
     /// Branch if the zero flag is clear.
     BranchNe,
+    /// Call a subroutine.
+    Call,
     /// Compare a register with an immediate operand.
     Cmp(Reg),
     /// Decrement a register.
@@ -73,6 +75,7 @@ impl TryFrom<u8> for InstructionKind {
             0xF0 => BranchAlways,
             0xF1 => BranchEq,
             0xF2 => BranchNe,
+            0xF8 => Call,
             _ => bail!("invalid opcode {opcode}"),
         })
     }
@@ -86,6 +89,7 @@ impl From<InstructionKind> for u8 {
             BranchAlways => 0xF0,
             BranchEq => 0xF1,
             BranchNe => 0xF2,
+            Call => 0xF8,
             Cmp(reg) => 0x70 | u8::from(reg),
             Dec(reg) => 0x40 | u8::from(reg),
             DecIndirect => 0x4D,
@@ -115,6 +119,7 @@ impl InstructionKind {
             BranchAlways => cpu.branch(cpu.op_lo),
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
+            Call => cpu.call(cpu.op(), bus),
             Cmp(reg) => cpu.cmp(reg, cpu.op()),
             Dec(reg) => cpu.decrement(reg),
             DecIndirect => cpu.dec_indirect(bus),
@@ -151,7 +156,7 @@ impl InstructionKind {
                     One
                 }
             }
-            DecMem | IncMem | StoreRegDirect(_) => Two,
+            Call | DecMem | IncMem | StoreRegDirect(_) => Two,
         }
     }
 }
@@ -265,6 +270,24 @@ mod tests {
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.pc, 0x0104, "branch not taken");
+    }
+
+    #[test]
+    fn call() {
+        let mut sys = System::default();
+        sys.cpu.regs.set(SP, 0x0200);
+        sys.trace_program(&asm("
+            call SUBR
+            halt
+        SUBR:
+            ld a, 0xFF
+            halt"))
+            .unwrap();
+        assert_hex!(sys.cpu.pc, 0x0107, "wrong PC");
+        assert_hex!(sys.cpu.regs.get(A), 0xFF, "wrong A");
+        assert_hex!(sys.peek_mem(0x01FF), 0x01, "wrong high byte on stack");
+        assert_hex!(sys.peek_mem(0x0200), 0x03, "wrong low byte on stack");
+        assert_hex!(sys.cpu.regs.get(SP), 0x01FE, "wrong SP");
     }
 
     #[test]

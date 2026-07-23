@@ -140,6 +140,14 @@ impl Device for Cpu {
                 self.regs.set(Reg::SP, addr);
                 WaitLoad(reg)
             }
+            WaitCall(hi, subr_addr) => {
+                let mut stk_addr = self.regs.get(Reg::SP);
+                bus.mem_write(stk_addr, hi);
+                stk_addr = stk_addr.wrapping_sub(1);
+                self.regs.set(Reg::SP, stk_addr);
+                self.pc = subr_addr;
+                FetchOpcode
+            }
             WaitDec(addr) => ReadDec(addr),
             WaitInc(addr) => ReadInc(addr),
             WaitLoad(reg) => ReadLoad(reg),
@@ -168,6 +176,18 @@ impl Cpu {
     #[inline]
     pub fn branch(&mut self, dis: u8) {
         self.pc = self.pc.wrapping_add(dis as i8 as u16); // sign-extend displacement
+    }
+
+    /// Calls the subroutine at `addr`, pushing the return address on the stack.
+    #[inline]
+    pub fn call(&mut self, subr_addr: u16, bus: &mut Bus) {
+        let mut stk_addr = self.regs.get(Reg::SP);
+        let ret_addr = self.pc;
+        let [hi, lo] = ret_addr.to_be_bytes();
+        bus.mem_write(stk_addr, lo);
+        self.state = WaitCall(hi, subr_addr);
+        stk_addr = stk_addr.wrapping_sub(1);
+        self.regs.set(Reg::SP, stk_addr);
     }
 
     /// Compares the value in register `reg` with the operand, updating flags.
@@ -389,7 +409,10 @@ pub enum State {
     ReadReset2of2,
     /// Reads the first of two stack values from the bus.
     ReadStack1of2(Reg),
-    /// Waits for a byte from memory for a decrement instruction.
+    /// Waits for the low byte of the return address to be pushed for a call
+    /// instruction.
+    WaitCall(u8, u16),
+    ///  Waits for a byte from memory for a decrement instruction.
     WaitDec(u16),
     /// Waits for a byte from memory for an increment instruction.
     WaitInc(u16),
@@ -435,6 +458,7 @@ impl Display for State {
                 WaitOpcode => "WOPC",
                 ReadDec(_) => "RDEC",
                 ReadInc(_) => "RINC",
+                WaitCall(_, _) => "WCAL",
                 WaitDec(_) => "WDEC",
                 WaitInc(_) => "WINC",
                 WaitStack1of2(_) => "WS12",

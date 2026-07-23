@@ -1,4 +1,4 @@
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 
 use core::{
     fmt::{Debug, Display, Formatter},
@@ -15,9 +15,12 @@ use crate::{
 
 use Token::*;
 
+/// The default base address for assembled code.
+pub const BASE: u16 = 0x0100;
+
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "beq", "bne", "bra", "cmp", "dec", "halt", "inc", "ld", "nop", "pop", "push",
+    "beq", "bne", "bra", "call", "cmp", "dec", "halt", "inc", "ld", "nop", "pop", "push",
 ];
 
 /// Assembles a given program.
@@ -31,6 +34,8 @@ pub struct Assembler<'src> {
     pub debug: bool,
     /// Label table.
     pub labels: HashMap<String, u16>,
+    /// Location counter.
+    pub loc: u16,
     /// Are we on the second pass?
     pub pass2: bool,
     /// Source code being assembled.
@@ -45,6 +50,7 @@ impl<'src> From<&'src str> for Assembler<'src> {
             code: Vec::new(),
             debug: false,
             labels: HashMap::new(),
+            loc: BASE,
             pass2: false,
             source,
         }
@@ -63,6 +69,7 @@ impl Assembler<'_> {
         self.code.clear();
         self.chars = self.source.chars().peekable();
         self.pass2 = true;
+        self.loc = BASE;
         self.pass()?;
         Ok(self.code.clone())
     }
@@ -78,6 +85,7 @@ impl Assembler<'_> {
             "bra" => self.gen_branch(BranchAlways),
             "beq" => self.gen_branch(BranchEq),
             "bne" => self.gen_branch(BranchNe),
+            "call" => self.gen_call(),
             "cmp" => self.gen_cmp(),
             "dec" => self.gen_dec(),
             "halt" => self.gen_implied(Halt),
@@ -97,6 +105,45 @@ impl Assembler<'_> {
             _ = self.chars.next_if(|&got| want == got)?;
         }
         Some(())
+    }
+
+    /// Prints `msg` if in debug mode and this is pass2.
+    #[inline]
+    pub fn debug_print(&self, msg: impl AsRef<str>) {
+        if self.debug && self.pass2 {
+            println!("{}", msg.as_ref());
+        }
+    }
+
+    /// Adds `byte` to the generated code, updating the location counter.
+    ///
+    /// # Errors
+    ///
+    /// * Code too big for (target system) memory.
+    #[inline]
+    pub fn emit_byte(&mut self, byte: u8) -> Result<()> {
+        self.code.push(byte);
+        self.loc = self
+            .loc
+            .checked_add(1)
+            .ok_or(anyhow!("code too big for memory"))?;
+        Ok(())
+    }
+
+    /// Adds `word` to the generated code in little-endian order, updating the location
+    /// counter.
+    ///
+    /// # Errors
+    ///
+    /// * Code too big for (target system) memory.
+    #[inline]
+    pub fn emit_word(&mut self, word: u16) -> Result<()> {
+        self.code.extend(word.to_le_bytes());
+        self.loc = self
+            .loc
+            .checked_add(2)
+            .ok_or(anyhow!("code too big for memory"))?;
+        Ok(())
     }
 
     /// Consumes the specified token.
@@ -128,21 +175,18 @@ impl Assembler<'_> {
     #[inline]
     pub fn expect_displacement(&mut self) -> Result<u8> {
         match self.next_token() {
-            Some(Identifier(label)) => {
-                let addr = match self.labels.get(&label) {
-                    Some(&addr) => addr,
-                    None if self.pass2 => bail!("undefined label {label}"),
-                    None => 0,
-                };
+            Some(Identifier(label)) if self.pass2 => {
+                let addr = self.resolve_label(&label)?;
                 // Displacement is calculated relative to the address of the next
                 // instruction (i.e. PC+2)
-                let long_dis = addr.wrapping_sub(self.offset()).wrapping_sub(2);
+                let long_dis = addr.wrapping_sub(self.loc).wrapping_sub(2);
                 // This must fit into a signed byte (-128 <= dis <= +127)
                 match long_dis {
                     0x0000..=0x007F | 0xFF80..=0xFFFF => Ok(long_dis as u8),
                     _ => bail!("displacement out of range: {long_dis:#06X}"),
                 }
             }
+            Some(Identifier(_)) => Ok(0), // resolve for real on next pass
             Some(ByteLiteral(dis)) => Ok(dis),
             Some(other) => bail!("expected label or immediate byte displacement, got {other}"),
             None => bail!("unexpected end of input"),
@@ -228,7 +272,26 @@ impl Assembler<'_> {
     #[inline]
     pub fn gen_branch(&mut self, kind: InstructionKind) -> Result<()> {
         let dis = self.expect_displacement()?;
-        self.code.extend([u8::from(kind), dis]);
+        self.emit_byte(u8::from(kind))?;
+        self.emit_byte(dis)?;
+        Ok(())
+    }
+
+    /// Generates a call instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing or invalid label or address.
+    #[inline]
+    pub fn gen_call(&mut self) -> Result<()> {
+        let addr = match self.next_token() {
+            Some(WordLiteral(addr)) => addr,
+            Some(Identifier(label)) => self.resolve_label(&label)?,
+            Some(other) => bail!("expected label or address, got {other}"),
+            None => bail!("unexpected end of input"),
+        };
+        self.emit_byte(u8::from(Call))?;
+        self.emit_word(addr)?;
         Ok(())
     }
 
@@ -243,9 +306,11 @@ impl Assembler<'_> {
     pub fn gen_cmp(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
         self.expect(&Comma)?;
-        self.code.push(u8::from(Cmp(reg)));
+        self.emit_byte(u8::from(Cmp(reg)))?;
         let op = self.expect_op_for_reg(reg)?;
-        self.code.extend(op);
+        for byte in op {
+            self.emit_byte(byte)?;
+        }
         Ok(())
     }
 
@@ -257,18 +322,18 @@ impl Assembler<'_> {
     #[inline]
     pub fn gen_dec(&mut self) -> Result<()> {
         match self.next_token() {
-            Some(Register(reg)) => self.code.push(u8::from(Dec(reg))),
+            Some(Register(reg)) => self.emit_byte(u8::from(Dec(reg)))?,
             Some(ParenOpen) => match self.next_token() {
                 Some(Register(source)) if source.is16() => {
                     self.expect(&ParenClose)?;
-                    self.code.push(u8::from(DecIndirect));
+                    self.emit_byte(u8::from(DecIndirect))?;
                     let reg = u8_from(source, Reg::A); // dummy target
-                    self.code.push(reg);
+                    self.emit_byte(reg)?;
                 }
                 Some(WordLiteral(addr)) => {
                     self.expect(&ParenClose)?;
-                    self.code.push(u8::from(DecMem));
-                    self.code.extend(addr.to_le_bytes());
+                    self.emit_byte(u8::from(DecMem))?;
+                    self.emit_word(addr)?;
                 }
                 Some(other) => bail!("expected 16-bit register or address, got {other}"),
                 None => bail!("unexpected end of input"),
@@ -289,7 +354,7 @@ impl Assembler<'_> {
     pub fn gen_implied(&mut self, kind: InstructionKind) -> Result<()> {
         match kind {
             Halt | Nop => {
-                self.code.push(u8::from(kind));
+                self.emit_byte(u8::from(kind))?;
                 Ok(())
             }
             _ => bail!("invalid instruction kind {kind:?}"),
@@ -304,18 +369,18 @@ impl Assembler<'_> {
     #[inline]
     pub fn gen_inc(&mut self) -> Result<()> {
         match self.next_token() {
-            Some(Register(reg)) => self.code.push(u8::from(Inc(reg))),
+            Some(Register(reg)) => self.emit_byte(u8::from(Inc(reg)))?,
             Some(ParenOpen) => match self.next_token() {
                 Some(Register(source)) if source.is16() => {
                     self.expect(&ParenClose)?;
-                    self.code.push(u8::from(IncIndirect));
+                    self.emit_byte(u8::from(IncIndirect))?;
                     let reg = u8_from(source, Reg::A); // dummy target
-                    self.code.push(reg);
+                    self.emit_byte(reg)?;
                 }
                 Some(WordLiteral(addr)) => {
                     self.expect(&ParenClose)?;
-                    self.code.push(u8::from(IncMem));
-                    self.code.extend(addr.to_le_bytes());
+                    self.emit_byte(u8::from(IncMem))?;
+                    self.emit_word(addr)?;
                 }
                 Some(other) => bail!("expected 16-bit register or address, got {other}"),
                 None => bail!("unexpected end of input"),
@@ -341,19 +406,20 @@ impl Assembler<'_> {
                 match self.next_token() {
                     Some(ParenOpen) => self.gen_ld_reg_indirect(target),
                     Some(Register(source)) if source.is16() == target.is16() => {
-                        self.code.push(u8::from(LdRegReg));
-                        self.code.push(regs::u8_from(source, target));
+                        self.emit_byte(u8::from(LdRegReg))?;
+                        self.emit_byte(regs::u8_from(source, target))?;
                         Ok(())
                     }
                     Some(Register(source)) => bail!("expected same size register, got '{source}'"),
-                    Some(WordLiteral(op)) if target.is16() => {
-                        self.code.push(u8::from(LdRegImm(target)));
-                        self.code.extend(op.to_le_bytes());
+                    Some(WordLiteral(word)) if target.is16() => {
+                        self.emit_byte(u8::from(LdRegImm(target)))?;
+                        self.emit_word(word)?;
                         Ok(())
                     }
-                    Some(op @ WordLiteral(_)) => bail!("expected immediate byte, got {op}"),
-                    Some(ByteLiteral(op)) if !target.is16() => {
-                        self.code.extend([u8::from(LdRegImm(target)), op]);
+                    Some(word @ WordLiteral(_)) => bail!("expected immediate byte, got {word}"),
+                    Some(ByteLiteral(byte)) if !target.is16() => {
+                        self.emit_byte(u8::from(LdRegImm(target)))?;
+                        self.emit_byte(byte)?;
                         Ok(())
                     }
                     Some(op @ ByteLiteral(_)) => bail!("expected immediate word, got {op}"),
@@ -378,10 +444,10 @@ impl Assembler<'_> {
         if target.is16() {
             bail!("expected 8-bit register, got '{target}'")
         }
-        self.code.push(u8::from(LdRegIndirect));
+        self.emit_byte(u8::from(LdRegIndirect))?;
         let source = self.expect_reg16()?;
         self.expect(&ParenClose)?;
-        self.code.push(regs::u8_from(source, target));
+        self.emit_byte(regs::u8_from(source, target))?;
         Ok(())
     }
 
@@ -393,7 +459,7 @@ impl Assembler<'_> {
     #[inline]
     pub fn gen_pop(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
-        self.code.push(u8::from(Pop(reg)));
+        self.emit_byte(u8::from(Pop(reg)))?;
         Ok(())
     }
 
@@ -405,7 +471,7 @@ impl Assembler<'_> {
     #[inline]
     pub fn gen_push(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
-        self.code.push(u8::from(Push(reg)));
+        self.emit_byte(u8::from(Push(reg)))?;
         Ok(())
     }
 
@@ -419,8 +485,8 @@ impl Assembler<'_> {
     pub fn gen_store_direct(&mut self, addr: u16) -> Result<()> {
         self.expect(&Comma)?;
         let reg = self.expect_reg8()?;
-        self.code.push(u8::from(StoreRegDirect(reg)));
-        self.code.extend(addr.to_le_bytes());
+        self.emit_byte(u8::from(StoreRegDirect(reg)))?;
+        self.emit_word(addr)?;
         Ok(())
     }
 
@@ -436,8 +502,8 @@ impl Assembler<'_> {
         self.expect(&ParenClose)?;
         self.expect(&Comma)?;
         let source = self.expect_reg8()?;
-        self.code.push(u8::from(StoreRegIndirect));
-        self.code.push(regs::u8_from(source, target));
+        self.emit_byte(u8::from(StoreRegIndirect))?;
+        self.emit_byte(regs::u8_from(source, target))?;
         Ok(())
     }
 
@@ -456,21 +522,11 @@ impl Assembler<'_> {
                 ch if ch.is_alphabetic() => self.read_identifier(),
                 ch => self.read_token(Illegal(ch.to_string())),
             };
-            if self.debug {
-                println!("token: {token}");
-            }
+            self.debug_print(format!("token: {token}"));
             Some(token)
         } else {
             None
         }
-    }
-
-    /// Returns the current offset (PC) position in the generated code.
-    #[expect(clippy::cast_possible_truncation, reason = "max code size = 65536")]
-    #[inline]
-    #[must_use]
-    pub fn offset(&self) -> u16 {
-        self.code.len() as u16
     }
 
     /// Runs an assembly pass.
@@ -489,7 +545,7 @@ impl Assembler<'_> {
                 Comment(_) => {}
                 Keyword(kw) => self.assemble_kw(&kw)?,
                 LabelDef(label) => {
-                    self.labels.insert(label, self.offset());
+                    self.labels.insert(label, self.loc);
                 }
                 unexpected => bail!("unexpected token {unexpected}"),
             }
@@ -532,9 +588,7 @@ impl Assembler<'_> {
     pub fn read_identifier(&mut self) -> Token {
         let ident: String =
             iter::from_fn(|| self.chars.next_if(|&ch| ch.is_alphabetic() || ch == '_')).collect();
-        if self.debug {
-            println!("ident: {ident}");
-        }
+        self.debug_print(format!("ident: {ident}"));
         match ident.as_str() {
             _ if let Ok(reg) = Reg::from_str(&ident) => Register(reg),
             kw if KEYWORDS.contains(&kw) => Keyword(ident),
@@ -551,6 +605,20 @@ impl Assembler<'_> {
     pub fn read_token(&mut self, token: Token) -> Token {
         self.chars.next();
         token
+    }
+
+    /// Returns the value associated with `label`.
+    ///
+    /// # Errors
+    ///
+    /// * Undefined label
+    #[inline]
+    pub fn resolve_label(&self, label: &str) -> Result<u16> {
+        Ok(match self.labels.get(label) {
+            Some(&addr) => addr,
+            None if self.pass2 => bail!("undefined label {label}"),
+            None => 0,
+        })
     }
 
     /// Advances to the next non-whitespace character.
@@ -584,6 +652,7 @@ impl Iterator for Disassembler<'_> {
                 BranchAlways => format!("bra {}", self.format_byte()),
                 BranchEq => format!("beq {}", self.format_byte()),
                 BranchNe => format!("bne {}", self.format_byte()),
+                Call => format!("call {}", self.format_word()),
                 Cmp(reg) => format!("cmp {reg}, {}", self.format_op_for_reg(reg)),
                 Dec(reg) => format!("dec {reg}"),
                 DecIndirect => self.format_dec_indirect(),
@@ -764,8 +833,9 @@ pub fn disassemble(code: &[u8]) -> String {
     dis.next().unwrap_or_default()
 }
 
-#[expect(clippy::unwrap_used, reason = "tests")]
 #[cfg(test)]
+#[expect(clippy::unwrap_used, reason = "tests")]
+#[expect(clippy::default_numeric_fallback, reason = "hex literals")]
 mod tests {
     use super::*;
 
@@ -793,6 +863,16 @@ mod tests {
         };
     }
 
+    macro_rules! assert_hex {
+        ( $got:expr, $want:expr, $msg:expr ) => {
+            assert_eq!(
+                $got, $want,
+                "{}: want {:#06X}, got {:#06X}",
+                $msg, $want, $got,
+            );
+        };
+    }
+
     #[test]
     fn assembler_assembles_and_disassembles_instructions_correctly() {
         use Reg::*;
@@ -801,6 +881,7 @@ mod tests {
             ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
             ("bne 0x01", &[u8::from(BranchNe), 0x01]),
             ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
+            ("call 0xBEEE", &[u8::from(Call), 0xEE, 0xBE]),
             ("cmp d, 0x01", &[u8::from(Cmp(D)), 0x01]),
             ("cmp gh, 0xDEAD", &[u8::from(Cmp(GH)), 0xAD, 0xDE]),
             ("dec g", &[u8::from(Dec(G))]),
@@ -832,6 +913,20 @@ mod tests {
     }
 
     #[test]
+    fn assembler_uses_0x0100_as_default_base_address() {
+        let source = "
+        call AHEAD
+        halt
+    AHEAD:
+        halt
+";
+        let mut asm = Assembler::from(source);
+        asm.debug = true;
+        asm.assemble().unwrap();
+        assert_hex!(asm.resolve_label("AHEAD").unwrap(), 0x0104, "wrong address");
+    }
+
+    #[test]
     #[expect(clippy::expect_used, reason = "test")]
     fn assembler_rejects_invalid_code() {
         let cases: &[&str] = &[
@@ -839,6 +934,8 @@ mod tests {
             "bne 0x1000",
             "bogus",
             "bra a",
+            "call gh",
+            "call 0x01",
             "cmp a, b, d",
             "dec (a)",
             "inc (0xFF)",
@@ -905,7 +1002,7 @@ mod tests {
     }
 
     #[test]
-    fn assembler_resolves_forward_labels() {
+    fn assembler_resolves_forward_labels_for_branches() {
         let source = "
         bra AHEAD
         halt
@@ -914,6 +1011,19 @@ mod tests {
 ";
         let generated = asm(source);
         let object = &[u8::from(BranchAlways), 0x01, u8::from(Halt), u8::from(Halt)];
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn assembler_resolves_forward_labels_for_calls() {
+        let source = "
+        call AHEAD
+        halt
+    AHEAD:
+        halt
+";
+        let generated = asm(source);
+        let object = &[u8::from(Call), 0x04, 0x01, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
 

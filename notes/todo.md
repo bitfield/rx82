@@ -3,11 +3,11 @@ For boot ROM we need:
 [X] CPU: Stack pointer
 [X] `push R` / `pop R`
 [X] ROM: include binary from file
-[ ] Asm/CPU: `ld R, R`
-[ ] CPU: reset vector
+[X] Asm/CPU: `ld R, R`
+[X] CPU: reset vector
 [ ] `trap N` / `rti`
 [ ] (simulated) BIOS putchar at trap 0x20
-[ ] ROM: run RAM test
+[X] ROM: run RAM test
 [ ] ROM: show startup message
 [ ] ROM: print decimal routine
 [ ] ROM: show bytes free message
