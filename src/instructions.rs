@@ -42,6 +42,8 @@ pub enum InstructionKind {
     Pop(Reg),
     /// Push a register value to the stack.
     Push(Reg),
+    /// Return from a subroutine call.
+    Ret,
     /// Store a register value at an immediate address.
     StoreRegDirect(Reg),
     /// Store a register value at an indirect address in another register.
@@ -58,6 +60,7 @@ impl TryFrom<u8> for InstructionKind {
         Ok(match opcode {
             0x00 => Halt,
             0x01 => Nop,
+            0x08 => Ret,
             0x10..=0x1C => LdRegImm(reg?),
             0x20..=0x27 => StoreRegDirect(reg?),
             0x2D => LdRegIndirect,
@@ -104,6 +107,7 @@ impl From<InstructionKind> for u8 {
             Nop => 0x01,
             Pop(reg) => 0xE0 | u8::from(reg),
             Push(reg) => 0xD0 | u8::from(reg),
+            Ret => 0x08,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
             StoreRegIndirect => 0x2E,
         }
@@ -133,6 +137,7 @@ impl InstructionKind {
             LdRegReg => cpu.ld_reg_reg(),
             Pop(reg) => cpu.pop(reg, bus),
             Push(reg) => cpu.push(reg, bus),
+            Ret => cpu.ret(bus),
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
             StoreRegIndirect => cpu.store_reg_indirect(bus),
             Nop | BranchEq | BranchNe => {}
@@ -146,7 +151,7 @@ impl InstructionKind {
         use InstructionKind::*;
         use Operands::*;
         match *self {
-            Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) => Zero,
+            Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret => Zero,
             BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect | LdRegIndirect
             | LdRegReg | StoreRegIndirect => One,
             Cmp(reg) | LdRegImm(reg) => {
@@ -602,6 +607,23 @@ mod tests {
         assert_hex!(sys.mem.get(0xBFFF), 0xFF, "wrong stack value for A");
         assert_hex!(sys.mem.get(0xBFFE), 0xFE, "wrong stack value for D");
         assert_hex!(sys.mem.get(0xBFFD), 0xCA, "wrong stack value for C");
+    }
+
+    #[test]
+    fn ret() {
+        let mut sys = System::default();
+        sys.cpu.regs.set(SP, 0x0200);
+        sys.trace_program(&asm("
+            call SUBR
+            inc a
+            halt
+        SUBR:
+            ld a, 0x01
+            ret"))
+            .unwrap();
+        assert_hex!(sys.cpu.pc, 0x0105, "wrong PC");
+        assert_hex!(sys.cpu.regs.get(A), 0x02, "wrong A");
+        assert_hex!(sys.cpu.regs.get(SP), 0x0200, "wrong SP");
     }
 
     #[test]

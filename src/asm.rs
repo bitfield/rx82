@@ -20,7 +20,7 @@ pub const BASE: u16 = 0x0100;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "beq", "bne", "bra", "call", "cmp", "dec", "halt", "inc", "ld", "nop", "pop", "push",
+    "beq", "bne", "bra", "call", "cmp", "dec", "halt", "inc", "ld", "nop", "pop", "push", "ret",
 ];
 
 /// Assembles a given program.
@@ -94,6 +94,7 @@ impl Assembler<'_> {
             "nop" => self.gen_implied(Nop),
             "pop" => self.gen_pop(),
             "push" => self.gen_push(),
+            "ret" => self.gen_implied(Ret),
             _ => bail!("unknown keyword '{kw}'"),
         }
     }
@@ -353,7 +354,7 @@ impl Assembler<'_> {
     #[inline]
     pub fn gen_implied(&mut self, kind: InstructionKind) -> Result<()> {
         match kind {
-            Halt | Nop => {
+            Halt | Nop | Ret => {
                 self.emit_byte(u8::from(kind))?;
                 Ok(())
             }
@@ -667,6 +668,7 @@ impl Iterator for Disassembler<'_> {
                 LdRegReg => self.format_ld_reg_reg(),
                 Pop(reg) => format!("pop {reg}"),
                 Push(reg) => format!("push {reg}"),
+                Ret => "ret".into(),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
                 StoreRegIndirect => self.format_store_reg_indirect(),
             }
@@ -904,6 +906,7 @@ mod tests {
             ("nop", &[u8::from(Nop)]),
             ("pop e", &[u8::from(Pop(E))]),
             ("push c", &[u8::from(Push(C))]),
+            ("ret", &[u8::from(Ret)]),
         ];
         for &(source, object) in cases {
             let generated = asm(source);
@@ -953,6 +956,7 @@ mod tests {
             "ld ef, 0x02",
             "push",
             "pop 0x01",
+            "ret cd",
         ];
         for &source in cases {
             let mut asm = Assembler::from(source);

@@ -70,7 +70,7 @@ impl Device for Cpu {
                     }
                     Operands::Two => {
                         self.fetch_and_advance(bus);
-                        WaitOp1of2
+                        WaitOpLo
                     }
                 }
             }
@@ -113,26 +113,39 @@ impl Device for Cpu {
                 self.op_lo = bus.data;
                 Execute
             }
-            ReadOp1of2 => {
+            ReadOpLo => {
                 self.op_lo = bus.data;
                 self.fetch_and_advance(bus);
-                WaitOp2of2
+                WaitOpHi
             }
-            ReadOp2of2 => {
+            ReadOpHi => {
                 self.op_hi = bus.data;
                 Execute
             }
-            ReadReset1of2 => {
+            ReadResetLo => {
                 self.op_lo = bus.data;
                 bus.mem_read(VEC_RESET.wrapping_add(1));
-                WaitReset2of2
+                WaitResetHi
             }
-            ReadReset2of2 => {
+            ReadResetHi => {
                 self.op_hi = bus.data;
                 self.pc = self.op();
                 FetchOpcode
             }
-            ReadStack1of2(reg) => {
+            ReadRetHi => {
+                self.op_hi = bus.data;
+                let mut addr = self.regs.get(Reg::SP);
+                addr = addr.wrapping_add(1);
+                bus.mem_read(addr);
+                self.regs.set(Reg::SP, addr);
+                WaitRetLo
+            }
+            ReadRetLo => {
+                self.op_lo = bus.data;
+                self.pc = self.op();
+                FetchOpcode
+            }
+            ReadStackHi(reg) => {
                 self.op_hi = bus.data;
                 let mut addr = self.regs.get(Reg::SP);
                 addr = addr.wrapping_add(1);
@@ -152,12 +165,12 @@ impl Device for Cpu {
             WaitInc(addr) => ReadInc(addr),
             WaitLoad(reg) => ReadLoad(reg),
             WaitOp => ReadOp,
-            WaitOp1of2 => ReadOp1of2,
-            WaitOp2of2 => ReadOp2of2,
+            WaitOpLo => ReadOpLo,
+            WaitOpHi => ReadOpHi,
             WaitOpcode => Decode,
-            WaitReset1of2 => ReadReset1of2,
-            WaitReset2of2 => ReadReset2of2,
-            WaitStack1of2(reg) => ReadStack1of2(reg),
+            WaitResetLo => ReadResetLo,
+            WaitResetHi => ReadResetHi,
+            WaitStackHi(reg) => ReadStackHi(reg),
             WaitPush(val) => {
                 let mut addr = self.regs.get(Reg::SP);
                 bus.mem_write(addr, val);
@@ -165,6 +178,8 @@ impl Device for Cpu {
                 self.regs.set(Reg::SP, addr);
                 FetchOpcode
             }
+            WaitRetHi => ReadRetHi,
+            WaitRetLo => ReadRetLo,
         };
     }
 }
@@ -313,7 +328,7 @@ impl Cpu {
         bus.mem_read(addr);
         self.regs.set(Reg::SP, addr);
         if reg.is16() {
-            self.state = WaitStack1of2(reg);
+            self.state = WaitStackHi(reg);
         } else {
             self.op_hi = 0;
             self.state = WaitLoad(reg);
@@ -346,7 +361,17 @@ impl Cpu {
     pub fn reset(&mut self, bus: &mut Bus) {
         *self = Self::default();
         bus.mem_read(VEC_RESET);
-        self.state = WaitReset1of2;
+        self.state = WaitResetLo;
+    }
+
+    /// Calls the subroutine at `addr`, pushing the return address on the stack.
+    #[inline]
+    pub fn ret(&mut self, bus: &mut Bus) {
+        let mut addr = self.regs.get(Reg::SP);
+        addr = addr.wrapping_add(1);
+        bus.mem_read(addr);
+        self.regs.set(Reg::SP, addr);
+        self.state = WaitRetHi;
     }
 
     /// Executes a store register direct instruction.
@@ -399,16 +424,20 @@ pub enum State {
     ReadLoad(Reg),
     /// Reads a single operand from the bus.
     ReadOp,
-    /// Reads the first of two operands from the bus.
-    ReadOp1of2,
     /// Reads the second of two operands from the bus.
-    ReadOp2of2,
-    /// Reads the low byte of the reset vector from the bus.
-    ReadReset1of2,
+    ReadOpHi,
+    /// Reads the first of two operands from the bus.
+    ReadOpLo,
     /// Reads the high byte of the reset vector from the bus.
-    ReadReset2of2,
+    ReadResetHi,
+    /// Reads the low byte of the reset vector from the bus.
+    ReadResetLo,
+    /// Reads the high byte of the return address for a ret instruction.
+    ReadRetLo,
+    /// Reads the low byte of the return address for a ret instruction.
+    ReadRetHi,
     /// Reads the first of two stack values from the bus.
-    ReadStack1of2(Reg),
+    ReadStackHi(Reg),
     /// Waits for the low byte of the return address to be pushed for a call
     /// instruction.
     WaitCall(u8, u16),
@@ -420,20 +449,24 @@ pub enum State {
     WaitLoad(Reg),
     /// Waits for a single operand read from memory.
     WaitOp,
-    /// Waits for the first of two operands from memory.
-    WaitOp1of2,
     /// Waits for the second of two operands from memory.
-    WaitOp2of2,
+    WaitOpHi,
+    /// Waits for the first of two operands from memory.
+    WaitOpLo,
     /// Waits for an opcode fetch to complete.
     WaitOpcode,
     /// Waits for a stack push, before pushing another value.
     WaitPush(u8),
-    /// Waits for the low byte of the reset vector.
-    WaitReset1of2,
     /// Waits for the high byte of the reset vector.
-    WaitReset2of2,
+    WaitResetHi,
+    /// Waits for the low byte of the reset vector.
+    WaitResetLo,
+    /// Waits for the high byte of the return address for a ret instruction.
+    WaitRetLo,
+    /// Waits for the low byte of the return address for a ret instruction.
+    WaitRetHi,
     /// Waits for the first of 2 stack pops to a register.
-    WaitStack1of2(Reg),
+    WaitStackHi(Reg),
 }
 
 impl Display for State {
@@ -446,27 +479,31 @@ impl Display for State {
                 Decode => "DCOD",
                 Execute => "EXEC",
                 FetchOpcode => "FOPC",
-                ReadLoad(_) => "RDLD",
-                ReadOp => "RDOP",
-                ReadOp1of2 => "RO12",
-                ReadOp2of2 => "RO22",
-                ReadStack1of2(_) => "RS12",
-                WaitLoad(_) => "WTLD",
-                WaitOp => "WTOP",
-                WaitOp1of2 => "WO12",
-                WaitOp2of2 => "WO22",
-                WaitOpcode => "WOPC",
                 ReadDec(_) => "RDEC",
                 ReadInc(_) => "RINC",
+                ReadLoad(_) => "RDLD",
+                ReadOp => "RDOP",
+                ReadOpHi => "ROPH",
+                ReadOpLo => "ROPL",
+                ReadResetHi => "RRSH",
+                ReadResetLo => "RRSL",
+                ReadRetHi => "RRTH",
+                ReadRetLo => "RRTL",
+                ReadStackHi(_) => "RSTH",
                 WaitCall(_, _) => "WCAL",
                 WaitDec(_) => "WDEC",
                 WaitInc(_) => "WINC",
-                WaitStack1of2(_) => "WS12",
+                WaitLoad(_) => "WTLD",
+                WaitOp => "WTOP",
+                WaitOpHi => "WOPH",
+                WaitOpLo => "WOPL",
+                WaitOpcode => "WOPC",
                 WaitPush(_) => "WWRT",
-                ReadReset1of2 => "RR12",
-                ReadReset2of2 => "RR22",
-                WaitReset1of2 => "WR12",
-                WaitReset2of2 => "WR22",
+                WaitResetHi => "WRSH",
+                WaitResetLo => "WRSL",
+                WaitRetHi => "WRTH",
+                WaitRetLo => "WRTL",
+                WaitStackHi(_) => "WSTH",
             }
         )
     }
@@ -556,14 +593,14 @@ mod tests {
         assert_eq!(sys.cpu.state, Decode);
         assert_eq!(sys.cpu.pc, 0x0101);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitOp1of2);
+        assert_eq!(sys.cpu.state, WaitOpLo);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadOp1of2);
+        assert_eq!(sys.cpu.state, ReadOpLo);
         assert_eq!(sys.cpu.pc, 0x0102);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitOp2of2);
+        assert_eq!(sys.cpu.state, WaitOpHi);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadOp2of2);
+        assert_eq!(sys.cpu.state, ReadOpHi);
         assert_eq!(sys.cpu.pc, 0x0103);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
@@ -628,14 +665,14 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, Decode);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitOp1of2);
+        assert_eq!(sys.cpu.state, WaitOpLo);
         assert_eq!(sys.cpu.pc, 0x0102);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadOp1of2);
+        assert_eq!(sys.cpu.state, ReadOpLo);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitOp2of2);
+        assert_eq!(sys.cpu.state, WaitOpHi);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadOp2of2);
+        assert_eq!(sys.cpu.state, ReadOpHi);
         assert_eq!(sys.cpu.pc, 0x0103);
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
@@ -668,9 +705,9 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitStack1of2(CD));
+        assert_eq!(sys.cpu.state, WaitStackHi(CD));
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadStack1of2(CD));
+        assert_eq!(sys.cpu.state, ReadStackHi(CD));
         sys.tick();
         assert_eq!(sys.cpu.state, WaitLoad(CD));
         sys.tick();
@@ -716,13 +753,13 @@ mod tests {
         sys.cpu.flags.carry = true;
         sys.cpu.flags.zero = true;
         sys.cpu.reset(&mut sys.bus);
-        assert_eq!(sys.cpu.state, WaitReset1of2);
+        assert_eq!(sys.cpu.state, WaitResetLo);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadReset1of2);
+        assert_eq!(sys.cpu.state, ReadResetLo);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitReset2of2);
+        assert_eq!(sys.cpu.state, WaitResetHi);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadReset2of2);
+        assert_eq!(sys.cpu.state, ReadResetHi);
         sys.tick();
         assert_eq!(sys.cpu.state, FetchOpcode);
         assert_eq!(sys.cpu.regs.get(AB), 0x0000, "AB not reset");

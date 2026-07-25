@@ -1,4 +1,10 @@
+; ROM entry point
+    call RAM_TEST
+    call STACK_SET
+    halt
+
 ; RAM test
+RAM_TEST:
     ld  cd, 0xFFFD  ; top of possible RAM
     ld  a, 0x02
 
@@ -20,7 +26,8 @@ RAM_READ:
 
 DONE:
     dec cd          ; cd points to the highest usable address
+    ret
 
 STACK_SET:
     ld sp, cd       ; initialise stack pointer to top of available RAM
-    halt
+    ret
