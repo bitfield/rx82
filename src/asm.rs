@@ -20,7 +20,8 @@ pub const BASE: u16 = 0x0100;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "beq", "bne", "bra", "call", "cmp", "dec", "halt", "inc", "ld", "nop", "pop", "push", "ret",
+    "beq", "bne", "bra", "call", "cmp", "dec", "halt", "inc", "ld", "nop", "org", "pop", "push",
+    "ret",
 ];
 
 /// Assembles a given program.
@@ -92,6 +93,7 @@ impl Assembler<'_> {
             "inc" => self.gen_inc(),
             "ld" => self.gen_ld(),
             "nop" => self.gen_implied(Nop),
+            "org" => self.org(),
             "pop" => self.gen_pop(),
             "push" => self.gen_push(),
             "ret" => self.gen_implied(Ret),
@@ -528,6 +530,23 @@ impl Assembler<'_> {
         } else {
             None
         }
+    }
+
+    /// Processes an org directive.
+    ///
+    /// # Errors
+    ///
+    /// * Missing or invalid label or address.
+    #[inline]
+    pub fn org(&mut self) -> Result<()> {
+        let addr = match self.next_token() {
+            Some(WordLiteral(addr)) => addr,
+            Some(Identifier(label)) => self.resolve_label(&label)?,
+            Some(other) => bail!("expected label or address, got {other}"),
+            None => bail!("unexpected end of input"),
+        };
+        self.loc = addr;
+        Ok(())
     }
 
     /// Runs an assembly pass.
@@ -1028,6 +1047,20 @@ mod tests {
 ";
         let generated = asm(source);
         let object = &[u8::from(Call), 0x04, 0x01, u8::from(Halt), u8::from(Halt)];
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn assembler_obeys_org_directive() {
+        let source = "
+        org 0xC000
+        call AHEAD
+        halt
+    AHEAD:
+        halt
+";
+        let generated = asm(source);
+        let object = &[u8::from(Call), 0x04, 0xC0, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
 

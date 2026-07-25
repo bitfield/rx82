@@ -1,7 +1,5 @@
 ; ROM entry point
-    call RAM_TEST
-    call STACK_SET
-    halt
+    org 0xC000
 
 ; RAM test
 RAM_TEST:
@@ -17,17 +15,18 @@ RAM_FILL:
 RAM_READ:
     inc cd          ; pointer to next test address
     cmp cd, 0xFFFE  ; past top?
-    beq DONE        ; if so, all memory is present and OK
+    beq RAM_DONE        ; if so, all memory is present and OK
     dec (cd)        ; 0x02 goes to 0x01
-    beq DONE        ; but if zero, RAM is faulty
+    beq RAM_DONE        ; but if zero, RAM is faulty
     inc (0x0000)    ; anti-aliasing tripwire
     dec (cd)        ; 0x01 goes to 0x00
     beq RAM_READ    ; if zero, RAM OK: test next location
 
-DONE:
+RAM_DONE:
     dec cd          ; cd points to the highest usable address
-    ret
 
 STACK_SET:
     ld sp, cd       ; initialise stack pointer to top of available RAM
-    ret
+
+INVOKE_MONITOR:
+    halt

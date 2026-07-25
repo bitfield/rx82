@@ -433,15 +433,15 @@ pub enum State {
     /// Reads the low byte of the reset vector from the bus.
     ReadResetLo,
     /// Reads the high byte of the return address for a ret instruction.
-    ReadRetLo,
-    /// Reads the low byte of the return address for a ret instruction.
     ReadRetHi,
+    /// Reads the low byte of the return address for a ret instruction.
+    ReadRetLo,
     /// Reads the first of two stack values from the bus.
     ReadStackHi(Reg),
     /// Waits for the low byte of the return address to be pushed for a call
     /// instruction.
     WaitCall(u8, u16),
-    ///  Waits for a byte from memory for a decrement instruction.
+    /// Waits for a byte from memory for a decrement instruction.
     WaitDec(u16),
     /// Waits for a byte from memory for an increment instruction.
     WaitInc(u16),
@@ -462,9 +462,9 @@ pub enum State {
     /// Waits for the low byte of the reset vector.
     WaitResetLo,
     /// Waits for the high byte of the return address for a ret instruction.
-    WaitRetLo,
-    /// Waits for the low byte of the return address for a ret instruction.
     WaitRetHi,
+    /// Waits for the low byte of the return address for a ret instruction.
+    WaitRetLo,
     /// Waits for the first of 2 stack pops to a register.
     WaitStackHi(Reg),
 }
