@@ -2,23 +2,27 @@ For boot ROM we need:
 [X] Load programs at 0x0100 instead of 0x0000
 [X] CPU: Stack pointer
 [X] `push R` / `pop R`
-[X] ROM: include binary from file
+[X] System: include ROM binary from file
 [X] Asm/CPU: `ld R, R`
 [X] CPU: reset vector
+[X] ROM: run RAM test
+[X] Assembler: `org` directive
+[X] Asm: pad with zeroes before `org` if necessary
+[ ] Assembler: `data` directive 
+[ ] Assembler: `--zip` flag to generate zipped binaries
+[ ] System: include zipped ROM binary
 [ ] `trap N` / `rti`
 [ ] (simulated) BIOS putchar at trap 0x20
-[X] ROM: run RAM test
 [ ] ROM: show startup message
 [ ] ROM: print decimal routine
 [ ] ROM: show bytes free message
 [ ] CPU: invoke monitor from trap
-[ ] Assembler: Org directive
-[ ] Assembler: Dw directive 
+[ ] Monitor: load zipped binary as ROM or user program
 
 For `to_hex` we need:
 [ ] `and R, N`
 [ ] `lsr R, N`
-[ ] `call` / `ret`
+[X] `call` / `ret`
 
 Use case programs to write:
 [ ] 16-bit multiply routine

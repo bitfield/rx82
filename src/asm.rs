@@ -545,6 +545,14 @@ impl Assembler<'_> {
             Some(other) => bail!("expected label or address, got {other}"),
             None => bail!("unexpected end of input"),
         };
+        if !self.code.is_empty() {
+            let (offset, underflow) = addr.overflowing_sub(self.loc);
+            if underflow {
+                bail!("invalid address {addr} for 'org'")
+            }
+            self.code
+                .extend(core::iter::repeat_n(0, usize::from(offset)));
+        }
         self.loc = addr;
         Ok(())
     }
@@ -973,6 +981,7 @@ mod tests {
             "ld ab, 0x00009",
             "ld bogus, 0x01",
             "ld ef, 0x02",
+            "nop\norg 0x0000",
             "push",
             "pop 0x01",
             "ret cd",
@@ -1051,7 +1060,7 @@ mod tests {
     }
 
     #[test]
-    fn assembler_obeys_org_directive() {
+    fn org_sets_label_base_address() {
         let source = "
         org 0xC000
         call AHEAD
@@ -1061,6 +1070,30 @@ mod tests {
 ";
         let generated = asm(source);
         let object = &[u8::from(Call), 0x04, 0xC0, u8::from(Halt), u8::from(Halt)];
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn org_after_code_start_pads_with_zeroes() {
+        let source = "
+        ld a, 0xFF
+        bra AHEAD
+        org 0x0108
+    AHEAD:
+        halt
+";
+        let generated = asm(source);
+        let object = &[
+            u8::from(LdRegImm(Reg::A)),
+            0xFF,
+            u8::from(BranchAlways),
+            0x04,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            u8::from(Halt),
+        ];
         assert_asm!(source, generated, object);
     }
 
