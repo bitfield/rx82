@@ -21,7 +21,7 @@ pub const BASE: u16 = 0x0100;
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
     "beq", "bne", "bra", "call", "cmp", "dec", "halt", "inc", "ld", "nop", "org", "pop", "push",
-    "ret",
+    "ret", "trap",
 ];
 
 /// Assembles a given program.
@@ -97,6 +97,7 @@ impl Assembler<'_> {
             "pop" => self.gen_pop(),
             "push" => self.gen_push(),
             "ret" => self.gen_implied(Ret),
+            "trap" => self.gen_trap(),
             _ => bail!("unknown keyword '{kw}'"),
         }
     }
@@ -436,7 +437,7 @@ impl Assembler<'_> {
         }
     }
 
-    /// Generates a load register immediate instruction.
+    /// Generates a load register indirect instruction.
     ///
     /// # Errors
     ///
@@ -507,6 +508,23 @@ impl Assembler<'_> {
         let source = self.expect_reg8()?;
         self.emit_byte(u8::from(StoreRegIndirect))?;
         self.emit_byte(regs::u8_from(source, target))?;
+        Ok(())
+    }
+
+    /// Generates a trap instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing or invalid label or address.
+    #[inline]
+    pub fn gen_trap(&mut self) -> Result<()> {
+        let trap_code = match self.next_token() {
+            Some(ByteLiteral(code)) => code,
+            Some(other) => bail!("expected trap code byte, got {other}"),
+            None => bail!("unexpected end of input"),
+        };
+        self.emit_byte(u8::from(Trap))?;
+        self.emit_byte(trap_code)?;
         Ok(())
     }
 
@@ -614,8 +632,11 @@ impl Assembler<'_> {
     /// Reads an identifier, register name, or keyword.
     #[inline]
     pub fn read_identifier(&mut self) -> Token {
-        let ident: String =
-            iter::from_fn(|| self.chars.next_if(|&ch| ch.is_alphabetic() || ch == '_')).collect();
+        let ident: String = iter::from_fn(|| {
+            self.chars
+                .next_if(|&ch| ch.is_ascii_alphanumeric() || ch == '_')
+        })
+        .collect();
         self.debug_print(format!("ident: {ident}"));
         match ident.as_str() {
             _ if let Ok(reg) = Reg::from_str(&ident) => Register(reg),
@@ -698,6 +719,7 @@ impl Iterator for Disassembler<'_> {
                 Ret => "ret".into(),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
                 StoreRegIndirect => self.format_store_reg_indirect(),
+                Trap => format!("trap {}", self.format_byte()),
             }
         } else {
             format!("??? ({opcode:#04X})")

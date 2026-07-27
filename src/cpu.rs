@@ -125,9 +125,9 @@ impl Device for Cpu {
             ReadResetLo => {
                 self.op_lo = bus.data;
                 bus.mem_read(VEC_RESET.wrapping_add(1));
-                WaitResetHi
+                WaitAddrHi
             }
-            ReadResetHi => {
+            ReadAddrHi => {
                 self.op_hi = bus.data;
                 self.pc = self.op();
                 FetchOpcode
@@ -153,6 +153,11 @@ impl Device for Cpu {
                 self.regs.set(Reg::SP, addr);
                 WaitLoad(reg)
             }
+            ReadTrapVecLo(addr) => {
+                self.op_lo = bus.data;
+                bus.mem_read(addr);
+                WaitAddrHi
+            }
             WaitCall(hi, subr_addr) => {
                 let mut stk_addr = self.regs.get(Reg::SP);
                 bus.mem_write(stk_addr, hi);
@@ -169,7 +174,7 @@ impl Device for Cpu {
             WaitOpHi => ReadOpHi,
             WaitOpcode => Decode,
             WaitResetLo => ReadResetLo,
-            WaitResetHi => ReadResetHi,
+            WaitAddrHi => ReadAddrHi,
             WaitStackHi(reg) => ReadStackHi(reg),
             WaitPush(val) => {
                 let mut addr = self.regs.get(Reg::SP);
@@ -180,6 +185,27 @@ impl Device for Cpu {
             }
             WaitRetHi => ReadRetHi,
             WaitRetLo => ReadRetLo,
+            WaitTrapCode(trap_code) => {
+                let mut vec_addr = u16::from(trap_code.strict_mul(2));
+                bus.mem_read(vec_addr);
+                vec_addr = vec_addr.wrapping_add(1);
+                WaitTrapVecLo(vec_addr)
+            }
+            WaitTrapLo(hi, trap_code) => {
+                let mut addr = self.regs.get(Reg::SP);
+                bus.mem_write(addr, hi);
+                addr = addr.wrapping_sub(1);
+                self.regs.set(Reg::SP, addr);
+                WaitTrapHi(trap_code)
+            }
+            WaitTrapHi(trap_code) => {
+                let mut addr = self.regs.get(Reg::SP);
+                bus.mem_write(addr, trap_code);
+                addr = addr.wrapping_sub(1);
+                self.regs.set(Reg::SP, addr);
+                WaitTrapCode(trap_code)
+            }
+            WaitTrapVecLo(addr) => ReadTrapVecLo(addr),
         };
     }
 }
@@ -364,7 +390,7 @@ impl Cpu {
         self.state = WaitResetLo;
     }
 
-    /// Calls the subroutine at `addr`, pushing the return address on the stack.
+    /// Returns from a subroutine to a return address on the stack.
     #[inline]
     pub fn ret(&mut self, bus: &mut Bus) {
         let mut addr = self.regs.get(Reg::SP);
@@ -393,6 +419,26 @@ impl Cpu {
             self.illegal();
         }
     }
+
+    /// Executes a trap instruction.
+    ///
+    /// The trap code is used to select a vector from the trap table, and the CPU jumps
+    /// to that address after pushing the return address and the trap code to the stack.
+    /// Calls the subroutine at `addr`, pushing the return address on the stack.
+    #[inline]
+    pub fn trap(&mut self, trap_code: u8, bus: &mut Bus) {
+        if trap_code >= 0x40 {
+            self.illegal();
+            return;
+        }
+        let mut stk_addr = self.regs.get(Reg::SP);
+        let ret_addr = self.pc;
+        let [hi, lo] = ret_addr.to_be_bytes();
+        bus.mem_write(stk_addr, lo);
+        self.state = WaitTrapLo(hi, trap_code);
+        stk_addr = stk_addr.wrapping_sub(1);
+        self.regs.set(Reg::SP, stk_addr);
+    }
 }
 
 /// The state of CPU's flags.
@@ -416,6 +462,8 @@ pub enum State {
     /// Requests the next opcode from memory.
     #[default]
     FetchOpcode,
+    /// Reads the high byte of the address to jump to.
+    ReadAddrHi,
     /// Reads a byte from memory for a decrement instruction.
     ReadDec(u16),
     /// Reads a byte from memory for an increment instruction.
@@ -428,8 +476,6 @@ pub enum State {
     ReadOpHi,
     /// Reads the first of two operands from the bus.
     ReadOpLo,
-    /// Reads the high byte of the reset vector from the bus.
-    ReadResetHi,
     /// Reads the low byte of the reset vector from the bus.
     ReadResetLo,
     /// Reads the high byte of the return address for a ret instruction.
@@ -438,6 +484,10 @@ pub enum State {
     ReadRetLo,
     /// Reads the first of two stack values from the bus.
     ReadStackHi(Reg),
+    /// Reads the low byte of the trap vector for a trap instruction.
+    ReadTrapVecLo(u16),
+    /// Waits for the high byte of the address to jump to.
+    WaitAddrHi,
     /// Waits for the low byte of the return address to be pushed for a call
     /// instruction.
     WaitCall(u8, u16),
@@ -457,8 +507,6 @@ pub enum State {
     WaitOpcode,
     /// Waits for a stack push, before pushing another value.
     WaitPush(u8),
-    /// Waits for the high byte of the reset vector.
-    WaitResetHi,
     /// Waits for the low byte of the reset vector.
     WaitResetLo,
     /// Waits for the high byte of the return address for a ret instruction.
@@ -467,6 +515,16 @@ pub enum State {
     WaitRetLo,
     /// Waits for the first of 2 stack pops to a register.
     WaitStackHi(Reg),
+    /// Waits for the trap code to be pushed for a trap instruction.
+    WaitTrapCode(u8),
+    /// Waits for the high byte of the return address to be pushed for a trap
+    /// instruction.
+    WaitTrapHi(u8),
+    /// Waits for the low byte of the return address to be pushed for a trap
+    /// instruction.
+    WaitTrapLo(u8, u8),
+    /// Waits for the low byte of the trap vector for a trap instruction.
+    WaitTrapVecLo(u16),
 }
 
 impl Display for State {
@@ -479,17 +537,18 @@ impl Display for State {
                 Decode => "DCOD",
                 Execute => "EXEC",
                 FetchOpcode => "FOPC",
+                ReadAddrHi => "RDAH",
                 ReadDec(_) => "RDEC",
                 ReadInc(_) => "RINC",
                 ReadLoad(_) => "RDLD",
                 ReadOp => "RDOP",
                 ReadOpHi => "ROPH",
                 ReadOpLo => "ROPL",
-                ReadResetHi => "RRSH",
                 ReadResetLo => "RRSL",
                 ReadRetHi => "RRTH",
                 ReadRetLo => "RRTL",
                 ReadStackHi(_) => "RSTH",
+                ReadTrapVecLo(_) => "RTVL",
                 WaitCall(_, _) => "WCAL",
                 WaitDec(_) => "WDEC",
                 WaitInc(_) => "WINC",
@@ -499,11 +558,15 @@ impl Display for State {
                 WaitOpLo => "WOPL",
                 WaitOpcode => "WOPC",
                 WaitPush(_) => "WWRT",
-                WaitResetHi => "WRSH",
+                WaitAddrHi => "WTAH",
                 WaitResetLo => "WRSL",
                 WaitRetHi => "WRTH",
                 WaitRetLo => "WRTL",
                 WaitStackHi(_) => "WSTH",
+                WaitTrapCode(_) => "WTTC",
+                WaitTrapHi(_) => "WTTH",
+                WaitTrapLo(_, _) => "WTTL",
+                WaitTrapVecLo(_) => "WTVL",
             }
         )
     }
@@ -757,9 +820,9 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, ReadResetLo);
         sys.tick();
-        assert_eq!(sys.cpu.state, WaitResetHi);
+        assert_eq!(sys.cpu.state, WaitAddrHi);
         sys.tick();
-        assert_eq!(sys.cpu.state, ReadResetHi);
+        assert_eq!(sys.cpu.state, ReadAddrHi);
         sys.tick();
         assert_eq!(sys.cpu.state, FetchOpcode);
         assert_eq!(sys.cpu.regs.get(AB), 0x0000, "AB not reset");

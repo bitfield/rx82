@@ -48,6 +48,8 @@ pub enum InstructionKind {
     StoreRegDirect(Reg),
     /// Store a register value at an indirect address in another register.
     StoreRegIndirect,
+    /// Trap with a specified code.
+    Trap,
 }
 
 impl TryFrom<u8> for InstructionKind {
@@ -79,6 +81,7 @@ impl TryFrom<u8> for InstructionKind {
             0xF1 => BranchEq,
             0xF2 => BranchNe,
             0xF8 => Call,
+            0xF9 => Trap,
             _ => bail!("invalid opcode {opcode}"),
         })
     }
@@ -110,6 +113,7 @@ impl From<InstructionKind> for u8 {
             Ret => 0x08,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
             StoreRegIndirect => 0x2E,
+            Trap => 0xF9,
         }
     }
 }
@@ -140,6 +144,7 @@ impl InstructionKind {
             Ret => cpu.ret(bus),
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
             StoreRegIndirect => cpu.store_reg_indirect(bus),
+            Trap => cpu.trap(cpu.op_lo, bus),
             Nop | BranchEq | BranchNe => {}
         }
     }
@@ -153,7 +158,7 @@ impl InstructionKind {
         match *self {
             Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret => Zero,
             BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect | LdRegIndirect
-            | LdRegReg | StoreRegIndirect => One,
+            | LdRegReg | StoreRegIndirect | Trap => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -649,6 +654,27 @@ mod tests {
             .unwrap();
         let val = sys.mem.get(0xBABE);
         assert_hex!(val, 0xFF, "wrong mem value");
+    }
+
+    #[test]
+    fn trap() {
+        let mut sys = System::default();
+        sys.cpu.regs.set(SP, 0x0200);
+        // trap vector 0x01 points to TRAP_1
+        sys.mem.load(0x0000, &[0x00, 0x00, 0x10, 0x01]).unwrap();
+        sys.trace_program(&asm("
+            trap 0x01
+            halt
+            org 0x0110
+        TRAP_1:
+            pop a
+            halt"))
+            .unwrap();
+        assert_hex!(sys.cpu.pc, 0x0112, "wrong PC");
+        assert_hex!(sys.cpu.regs.get(A), 0x01, "wrong A");
+        assert_hex!(sys.peek_mem(0x01FF), 0x01, "wrong high byte on stack");
+        assert_hex!(sys.peek_mem(0x0200), 0x02, "wrong low byte on stack");
+        assert_hex!(sys.cpu.regs.get(SP), 0x01FE, "wrong SP");
     }
 
     #[test]
