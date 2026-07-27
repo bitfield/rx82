@@ -400,6 +400,16 @@ impl Cpu {
         self.state = WaitRetHi;
     }
 
+    /// Returns from a trap to a return address on the stack.
+    #[inline]
+    pub fn rti(&mut self, bus: &mut Bus) {
+        let mut addr = self.regs.get(Reg::SP);
+        addr = addr.wrapping_add(2); // skip trap code
+        bus.mem_read(addr);
+        self.regs.set(Reg::SP, addr);
+        self.state = WaitRetHi;
+    }
+    
     /// Executes a store register direct instruction.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]

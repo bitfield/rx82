@@ -44,6 +44,8 @@ pub enum InstructionKind {
     Push(Reg),
     /// Return from a subroutine call.
     Ret,
+    /// Return from a trap.
+    Rti,
     /// Store a register value at an immediate address.
     StoreRegDirect(Reg),
     /// Store a register value at an indirect address in another register.
@@ -63,6 +65,7 @@ impl TryFrom<u8> for InstructionKind {
             0x00 => Halt,
             0x01 => Nop,
             0x08 => Ret,
+            0x09 => Rti,
             0x10..=0x1C => LdRegImm(reg?),
             0x20..=0x27 => StoreRegDirect(reg?),
             0x2D => LdRegIndirect,
@@ -111,6 +114,7 @@ impl From<InstructionKind> for u8 {
             Pop(reg) => 0xE0 | u8::from(reg),
             Push(reg) => 0xD0 | u8::from(reg),
             Ret => 0x08,
+            Rti => 0x09,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
             StoreRegIndirect => 0x2E,
             Trap => 0xF9,
@@ -142,6 +146,7 @@ impl InstructionKind {
             Pop(reg) => cpu.pop(reg, bus),
             Push(reg) => cpu.push(reg, bus),
             Ret => cpu.ret(bus),
+            Rti => cpu.rti(bus),
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
             StoreRegIndirect => cpu.store_reg_indirect(bus),
             Trap => cpu.trap(cpu.op_lo, bus),
@@ -156,7 +161,7 @@ impl InstructionKind {
         use InstructionKind::*;
         use Operands::*;
         match *self {
-            Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret => Zero,
+            Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti => Zero,
             BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect | LdRegIndirect
             | LdRegReg | StoreRegIndirect | Trap => One,
             Cmp(reg) | LdRegImm(reg) => {
@@ -632,6 +637,27 @@ mod tests {
     }
 
     #[test]
+    fn rti() {
+        let mut sys = System::default();
+        sys.cpu.regs.set(SP, 0x0200);
+        // trap vector 0x01 points to TRAP_1
+        sys.mem.load(0x0000, &[0x00, 0x00, 0x10, 0x01]).unwrap();
+        sys.trace_program(&asm("
+            trap 0x01
+            inc a
+            halt
+            org 0x0110
+        TRAP_1:
+            pop a
+            push a
+            rti"))
+            .unwrap();
+        assert_hex!(sys.cpu.pc, 0x0104, "wrong PC");
+        assert_hex!(sys.cpu.regs.get(A), 0x02, "wrong A");
+        assert_hex!(sys.cpu.regs.get(SP), 0x0200, "wrong SP");
+    }
+
+    #[test]
     fn store_reg_direct() {
         let mut sys = System::default();
         sys.trace_program(&asm("
@@ -668,13 +694,14 @@ mod tests {
             org 0x0110
         TRAP_1:
             pop a
+            push a
             halt"))
             .unwrap();
-        assert_hex!(sys.cpu.pc, 0x0112, "wrong PC");
+        assert_hex!(sys.cpu.pc, 0x0113, "wrong PC");
         assert_hex!(sys.cpu.regs.get(A), 0x01, "wrong A");
         assert_hex!(sys.peek_mem(0x01FF), 0x01, "wrong high byte on stack");
         assert_hex!(sys.peek_mem(0x0200), 0x02, "wrong low byte on stack");
-        assert_hex!(sys.cpu.regs.get(SP), 0x01FE, "wrong SP");
+        assert_hex!(sys.cpu.regs.get(SP), 0x01FD, "wrong SP");
     }
 
     #[test]
