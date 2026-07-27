@@ -24,9 +24,15 @@ RAM_READ:
 
 RAM_DONE:
     dec cd          ; cd points to the highest usable address
+    ld (0x0040), d  ; save in RAMTOP variable in system data area
+    ld (0x0041), c
+
+; safe to write to RAM now
 
 STACK_SET:
     ld sp, cd       ; initialise stack pointer to top of available RAM
 
+; stack is now usable
+                    
 INVOKE_MONITOR:
     halt

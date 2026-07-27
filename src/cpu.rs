@@ -134,10 +134,7 @@ impl Device for Cpu {
             }
             ReadRetHi => {
                 self.op_hi = bus.data;
-                let mut addr = self.regs.get(Reg::SP);
-                addr = addr.wrapping_add(1);
-                bus.mem_read(addr);
-                self.regs.set(Reg::SP, addr);
+                self.stack_pop(bus);
                 WaitRetLo
             }
             ReadRetLo => {
@@ -147,10 +144,7 @@ impl Device for Cpu {
             }
             ReadStackHi(reg) => {
                 self.op_hi = bus.data;
-                let mut addr = self.regs.get(Reg::SP);
-                addr = addr.wrapping_add(1);
-                bus.mem_read(addr);
-                self.regs.set(Reg::SP, addr);
+                self.stack_pop(bus);
                 WaitLoad(reg)
             }
             ReadTrapVecLo(addr) => {
@@ -159,10 +153,7 @@ impl Device for Cpu {
                 WaitAddrHi
             }
             WaitCall(hi, subr_addr) => {
-                let mut stk_addr = self.regs.get(Reg::SP);
-                bus.mem_write(stk_addr, hi);
-                stk_addr = stk_addr.wrapping_sub(1);
-                self.regs.set(Reg::SP, stk_addr);
+                self.stack_push(hi, bus);
                 self.pc = subr_addr;
                 FetchOpcode
             }
@@ -177,10 +168,7 @@ impl Device for Cpu {
             WaitAddrHi => ReadAddrHi,
             WaitStackHi(reg) => ReadStackHi(reg),
             WaitPush(val) => {
-                let mut addr = self.regs.get(Reg::SP);
-                bus.mem_write(addr, val);
-                addr = addr.wrapping_sub(1);
-                self.regs.set(Reg::SP, addr);
+                self.stack_push(val, bus);
                 FetchOpcode
             }
             WaitRetHi => ReadRetHi,
@@ -192,17 +180,11 @@ impl Device for Cpu {
                 WaitTrapVecLo(vec_addr)
             }
             WaitTrapLo(hi, trap_code) => {
-                let mut addr = self.regs.get(Reg::SP);
-                bus.mem_write(addr, hi);
-                addr = addr.wrapping_sub(1);
-                self.regs.set(Reg::SP, addr);
+                self.stack_push(hi, bus);
                 WaitTrapHi(trap_code)
             }
             WaitTrapHi(trap_code) => {
-                let mut addr = self.regs.get(Reg::SP);
-                bus.mem_write(addr, trap_code);
-                addr = addr.wrapping_sub(1);
-                self.regs.set(Reg::SP, addr);
+                self.stack_push(trap_code, bus);
                 WaitTrapCode(trap_code)
             }
             WaitTrapVecLo(addr) => ReadTrapVecLo(addr),
@@ -222,13 +204,10 @@ impl Cpu {
     /// Calls the subroutine at `addr`, pushing the return address on the stack.
     #[inline]
     pub fn call(&mut self, subr_addr: u16, bus: &mut Bus) {
-        let mut stk_addr = self.regs.get(Reg::SP);
         let ret_addr = self.pc;
         let [hi, lo] = ret_addr.to_be_bytes();
-        bus.mem_write(stk_addr, lo);
+        self.stack_push(lo, bus);
         self.state = WaitCall(hi, subr_addr);
-        stk_addr = stk_addr.wrapping_sub(1);
-        self.regs.set(Reg::SP, stk_addr);
     }
 
     /// Compares the value in register `reg` with the operand, updating flags.
@@ -349,10 +328,7 @@ impl Cpu {
     /// Executes a pop instruction with `reg`.
     #[inline]
     pub fn pop(&mut self, reg: Reg, bus: &mut Bus) {
-        let mut addr = self.regs.get(Reg::SP);
-        addr = addr.wrapping_add(1);
-        bus.mem_read(addr);
-        self.regs.set(Reg::SP, addr);
+        self.stack_pop(bus);
         if reg.is16() {
             self.state = WaitStackHi(reg);
         } else {
@@ -365,18 +341,15 @@ impl Cpu {
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn push(&mut self, reg: Reg, bus: &mut Bus) {
-        let mut addr = self.regs.get(Reg::SP);
         let val = self.regs.get(reg);
         if reg.is16() {
             let [hi, lo] = val.to_be_bytes();
-            bus.mem_write(addr, lo);
+            self.stack_push(lo, bus);
             self.state = WaitPush(hi);
         } else {
-            bus.mem_write(addr, self.regs.get(reg) as u8);
+            self.stack_push(val as u8, bus);
             self.state = FetchOpcode;
         }
-        addr = addr.wrapping_sub(1);
-        self.regs.set(Reg::SP, addr);
     }
 
     /// Resets the CPU to its power-on state.
@@ -393,10 +366,7 @@ impl Cpu {
     /// Returns from a subroutine to a return address on the stack.
     #[inline]
     pub fn ret(&mut self, bus: &mut Bus) {
-        let mut addr = self.regs.get(Reg::SP);
-        addr = addr.wrapping_add(1);
-        bus.mem_read(addr);
-        self.regs.set(Reg::SP, addr);
+        self.stack_pop(bus);
         self.state = WaitRetHi;
     }
 
@@ -409,7 +379,25 @@ impl Cpu {
         self.regs.set(Reg::SP, addr);
         self.state = WaitRetHi;
     }
-    
+
+    /// Reads the current top-of-stack value, adjusting SP.
+    #[inline]
+    pub fn stack_pop(&mut self, bus: &mut Bus) {
+        let mut addr = self.regs.get(Reg::SP);
+        addr = addr.wrapping_add(1);
+        bus.mem_read(addr);
+        self.regs.set(Reg::SP, addr);
+    }
+
+    /// Writes `val` to the stack, adjusting SP.
+    #[inline]
+    pub fn stack_push(&mut self, val: u8, bus: &mut Bus) {
+        let mut addr = self.regs.get(Reg::SP);
+        bus.mem_write(addr, val);
+        addr = addr.wrapping_sub(1);
+        self.regs.set(Reg::SP, addr);
+    }
+
     /// Executes a store register direct instruction.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
@@ -441,13 +429,10 @@ impl Cpu {
             self.illegal();
             return;
         }
-        let mut stk_addr = self.regs.get(Reg::SP);
         let ret_addr = self.pc;
         let [hi, lo] = ret_addr.to_be_bytes();
-        bus.mem_write(stk_addr, lo);
+        self.stack_push(lo, bus);
         self.state = WaitTrapLo(hi, trap_code);
-        stk_addr = stk_addr.wrapping_sub(1);
-        self.regs.set(Reg::SP, stk_addr);
     }
 }
 
