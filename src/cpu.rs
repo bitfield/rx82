@@ -9,6 +9,7 @@ use crate::{
 
 use State::*;
 
+pub const TRAP_ILLEGAL: u8 = 0x00;
 pub const VEC_RESET: u16 = 0xFFFE;
 
 /// The system CPU.
@@ -57,7 +58,11 @@ impl Device for Cpu {
         self.state = match self.state {
             Decode => {
                 let opcode = bus.data;
-                self.ins = InstructionKind::try_from(opcode).unwrap_or(InstructionKind::Nop);
+                let Ok(ins) = InstructionKind::try_from(opcode) else {
+                    self.trap(TRAP_ILLEGAL, bus);
+                    return;
+                };
+                self.ins = ins;
                 match self.ins.operands() {
                     Operands::Zero => {
                         // No operands needed, go straight to 'execute'
@@ -228,7 +233,7 @@ impl Cpu {
             let addr = self.regs.get(source);
             self.dec_mem(addr, bus);
         } else {
-            self.illegal();
+            self.trap(TRAP_ILLEGAL, bus);
         }
     }
 
@@ -259,12 +264,6 @@ impl Cpu {
         self.halt = true;
     }
 
-    /// Raises an illegal instruction exception.
-    #[inline]
-    pub fn illegal(&mut self) {
-        self.halt = true;
-    }
-
     /// Increments the value at address in `reg`, updating flags.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
@@ -275,7 +274,7 @@ impl Cpu {
             let addr = self.regs.get(source);
             self.inc_mem(addr, bus);
         } else {
-            self.illegal();
+            self.trap(TRAP_ILLEGAL, bus);
         }
     }
 
@@ -301,20 +300,20 @@ impl Cpu {
             bus.mem_read(self.regs.get(source));
             self.state = WaitLoad(target);
         } else {
-            self.illegal();
+            self.trap(TRAP_ILLEGAL, bus);
         }
     }
 
     /// Executes a load register register instruction.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
-    pub fn ld_reg_reg(&mut self) {
+    pub fn ld_reg_reg(&mut self, bus: &mut Bus) {
         if let Some((source, target)) = source_and_target_from(self.op() as u8)
             && source.is16() == target.is16()
         {
             self.regs.set(target, self.regs.get(source));
         } else {
-            self.illegal();
+            self.trap(TRAP_ILLEGAL, bus);
         }
     }
 
@@ -414,7 +413,7 @@ impl Cpu {
             bus.mem_write(self.regs.get(target), self.regs.get(source) as u8);
             self.state = FetchOpcode;
         } else {
-            self.illegal();
+            self.trap(TRAP_ILLEGAL, bus);
         }
     }
 
@@ -424,10 +423,9 @@ impl Cpu {
     /// to that address after pushing the return address and the trap code to the stack.
     /// Calls the subroutine at `addr`, pushing the return address on the stack.
     #[inline]
-    pub fn trap(&mut self, trap_code: u8, bus: &mut Bus) {
+    pub fn trap(&mut self, mut trap_code: u8, bus: &mut Bus) {
         if trap_code >= 0x40 {
-            self.illegal();
-            return;
+            trap_code = TRAP_ILLEGAL;
         }
         let ret_addr = self.pc;
         let [hi, lo] = ret_addr.to_be_bytes();
@@ -580,9 +578,11 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &assemble("
+                &assemble(
+                    "
                     nop
-                    halt"),
+                    halt",
+                ),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;
@@ -608,9 +608,11 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &assemble("
+                &assemble(
+                    "
                     ld a, 0xFF
-                    halt"),
+                    halt",
+                ),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;
@@ -638,9 +640,11 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &assemble("
+                &assemble(
+                    "
                     ld ab, 0xBEEF
-                    halt"),
+                    halt",
+                ),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;
@@ -675,9 +679,11 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &assemble("
+                &assemble(
+                    "
                     ld b, (cd)
-                    halt"),
+                    halt",
+                ),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;
@@ -710,9 +716,11 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &assemble("
+                &assemble(
+                    "
                     ld 0xBEEF, a
-                    halt"),
+                    halt",
+                ),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;
@@ -749,9 +757,11 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &assemble("
+                &assemble(
+                    "
                     pop cd
-                    halt"),
+                    halt",
+                ),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;
@@ -782,9 +792,11 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &assemble("
+                &assemble(
+                    "
                     push ab
-                    halt"),
+                    halt",
+                ),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;

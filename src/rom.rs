@@ -57,29 +57,37 @@ mod tests {
             end: 0xB002,
             data: vec![0xF0, 0xF1, 0xF2],
         }));
-        sys.trace_program(&assemble("
+        sys.trace_program(&assemble(
+            "
             ld cd, 0xBFFF
             ld a, (cd)
-            halt"))
-            .unwrap();
+            halt",
+        ))
+        .unwrap();
         assert_eq!(sys.cpu.regs.get(A), 0x00, "wrong A");
-        sys.trace_program(&assemble("
+        sys.trace_program(&assemble(
+            "
             ld cd, 0xB000
             ld a, (cd)
-            halt"))
-            .unwrap();
+            halt",
+        ))
+        .unwrap();
         assert_eq!(sys.cpu.regs.get(A), 0xF0, "wrong A");
-        sys.trace_program(&assemble("
+        sys.trace_program(&assemble(
+            "
             ld cd, 0xB001
             ld a, (cd)
-            halt"))
-            .unwrap();
+            halt",
+        ))
+        .unwrap();
         assert_eq!(sys.cpu.regs.get(A), 0xF1, "wrong A");
-        sys.trace_program(&assemble("
+        sys.trace_program(&assemble(
+            "
             ld cd, 0xB002
             ld a, (cd)
-            halt"))
-            .unwrap();
+            halt",
+        ))
+        .unwrap();
         assert_eq!(sys.cpu.regs.get(A), 0xF2, "wrong A");
     }
 }

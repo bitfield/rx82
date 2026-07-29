@@ -133,10 +133,12 @@ mod tests {
         };
         sys.mem.load(
             0x0100,
-            &assemble("
+            &assemble(
+                "
                 ld a, 0xFF
                 nop
-                halt"),
+                halt",
+            ),
         )?;
         sys.cpu.pc = 0x0100;
         let ticks = vec![

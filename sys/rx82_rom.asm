@@ -36,18 +36,36 @@ STACK_SET:
 
 ; set up trap table
 TRAP_INIT:
+    ; first set all vectors to the 'unhandled' handler
+    ld cd, UNHANDLED_TRAP
+    ld b, 0x40
+    ld ef, 0x0000 ; base of trap table
+STORE_DEFAULT_VECTOR:
+    ld (ef), d
+    inc ef
+    ld (ef), c
+    inc ef
+    dec b
+    bne STORE_DEFAULT_VECTOR
+
+    ; set up the 'illegal instruction' handler
     ld cd, ILLEGAL_INSTRUCTION
     ld 0x0000, d  ; trap 0x00 (illegal instruction)
     ld 0x0001, c
+
+    ; set up the 'putchar' handler
     ld cd, PUTCHAR
-    ld 0x0040, d  ; trap 0x20 (putchar)
+    ld 0x0040, d  ; vector 0x20
     ld 0x0041, c
 
 INVOKE_MONITOR:
     halt
 
-; subroutines
+; trap handlers
 ILLEGAL_INSTRUCTION:
+    halt
+
+UNHANDLED_TRAP:
     halt
 
 PUTCHAR:
