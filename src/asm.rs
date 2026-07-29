@@ -115,7 +115,7 @@ impl Assembler<'_> {
     /// Prints `msg` if in debug mode and this is pass2.
     #[inline]
     pub fn debug_print(&self, msg: impl AsRef<str>) {
-        if self.debug && self.pass2 {
+        if self.debug && !self.pass2 {
             println!("{}", msg.as_ref());
         }
     }
@@ -409,6 +409,20 @@ impl Assembler<'_> {
                 self.expect(&Comma)?;
                 self.skip_whitespace();
                 match self.next_token() {
+                    Some(Identifier(label)) if target.is16() && self.pass2 => {
+                        let word = self.resolve_label(&label)?;
+                        self.emit_byte(u8::from(LdRegImm(target)))?;
+                        self.emit_word(word)?;
+                        Ok(())
+                    }
+                    Some(Identifier(_)) if target.is16() => {
+                        self.emit_byte(u8::from(LdRegImm(target)))?;
+                        self.emit_word(0x0000)?; // resolve for real on next pass
+                        Ok(())
+                    }
+                    Some(Identifier(label)) => {
+                        bail!("expected immediate byte, got label '{label}'")
+                    }
                     Some(ParenOpen) => self.gen_ld_reg_indirect(target),
                     Some(Register(source)) if source.is16() == target.is16() => {
                         self.emit_byte(u8::from(LdRegReg))?;
@@ -868,7 +882,7 @@ impl Display for Token {
 #[expect(clippy::unwrap_used, reason = "for testing")]
 #[inline]
 #[must_use]
-pub fn asm(source: &str) -> Vec<u8> {
+pub fn assemble(source: &str) -> Vec<u8> {
     let mut asm = Assembler::from(source);
     asm.debug = true;
     asm.assemble()
@@ -962,10 +976,26 @@ mod tests {
             ("trap 0x01", &[u8::from(Trap), 0x01]),
         ];
         for &(source, object) in cases {
-            let generated = asm(source);
+            let generated = assemble(source);
             assert_asm!(source, generated, object);
             assert_disasm!(generated, source);
         }
+    }
+
+    #[test]
+    fn assembler_accepts_label_as_immediate_word_value() {
+        let source = "
+        LABEL:
+            ld cd, LABEL
+";
+        let mut asm = Assembler::from(source);
+        asm.debug = true;
+        let generated = asm.assemble().unwrap();
+        assert_asm!(
+            source,
+            generated,
+            &[u8::from(LdRegImm(Reg::CD)), 0x00, 0x01]
+        );
     }
 
     #[test]
@@ -1005,6 +1035,7 @@ mod tests {
             "ld a, (bogus)",
             "ld a, 0x1000",
             "ld ab, 0x00009",
+            "ld ab, UNDEFINED",
             "ld bogus, 0x01",
             "ld ef, 0x02",
             "nop\norg 0x0000",
@@ -1026,7 +1057,7 @@ mod tests {
     #[test]
     fn assembler_ignores_comments() {
         let source = "ld a, 0xFF ; loop count";
-        let generated = asm(source);
+        let generated = assemble(source);
         let object = &[u8::from(LdRegImm(Reg::A)), 0xFF];
         assert_asm!(source, generated, object);
     }
@@ -1044,7 +1075,7 @@ mod tests {
         bne LOOP
         halt
 ";
-        let generated = asm(source);
+        let generated = assemble(source);
         let object = &[
             u8::from(LdRegImm(Reg::A)),
             0x06,
@@ -1070,7 +1101,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let generated = asm(source);
+        let generated = assemble(source);
         let object = &[u8::from(BranchAlways), 0x01, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
@@ -1083,7 +1114,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let generated = asm(source);
+        let generated = assemble(source);
         let object = &[u8::from(Call), 0x04, 0x01, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
@@ -1097,7 +1128,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let generated = asm(source);
+        let generated = assemble(source);
         let object = &[u8::from(Call), 0x04, 0xC0, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
@@ -1111,7 +1142,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let generated = asm(source);
+        let generated = assemble(source);
         let object = &[
             u8::from(LdRegImm(Reg::A)),
             0xFF,
@@ -1131,7 +1162,7 @@ mod tests {
         let mut source = String::from("LOOP:\n");
         source.push_str("nop\n".repeat(126).as_str());
         source.push_str("beq LOOP");
-        let generated = asm(&source);
+        let generated = assemble(&source);
         let mut object = vec![u8::from(Nop); 126];
         object.extend([u8::from(BranchEq), 0x80]);
         assert_asm!(source, generated, &object);

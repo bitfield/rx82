@@ -570,7 +570,7 @@ impl Display for State {
 #[cfg(test)]
 #[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
-    use crate::{asm::asm, regs::Reg::*, system::System};
+    use crate::{asm::assemble, regs::Reg::*, system::System};
 
     use super::*;
 
@@ -580,7 +580,7 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &asm("
+                &assemble("
                     nop
                     halt"),
             )
@@ -608,7 +608,7 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &asm("
+                &assemble("
                     ld a, 0xFF
                     halt"),
             )
@@ -638,7 +638,7 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &asm("
+                &assemble("
                     ld ab, 0xBEEF
                     halt"),
             )
@@ -675,7 +675,7 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &asm("
+                &assemble("
                     ld b, (cd)
                     halt"),
             )
@@ -710,7 +710,7 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &asm("
+                &assemble("
                     ld 0xBEEF, a
                     halt"),
             )
@@ -749,7 +749,7 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &asm("
+                &assemble("
                     pop cd
                     halt"),
             )
@@ -782,7 +782,7 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &asm("
+                &assemble("
                     push ab
                     halt"),
             )

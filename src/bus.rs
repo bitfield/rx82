@@ -121,7 +121,7 @@ impl Bus {
 
 #[cfg(test)]
 mod tests {
-    use crate::{asm::asm, system::System};
+    use crate::{asm::assemble, system::System};
 
     use super::*;
 
@@ -133,7 +133,7 @@ mod tests {
         };
         sys.mem.load(
             0x0100,
-            &asm("
+            &assemble("
                 ld a, 0xFF
                 nop
                 halt"),

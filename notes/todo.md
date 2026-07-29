@@ -8,10 +8,11 @@ For boot ROM we need:
 [X] ROM: run RAM test
 [X] Assembler: `org` directive
 [X] Asm: pad with zeroes before `org` if necessary
+[X] `trap N` / `rti`
+[ ] ROM: set up basic trap table / handlers
 [ ] Assembler: `data` directive 
 [ ] Assembler: `--zip` flag to generate zipped binaries
 [ ] System: include zipped ROM binary
-[ ] `trap N` / `rti`
 [ ] (simulated) BIOS putchar at trap 0x20
 [ ] ROM: show startup message
 [ ] ROM: print decimal routine

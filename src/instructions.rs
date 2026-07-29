@@ -193,7 +193,7 @@ pub enum Operands {
 #[expect(clippy::unwrap_used, reason = "test")]
 #[expect(clippy::default_numeric_fallback, reason = "hex literals")]
 mod tests {
-    use crate::{asm::asm, regs::Reg::*, system::System};
+    use crate::{asm::assemble, regs::Reg::*, system::System};
 
     macro_rules! assert_hex {
         ( $got:expr, $want:expr, $msg:expr ) => {
@@ -209,12 +209,12 @@ mod tests {
     fn beq() {
         let mut sys = System::default();
         sys.cpu.flags.zero = true;
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             beq 0x00
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.pc, 0x0103, "wrong PC after zero branch");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             beq 0x7F
             halt"))
             .unwrap();
@@ -222,7 +222,7 @@ mod tests {
         sys.mem
             .load(
                 0x1000,
-                &asm("
+                &assemble("
                 beq 0x80
                 halt"),
             )
@@ -230,25 +230,25 @@ mod tests {
         sys.cpu.pc = 0x1000;
         sys.run();
         assert_hex!(sys.cpu.pc, 0x0F83, "wrong PC after max backward branch");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             beq 0x01
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.pc, 0x0104, "forward branch not taken");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             beq 0x01
             halt
             beq 0xFD"))
             .unwrap();
         assert_hex!(sys.cpu.pc, 0x0103, "backward branch not taken");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             beq 0x01
             halt
             inc a
             beq 0xFC"))
             .unwrap();
         assert_hex!(sys.cpu.pc, 0x0107, "backward branch taken");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             inc a
             beq 0x01
             halt"))
@@ -260,13 +260,13 @@ mod tests {
     fn bne() {
         let mut sys = System::default();
         sys.cpu.flags.zero = true;
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             bne 0x01
             halt
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.pc, 0x0103, "branch taken");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             inc a
             bne 0x01
             halt
@@ -279,7 +279,7 @@ mod tests {
     fn bra() {
         let mut sys = System::default();
         sys.cpu.flags.zero = true;
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             bra 0x01
             halt
             halt"))
@@ -291,7 +291,7 @@ mod tests {
     fn call() {
         let mut sys = System::default();
         sys.cpu.regs.set(SP, 0x0200);
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             call SUBR
             halt
         SUBR:
@@ -310,49 +310,49 @@ mod tests {
         let mut sys = System::default();
         sys.cpu.flags.zero = false;
         sys.cpu.flags.carry = false;
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0x01
             cmp a, 0x01
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: equal cmp");
         assert_eq!(sys.cpu.flags.carry, true, "carry clear: equal cmp");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0x03
             cmp a, 0x07
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal cmp");
         assert_eq!(sys.cpu.flags.carry, false, "carry set: cmp with borrow");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0x07
             cmp a, 0x03
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal comparison");
         assert_eq!(sys.cpu.flags.carry, true, "carry clear: cmp with no borrow");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld gh, 0xFF03
             cmp gh, 0xFF03
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: equal cmp");
         assert_eq!(sys.cpu.flags.carry, true, "carry clear: equal cmp");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld ab, 0x0003
             cmp ab, 0xFF07
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal cmp");
         assert_eq!(sys.cpu.flags.carry, false, "carry set: cmp with borrow");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld cd, 0x0107
             cmp cd, 0x0103
             halt"))
             .unwrap();
         assert_eq!(sys.cpu.flags.zero, false, "zero set: unequal cmp");
         assert_eq!(sys.cpu.flags.carry, true, "carry clear: cmp with no borrow");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld cd, 0xFFFF
             cmp a, 0x00
             halt"))
@@ -367,27 +367,27 @@ mod tests {
     #[test]
     fn dec() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             dec a
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.regs.get(A), 0x00FF, "wrong A");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld sp, 0xFF01
             dec sp
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.regs.get(SP), 0xFF00, "wrong SP");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0x01
             dec a
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.regs.get(A), 0x0000, "wrong A");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: dec to zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld ef, 0x0001
             dec ef
             halt"))
@@ -398,7 +398,7 @@ mod tests {
     #[test]
     fn dec_nn() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0x02
             ld 0x0010, a
             dec (0x0010)
@@ -406,7 +406,7 @@ mod tests {
             .unwrap();
         assert_hex!(sys.mem.get(0x0010), 0x01, "wrong memory contents");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             dec (0x0010)
             halt"))
             .unwrap();
@@ -417,7 +417,7 @@ mod tests {
     #[test]
     fn dec_rr() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0x02
             ld ef, 0x0010
             ld (ef), a
@@ -426,7 +426,7 @@ mod tests {
             .unwrap();
         assert_hex!(sys.mem.get(0x0010), 0x01, "wrong memory contents");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             dec (ef)
             halt"))
             .unwrap();
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn halt() {
         let mut sys = System::default();
-        sys.trace_program(&asm("halt")).unwrap();
+        sys.trace_program(&assemble("halt")).unwrap();
         assert!(sys.cpu.halt, "not halted");
         assert_hex!(sys.cpu.pc, 0x0101, "wrong PC");
     }
@@ -445,34 +445,34 @@ mod tests {
     #[test]
     fn inc() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             inc d
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.regs.get(D), 0x0001, "wrong D");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             inc ab
             halt"))
             .unwrap();
         sys.debug_print();
         assert_hex!(sys.cpu.regs.get(AB), 0x0001, "wrong AB");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0xFF
             inc a
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.regs.get(A), 0x0000, "wrong A");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld ab, 0xFFFF
             inc ab
             halt"))
             .unwrap();
         assert_hex!(sys.cpu.regs.get(AB), 0x0000, "wrong AB");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld sp, 0xFFFF
             inc sp
             halt"))
@@ -484,7 +484,7 @@ mod tests {
     #[test]
     fn inc_nn() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0xFE
             ld 0x0010, a
             inc (0x0010)
@@ -492,7 +492,7 @@ mod tests {
             .unwrap();
         assert_hex!(sys.mem.get(0x0010), 0xFF, "wrong memory contents");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             inc (0x0010)
             halt"))
             .unwrap();
@@ -503,7 +503,7 @@ mod tests {
     #[test]
     fn inc_rr() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0xFE
             ld cd, 0x0010
             ld (cd), a
@@ -512,7 +512,7 @@ mod tests {
             .unwrap();
         assert_hex!(sys.mem.get(0x0010), 0xFF, "wrong memory contents");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             inc (cd)
             halt"))
             .unwrap();
@@ -523,7 +523,7 @@ mod tests {
     #[test]
     fn ld_reg_imm8() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0xFF
             halt"))
             .unwrap();
@@ -534,7 +534,7 @@ mod tests {
     #[test]
     fn ld_reg_imm16() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld ab, 0x00C0
             ld sp, 0xBEEF
             halt"))
@@ -547,7 +547,7 @@ mod tests {
     #[test]
     fn ld_reg_indirect() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0xFF
             ld 0x0100, a
             ld cd, 0x0100
@@ -564,7 +564,7 @@ mod tests {
     #[test]
     fn ld_reg_reg() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0xFF
             ld b, a
             ld cd, ab
@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn nop() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             nop
             halt"))
             .unwrap();
@@ -591,7 +591,7 @@ mod tests {
     fn pop() {
         let mut sys = System::default();
         sys.mem.load(0xBFFD, &[0x01, 0x02, 0x03]).unwrap();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld sp, 0xBFFC
             pop gh
             pop b
@@ -605,7 +605,7 @@ mod tests {
     #[test]
     fn push() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld sp, 0xBFFF
             ld a, 0xFF
             push a
@@ -623,7 +623,7 @@ mod tests {
     fn ret() {
         let mut sys = System::default();
         sys.cpu.regs.set(SP, 0x0200);
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             call SUBR
             inc a
             halt
@@ -642,7 +642,7 @@ mod tests {
         sys.cpu.regs.set(SP, 0x0200);
         // trap vector 0x01 points to TRAP_1
         sys.mem.load(0x0000, &[0x00, 0x00, 0x10, 0x01]).unwrap();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             trap 0x01
             inc a
             halt
@@ -660,7 +660,7 @@ mod tests {
     #[test]
     fn store_reg_direct() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld a, 0xFF
             ld 0xBEEF, a
             halt"))
@@ -672,7 +672,7 @@ mod tests {
     #[test]
     fn store_reg_indirect() {
         let mut sys = System::default();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             ld ef, 0xBABE
             ld a, 0xFF
             ld (ef), a
@@ -688,7 +688,7 @@ mod tests {
         sys.cpu.regs.set(SP, 0x0200);
         // trap vector 0x01 points to TRAP_1
         sys.mem.load(0x0000, &[0x00, 0x00, 0x10, 0x01]).unwrap();
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             trap 0x01
             halt
             org 0x0110
@@ -708,22 +708,22 @@ mod tests {
     fn zero_flag() {
         let mut sys = System::default();
         assert_eq!(sys.cpu.flags.zero, false, "zero flag wrongly initialised");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             dec a
             halt"))
             .unwrap(); // a = -1
         assert_eq!(sys.cpu.flags.zero, false, "zero flag set after dec");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             inc a
             halt"))
             .unwrap(); // a = 0
         assert_eq!(sys.cpu.flags.zero, true, "zero flag clear after inc");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             inc a
             halt"))
             .unwrap(); // a = 1
         assert_eq!(sys.cpu.flags.zero, false, "zero flag set after inc");
-        sys.trace_program(&asm("
+        sys.trace_program(&assemble("
             dec a
             halt"))
             .unwrap(); // a = 0
