@@ -422,8 +422,12 @@ impl Cpu {
     /// The trap code is used to select a vector from the trap table, and the CPU jumps
     /// to that address after pushing the return address and the trap code to the stack.
     /// Calls the subroutine at `addr`, pushing the return address on the stack.
+    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn trap(&mut self, mut trap_code: u8, bus: &mut Bus) {
+        if trap_code == 0x20 {
+            print!("{}", self.regs.get(Reg::A) as u8 as char);
+        }
         if trap_code >= 0x40 {
             trap_code = TRAP_ILLEGAL;
         }
