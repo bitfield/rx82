@@ -58,6 +58,16 @@ STORE_DEFAULT_VECTOR:
     ld 0x0040, d  ; vector 0x20
     ld 0x0041, c
 
+PRINT_MESSAGE:
+    ld cd, COPYRIGHT_MSG
+    ld b, (cd)
+NEXT_CHAR:
+    inc cd
+    ld a, (cd)
+    trap 0x20
+    dec b
+    bne NEXT_CHAR
+
 INVOKE_MONITOR:
     halt
 
@@ -73,7 +83,7 @@ PUTCHAR:
 
 ; data
 COPYRIGHT_MSG:
-    data 0x1B, "(C) 1982 RX Computers Ltd\n"
+    data 0x23, "(C) 1982 RX Computers Ltd.", 0x0A, "Ready.", 0x0A, 0x0A
 
 ; reset vector
     org 0xFFFE
