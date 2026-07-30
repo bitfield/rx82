@@ -125,6 +125,15 @@ impl Assembler<'_> {
             match token {
                 ByteLiteral(byte) => self.emit_byte(byte)?,
                 Comma => {}
+                DoubleQuote => {
+                    while let Some(ch) = self.chars.next() {
+                        match ch {
+                            '"' => break,
+                            ascii if ch.is_ascii() => self.emit_byte(ascii as u8)?,
+                            other => bail!("non-ASCII character {:#04X} in string", other as u8),
+                        }
+                    }
+                }
                 Newline => break,
                 other => bail!("expected immediate byte, got {other}"),
             }
@@ -577,6 +586,7 @@ impl Assembler<'_> {
                 '(' => self.read_token(ParenOpen),
                 ')' => self.read_token(ParenClose),
                 '\n' => self.read_token(Newline),
+                '"' => self.read_token(DoubleQuote),
                 ch if ch.is_alphabetic() => self.read_identifier(),
                 ch => self.read_token(Illegal(ch.to_string())),
             };
@@ -876,6 +886,7 @@ pub enum Token {
     ByteLiteral(u8),
     Comma,
     Comment(String),
+    DoubleQuote,
     Identifier(String),
     Illegal(String),
     Keyword(String),
@@ -1155,6 +1166,29 @@ mod tests {
 ";
         let generated = assemble(source);
         let object = &[u8::from(Nop), 0x01, 0x02, 0x03, u8::from(Halt)];
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn data_emits_bytes_for_strings() {
+        let source = "
+        nop
+        data 0x01, \"hello\n\", 0x03
+        halt
+";
+        let generated = assemble(source);
+        let object = &[
+            u8::from(Nop),
+            0x01,
+            0x68,
+            0x65,
+            0x6C,
+            0x6C,
+            0x6F,
+            0x0A,
+            0x03,
+            u8::from(Halt),
+        ];
         assert_asm!(source, generated, object);
     }
 

@@ -71,6 +71,10 @@ UNHANDLED_TRAP:
 PUTCHAR:
     rti
 
+; data
+COPYRIGHT_MSG:
+    data 0x1B, "(C) 1982 RX Computers Ltd\n"
+
 ; reset vector
     org 0xFFFE
     data 0x00, 0xC0
