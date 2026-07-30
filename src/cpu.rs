@@ -354,7 +354,8 @@ impl Cpu {
     /// Resets the CPU to its power-on state.
     ///
     /// The initial state is: all registers and flags zero, not halted, state
-    /// [`FetchOpcode`](State::FetchOpcode), and PC = the reset vector.
+    /// [`WaitResetLo`](State::WaitResetLo). On the next tick, the CPU will request the
+    /// reset vector from memory.
     #[inline]
     pub fn reset(&mut self, bus: &mut Bus) {
         *self = Self::default();
@@ -461,9 +462,9 @@ pub enum State {
     FetchOpcode,
     /// Reads the high byte of the address to jump to.
     ReadAddrHi,
-    /// Reads a byte from memory for a decrement instruction.
+    /// Reads a byte from memory for a `dec` instruction.
     ReadDec(u16),
-    /// Reads a byte from memory for an increment instruction.
+    /// Reads a byte from memory for an `inc` instruction.
     ReadInc(u16),
     /// Loads a register from the bus.
     ReadLoad(Reg),
@@ -475,22 +476,22 @@ pub enum State {
     ReadOpLo,
     /// Reads the low byte of the reset vector from the bus.
     ReadResetLo,
-    /// Reads the high byte of the return address for a ret instruction.
+    /// Reads the high byte of the return address for a `ret` instruction.
     ReadRetHi,
-    /// Reads the low byte of the return address for a ret instruction.
+    /// Reads the low byte of the return address for a `ret` instruction.
     ReadRetLo,
     /// Reads the first of two stack values from the bus.
     ReadStackHi(Reg),
-    /// Reads the low byte of the trap vector for a trap instruction.
+    /// Reads the low byte of the trap vector for a `trap` instruction.
     ReadTrapVecLo(u16),
     /// Waits for the high byte of the address to jump to.
     WaitAddrHi,
-    /// Waits for the low byte of the return address to be pushed for a call
+    /// Waits for the low byte of the return address to be pushed for a `call`
     /// instruction.
     WaitCall(u8, u16),
-    /// Waits for a byte from memory for a decrement instruction.
+    /// Waits for a byte from memory for a `dec` instruction.
     WaitDec(u16),
-    /// Waits for a byte from memory for an increment instruction.
+    /// Waits for a byte from memory for an `inc` instruction.
     WaitInc(u16),
     /// Waits for a byte from memory to load a register.
     WaitLoad(Reg),
@@ -506,21 +507,21 @@ pub enum State {
     WaitPush(u8),
     /// Waits for the low byte of the reset vector.
     WaitResetLo,
-    /// Waits for the high byte of the return address for a ret instruction.
+    /// Waits for the high byte of the return address for a `ret` instruction.
     WaitRetHi,
-    /// Waits for the low byte of the return address for a ret instruction.
+    /// Waits for the low byte of the return address for a `ret` instruction.
     WaitRetLo,
     /// Waits for the first of 2 stack pops to a register.
     WaitStackHi(Reg),
-    /// Waits for the trap code to be pushed for a trap instruction.
+    /// Waits for the trap code to be pushed for a `trap` instruction.
     WaitTrapCode(u8),
-    /// Waits for the high byte of the return address to be pushed for a trap
+    /// Waits for the high byte of the return address to be pushed for a `trap`
     /// instruction.
     WaitTrapHi(u8),
-    /// Waits for the low byte of the return address to be pushed for a trap
+    /// Waits for the low byte of the return address to be pushed for a `trap`
     /// instruction.
     WaitTrapLo(u8, u8),
-    /// Waits for the low byte of the trap vector for a trap instruction.
+    /// Waits for the low byte of the trap vector for a `trap` instruction.
     WaitTrapVecLo(u16),
 }
 
@@ -572,7 +573,12 @@ impl Display for State {
 #[cfg(test)]
 #[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
-    use crate::{asm::assemble, regs::Reg::*, system::System};
+    use crate::{
+        asm::{as_hex, assemble},
+        instructions::InstructionKind::Halt,
+        regs::Reg::*,
+        system::System,
+    };
 
     use super::*;
 
@@ -815,6 +821,48 @@ mod tests {
         assert_eq!(sys.cpu.state, WaitPush(0xCA));
         sys.tick();
         assert_eq!(sys.cpu.state, FetchOpcode);
+    }
+
+    #[test]
+    fn cpu_traps_for_various_illegal_programs() {
+        let mut sys = System::default();
+        // dummy trap 0x00 handler, jumps to `halt` at 0x0002
+        sys.mem.load(0x0000, &[0x02, 0x00, u8::from(Halt)]).unwrap();
+        let cases: &[&[u8]] = &[
+            &[0x01, 0xFF], // reserved opcode
+            &[0x2D, 0xFF], // `ld R, (RR)` with invalid regs
+            &[0x2E, 0xFF], // `ld (RR), R` with invalid regs
+            &[0x2F, 0x08], // `ld R, R` with mixed 8/16 regs
+            &[0x3D, 0xFF], // `inc (RR)` with invalid regs
+            &[0x4D, 0xFF], // `dec (RR)` with invalid regs
+            &[0xF9, 0x40], // `trap` with invalid code
+        ];
+        for prog in cases {
+            // initialise stack
+            sys.cpu.regs.set(SP, 0xBFFF);
+            // junk to be overwritten by trap stack frame
+            sys.mem.load(0xBFFD, &[0xFF, 0xFF, 0xFF]).unwrap();
+            sys.trace_program(prog).unwrap();
+            // verify trap stack frame
+            assert_eq!(
+                sys.mem.get(0xBFFD),
+                TRAP_ILLEGAL,
+                "{}: wrong trap code",
+                as_hex(prog)
+            );
+            assert_eq!(
+                sys.mem.get(0xBFFE),
+                0x01,
+                "{}: wrong return address high byte",
+                as_hex(prog)
+            );
+            assert_eq!(
+                sys.mem.get(0xBFFF),
+                u8::try_from(prog.len()).unwrap(),
+                "{}: wrong return address low byte",
+                as_hex(prog)
+            );
+        }
     }
 
     #[expect(clippy::bool_assert_comparison, reason = "clarity")]

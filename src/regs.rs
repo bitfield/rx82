@@ -223,6 +223,7 @@ pub fn u8_from(source: Reg, target: Reg) -> u8 {
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used, reason = "tests")]
 mod tests {
     use crate::regs::{Reg::AB, Reg::*};
 
@@ -233,8 +234,8 @@ mod tests {
         let mut regs = Regs::default();
         regs.set(A, 0x00FF);
         assert_eq!(regs.get(A), 0x00FF, "wrong A");
-        regs.set(B, 0x00FF);
-        assert_eq!(regs.get(B), 0x00FF, "wrong B");
+        regs.set(F, 0x00FF);
+        assert_eq!(regs.get(F), 0x00FF, "wrong F");
     }
 
     #[test]
@@ -247,6 +248,8 @@ mod tests {
         assert_eq!(regs.get(AB), 0xBEEF, "wrong AB");
         assert_eq!(regs.get(A), 0xBE, "wrong A");
         assert_eq!(regs.get(B), 0xEF, "wrong B");
+        regs.set(GH, 0xCAFE);
+        assert_eq!(regs.get(GH), 0xCAFE, "wrong GH");
     }
 
     #[test]
@@ -256,5 +259,25 @@ mod tests {
         regs.set(sp, 0xFFFF);
         assert!(sp.is16(), "SP should be 16-bit");
         assert_eq!(regs.get(sp), 0xFFFF, "wrong SP");
+    }
+
+    #[test]
+    fn reg_display_names_work() {
+        assert_eq!(format!("{}", Reg::F), "f");
+    }
+
+    #[test]
+    fn reg_name_parsing_works() {
+        assert_eq!("f".parse::<Reg>().unwrap(), Reg::F);
+    }
+
+    #[test]
+    fn reg_marshalling_to_u8_works() {
+        assert_eq!(u8::from(Reg::F), 0x05);
+    }
+
+    #[test]
+    fn reg_unmarshalling_from_u8_works() {
+        assert_eq!(Reg::try_from(0x05).unwrap(), Reg::F);
     }
 }

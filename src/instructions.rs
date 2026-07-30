@@ -792,7 +792,7 @@ mod tests {
         ))
         .unwrap();
         assert_hex!(sys.cpu.pc, 0x0113, "wrong PC");
-        assert_hex!(sys.cpu.regs.get(A), 0x01, "wrong A");
+        assert_hex!(sys.cpu.regs.get(A), 0x01, "wrong trap code");
         assert_hex!(sys.peek_mem(0x01FF), 0x01, "wrong high byte on stack");
         assert_hex!(sys.peek_mem(0x0200), 0x02, "wrong low byte on stack");
         assert_hex!(sys.cpu.regs.get(SP), 0x01FD, "wrong SP");

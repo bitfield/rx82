@@ -12,10 +12,10 @@ For boot ROM we need:
 [X] ROM: set up basic trap table / handlers
 [X] Assembler: `data` directive for bytes
 [X] (simulated) BIOS putchar at trap 0x20
+[X] `data` for strings
+[X] ROM: show startup message
 [ ] Assembler: `--zip` flag to generate zipped binaries
 [ ] System: include zipped ROM binary
-[ ] `data` for strings
-[ ] ROM: show startup message
 [ ] ROM: print decimal routine
 [ ] ROM: show bytes free message
 [ ] CPU: invoke monitor from trap
@@ -45,3 +45,5 @@ Other:
 [ ] Disassembler: SkoolKit-style HTML cross-linked listings
 [ ] System: emulated serial device
 [ ] ROM: write character to serial
+[ ] CPU: generate opcode table
+[ ] CPU: generate state transition diagram

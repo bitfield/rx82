@@ -606,8 +606,7 @@ impl Assembler<'_> {
     pub fn org(&mut self) -> Result<()> {
         let addr = match self.next_token() {
             Some(WordLiteral(addr)) => addr,
-            Some(Identifier(label)) => self.resolve_label(&label)?,
-            Some(other) => bail!("expected label or address, got {other}"),
+            Some(other) => bail!("expected address, got {other}"),
             None => bail!("unexpected end of input"),
         };
         if !self.code.is_empty() {
@@ -910,6 +909,16 @@ impl Display for Token {
     }
 }
 
+#[inline]
+#[must_use]
+pub fn as_hex(data: &[u8]) -> String {
+    let mut byte_strs = Vec::new();
+    for byte in data {
+        byte_strs.push(format!("{byte:#04X}"));
+    }
+    format!("[{}]", byte_strs.join(", "))
+}
+
 /// Assembles `source` with debug output, panicking on any error.
 ///
 /// Useful for writing tests.
@@ -1052,31 +1061,55 @@ mod tests {
 
     #[test]
     #[expect(clippy::expect_used, reason = "test")]
+    #[expect(clippy::non_ascii_literal, reason = "test")]
     fn assembler_rejects_invalid_code() {
         let cases: &[&str] = &[
+            "&",
+            "beq",
             "beq UNDEFINED_LABEL",
             "bne 0x1000",
             "bogus",
             "bra a",
+            "call",
             "call gh",
             "call 0x01",
             "cmp a, b, d",
+            "data (",
+            "data \"©\"",
+            "dec",
+            "dec z",
+            "dec (",
             "dec (a)",
+            "inc",
+            "inc ,",
+            "inc (",
             "inc (0xFF)",
             "inc (a)",
             "inc 0x0000",
             "inc ax",
+            "ld",
             "ld (0x0), b",
+            "ld 0x0000",
+            "ld 0x0000, ",
             "ld 0x00AF, ab",
             "ld a",
+            "ld a, ",
             "ld a, cd",
+            "ld a, LABEL",
+            "ld ab, (cd)",
             "ld a, (bogus)",
             "ld a, 0x1000",
+            "ld a, 0xZ",
+            "ld a 0x01",
             "ld ab, 0x00009",
+            "ld ab, 0x--",
             "ld ab, UNDEFINED",
+            "ld cd, 0x09",
+            "ld ef",
             "ld bogus, 0x01",
             "ld ef, 0x02",
             "nop\norg 0x0000",
+            "org 0xFFFF\nld a, 0x01",
             "push",
             "pop 0x01",
             "ret cd",
@@ -1173,7 +1206,7 @@ mod tests {
     fn data_emits_bytes_for_strings() {
         let source = "
         nop
-        data 0x01, \"hello\n\", 0x03
+        data 0x01, \"hello\", 0x0A, 0x03
         halt
 ";
         let generated = assemble(source);
@@ -1193,7 +1226,7 @@ mod tests {
     }
 
     #[test]
-    fn org_sets_label_base_address() {
+    fn org_adjusts_subsequent_label_address() {
         let source = "
         org 0xC000
         call AHEAD
@@ -1262,17 +1295,20 @@ mod tests {
 
     #[test]
     fn disassembler_copes_with_invalid_code() {
-        // Load immediate without a following operand
         assert_disasm!([0x10], "ld a, ??? (no operand)");
+        assert_disasm!([0x2D], "??? (no operand)");
+        assert_disasm!([0x2E], "??? (no operand)");
+        assert_disasm!([0x2F], "??? (no operand)");
+        assert_disasm!([0x3D], "??? (no operand)");
+        assert_disasm!([0x3E], "inc (??? (no operand))");
+        assert_disasm!([0x4D], "??? (no operand)");
+        assert_disasm!([0x4E], "dec (??? (no operand))");
         // Invalid opcode
         assert_disasm!([0xFF, 0xFF], "??? (0xFF)");
     }
 
-    fn as_hex(data: &[u8]) -> String {
-        let mut byte_strs = Vec::new();
-        for byte in data {
-            byte_strs.push(format!("{byte:#04X}"));
-        }
-        format!("[{}]", byte_strs.join(", "))
+    #[test]
+    fn as_hex_fn_formats_value_as_hex() {
+        assert_eq!(as_hex(&[1, 255]), "[0x01, 0xFF]");
     }
 }
