@@ -9,11 +9,12 @@ For boot ROM we need:
 [X] Assembler: `org` directive
 [X] Asm: pad with zeroes before `org` if necessary
 [X] `trap N` / `rti`
-[ ] ROM: set up basic trap table / handlers
-[ ] Assembler: `data` directive 
+[X] ROM: set up basic trap table / handlers
+[X] Assembler: `data` directive for bytes
+[X] (simulated) BIOS putchar at trap 0x20
 [ ] Assembler: `--zip` flag to generate zipped binaries
 [ ] System: include zipped ROM binary
-[ ] (simulated) BIOS putchar at trap 0x20
+[ ] `data` for strings
 [ ] ROM: show startup message
 [ ] ROM: print decimal routine
 [ ] ROM: show bytes free message
@@ -31,6 +32,7 @@ Use case programs to write:
 
 Other:
 [X] Monitor: memory dump should show ROM contents
+[X] CPU: trap on illegal instruction
 [ ] Monitor: bus tracing
 [ ] Monitor: disassembly
 [ ] Monitor: assembly
@@ -40,7 +42,6 @@ Other:
 [ ] Assembler: format source file
 [ ] Assembler: file/line error reporting
 [ ] Assembler: fancy error reporting (`annotate-snippets-rs`)
-[ ] CPU: trap on illegal instruction
 [ ] Disassembler: SkoolKit-style HTML cross-linked listings
 [ ] System: emulated serial device
 [ ] ROM: write character to serial

@@ -20,8 +20,8 @@ pub const BASE: u16 = 0x0100;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "beq", "bne", "bra", "call", "cmp", "dec", "halt", "inc", "ld", "nop", "org", "pop", "push",
-    "ret", "rti", "trap",
+    "beq", "bne", "bra", "call", "cmp", "data", "dec", "halt", "inc", "ld", "nop", "org", "pop",
+    "push", "ret", "rti", "trap",
 ];
 
 /// Assembles a given program.
@@ -88,6 +88,7 @@ impl Assembler<'_> {
             "bne" => self.gen_branch(BranchNe),
             "call" => self.gen_call(),
             "cmp" => self.gen_cmp(),
+            "data" => self.data(),
             "dec" => self.gen_dec(),
             "halt" => self.gen_implied(Halt),
             "inc" => self.gen_inc(),
@@ -112,6 +113,25 @@ impl Assembler<'_> {
         Some(())
     }
 
+    /// Emits literal data.
+    ///
+    /// # Errors
+    ///
+    /// * Syntax errors
+    #[expect(clippy::wildcard_enum_match_arm, reason = "other tokens illegal here")]
+    #[inline]
+    pub fn data(&mut self) -> Result<()> {
+        while let Some(token) = self.next_token() {
+            match token {
+                ByteLiteral(byte) => self.emit_byte(byte)?,
+                Comma => {}
+                Newline => break,
+                other => bail!("expected immediate byte, got {other}"),
+            }
+        }
+        Ok(())
+    }
+
     /// Prints `msg` if in debug mode and this is pass2.
     #[inline]
     pub fn debug_print(&self, msg: impl AsRef<str>) {
@@ -128,10 +148,11 @@ impl Assembler<'_> {
     #[inline]
     pub fn emit_byte(&mut self, byte: u8) -> Result<()> {
         self.code.push(byte);
-        self.loc = self
-            .loc
-            .checked_add(1)
-            .ok_or(anyhow!("code too big for memory"))?;
+        self.loc = self.loc.wrapping_add(1);
+        if self.loc == 1 && self.code.len() > 1 {
+            // We must have wrapped around past the end of memory
+            bail!("code too big for memory");
+        }
         Ok(())
     }
 
@@ -555,6 +576,7 @@ impl Assembler<'_> {
                 ';' => self.read_comment(),
                 '(' => self.read_token(ParenOpen),
                 ')' => self.read_token(ParenClose),
+                '\n' => self.read_token(Newline),
                 ch if ch.is_alphabetic() => self.read_identifier(),
                 ch => self.read_token(Illegal(ch.to_string())),
             };
@@ -603,7 +625,7 @@ impl Assembler<'_> {
     pub fn pass(&mut self) -> Result<()> {
         while let Some(token) = self.next_token() {
             match token {
-                Comment(_) => {}
+                Comment(_) | Newline => {}
                 Keyword(kw) => self.assemble_kw(&kw)?,
                 LabelDef(label) => {
                     self.labels.insert(label, self.loc);
@@ -685,10 +707,14 @@ impl Assembler<'_> {
         })
     }
 
-    /// Advances to the next non-whitespace character.
+    /// Advances to the next non-whitespace, non-newline character.
     #[inline]
     pub fn skip_whitespace(&mut self) {
-        while self.chars.next_if(|ch| ch.is_whitespace()).is_some() {}
+        while self
+            .chars
+            .next_if(|&ch| ch.is_whitespace() && ch != '\n')
+            .is_some()
+        {}
     }
 }
 
@@ -854,6 +880,7 @@ pub enum Token {
     Illegal(String),
     Keyword(String),
     LabelDef(String),
+    Newline,
     ParenClose,
     ParenOpen,
     Register(Reg),
@@ -1116,6 +1143,18 @@ mod tests {
 ";
         let generated = assemble(source);
         let object = &[u8::from(Call), 0x04, 0x01, u8::from(Halt), u8::from(Halt)];
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn data_emits_literal_bytes() {
+        let source = "
+        nop
+        data 0x01, 0x02, 0x03
+        halt
+";
+        let generated = assemble(source);
+        let object = &[u8::from(Nop), 0x01, 0x02, 0x03, u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
 

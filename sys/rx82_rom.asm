@@ -70,3 +70,7 @@ UNHANDLED_TRAP:
 
 PUTCHAR:
     rti
+
+; reset vector
+    org 0xFFFE
+    data 0x00, 0xC0

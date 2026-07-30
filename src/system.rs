@@ -89,9 +89,7 @@ impl Default for System {
             mem: Memory::default(),
             cycles: 0,
         };
-        let mut data = Vec::from(ROM_DATA);
-        data.resize(0x3FFE, 0);
-        data.extend([0x00, 0xC0]);
+        let data = Vec::from(ROM_DATA);
         let rom = Rom {
             start: 0xC000,
             end: 0xFFFF,
