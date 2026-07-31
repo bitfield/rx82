@@ -43,8 +43,8 @@ pub struct Snapshot {
 /// turn, in this order:
 ///
 /// 1. CPU
-/// 2. Memory
-/// 3. Devices in the `devices` list, in order of decreasing priority.
+/// 2. Devices in the `devices` list, in order of decreasing priority.
+/// 3. Memory
 /// 4. Clock
 ///
 /// Each device has a chance to write to the bus on its tick, but if a higher-priority

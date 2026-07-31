@@ -175,19 +175,21 @@ impl Regs {
     #[inline]
     pub fn set(&mut self, reg: Reg, val: u16) -> u16 {
         use Reg::*;
+        let byte = val as u8;
+        let [hi, lo] = val.to_be_bytes();
         match reg {
-            A => self.ra = val as u8,
-            B => self.rb = val as u8,
-            C => self.rc = val as u8,
-            D => self.rd = val as u8,
-            E => self.re = val as u8,
-            F => self.rf = val as u8,
-            G => self.rg = val as u8,
-            H => self.rh = val as u8,
-            AB => [self.ra, self.rb] = val.to_be_bytes(),
-            CD => [self.rc, self.rd] = val.to_be_bytes(),
-            EF => [self.re, self.rf] = val.to_be_bytes(),
-            GH => [self.rg, self.rh] = val.to_be_bytes(),
+            A => self.ra = byte,
+            B => self.rb = byte,
+            C => self.rc = byte,
+            D => self.rd = byte,
+            E => self.re = byte,
+            F => self.rf = byte,
+            G => self.rg = byte,
+            H => self.rh = byte,
+            AB => [self.ra, self.rb] = [hi, lo],
+            CD => [self.rc, self.rd] = [hi, lo],
+            EF => [self.re, self.rf] = [hi, lo],
+            GH => [self.rg, self.rh] = [hi, lo],
             SP => self.sp = val,
         }
         self.get(reg)

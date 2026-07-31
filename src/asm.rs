@@ -1,4 +1,4 @@
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, bail};
 
 use core::{
     fmt::{Debug, Display, Formatter},
@@ -100,7 +100,7 @@ impl Assembler<'_> {
             "ret" => self.gen_implied(Ret),
             "rti" => self.gen_implied(Rti),
             "trap" => self.gen_trap(),
-            _ => bail!("unknown keyword '{kw}'"),
+            _ => unreachable!("unknown keyword '{kw}'"),
         }
     }
 
@@ -141,7 +141,7 @@ impl Assembler<'_> {
         Ok(())
     }
 
-    /// Prints `msg` if in debug mode and this is pass2.
+    /// Prints `msg` if in debug mode, but only in pass 1.
     #[inline]
     pub fn debug_print(&self, msg: impl AsRef<str>) {
         if self.debug && !self.pass2 {
@@ -174,10 +174,11 @@ impl Assembler<'_> {
     #[inline]
     pub fn emit_word(&mut self, word: u16) -> Result<()> {
         self.code.extend(word.to_le_bytes());
-        self.loc = self
-            .loc
-            .checked_add(2)
-            .ok_or(anyhow!("code too big for memory"))?;
+        self.loc = self.loc.wrapping_add(2);
+        if self.loc <= 2 && self.code.len() > 2 {
+            // We must have wrapped around past the end of memory
+            bail!("code too big for memory");
+        }
         Ok(())
     }
 
@@ -235,20 +236,12 @@ impl Assembler<'_> {
     /// If the operand is missing or the wrong size.
     #[inline]
     pub fn expect_op_for_reg(&mut self, reg: Reg) -> Result<Vec<u8>> {
-        Ok(if reg.is16() {
-            let operand = match self.next_token() {
-                Some(WordLiteral(operand)) => operand,
-                Some(other) => bail!("expected immediate word, got {other}"),
-                None => bail!("unexpected end of input"),
-            };
-            Vec::from(operand.to_le_bytes())
-        } else {
-            let operand = match self.next_token() {
-                Some(ByteLiteral(operand)) => operand,
-                Some(other) => bail!("expected immediate byte, got {other}"),
-                None => bail!("unexpected end of input"),
-            };
-            vec![operand]
+        Ok(match self.next_token() {
+            Some(ByteLiteral(operand)) if !reg.is16() => vec![operand],
+            Some(WordLiteral(operand)) if reg.is16() => Vec::from(operand.to_le_bytes()),
+            Some(other) if reg.is16() => bail!("expected immediate word, got {other}"),
+            Some(other) => bail!("expected immediate byte, got {other}"),
+            None => bail!("unexpected end of input"),
         })
     }
 
@@ -392,7 +385,7 @@ impl Assembler<'_> {
                 self.emit_byte(u8::from(kind))?;
                 Ok(())
             }
-            _ => bail!("invalid instruction kind {kind:?}"),
+            _ => unreachable!("invalid instruction kind {kind:?}"),
         }
     }
 
@@ -949,6 +942,7 @@ pub fn disassemble(code: &[u8]) -> String {
 
 #[cfg(test)]
 #[expect(clippy::unwrap_used, reason = "tests")]
+#[expect(clippy::expect_used, reason = "tests")]
 #[expect(clippy::default_numeric_fallback, reason = "hex literals")]
 mod tests {
     use super::*;
@@ -1060,7 +1054,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(clippy::expect_used, reason = "test")]
     #[expect(clippy::non_ascii_literal, reason = "test")]
     fn assembler_rejects_invalid_code() {
         let cases: &[&str] = &[
@@ -1226,6 +1219,36 @@ mod tests {
     }
 
     #[test]
+    fn emit_byte_fn_detects_wraparound_of_memory() {
+        let source = "
+        org 0xFFFF
+        data 0x01, 0x02";
+        let mut asm = Assembler::from(source);
+        asm.debug = true;
+        asm.assemble().expect_err("overflowing memory should fail");
+    }
+
+    #[test]
+    fn emit_word_fn_detects_wraparound_of_memory_before_word() {
+        let source = "
+        org 0xFFFF
+        call 0xBABE";
+        let mut asm = Assembler::from(source);
+        asm.debug = true;
+        asm.assemble().expect_err("overflowing memory should fail");
+    }
+
+    #[test]
+    fn emit_word_fn_detects_wraparound_of_memory_in_mid_word() {
+        let source = "
+        org 0xFFFE
+        call 0xBABE";
+        let mut asm = Assembler::from(source);
+        asm.debug = true;
+        asm.assemble().expect_err("overflowing memory should fail");
+    }
+
+    #[test]
     fn org_adjusts_subsequent_label_address() {
         let source = "
         org 0xC000
@@ -1274,7 +1297,6 @@ mod tests {
         assert_asm!(source, generated, &object);
     }
 
-    #[expect(clippy::expect_used, reason = "test")]
     #[test]
     fn get_displacement_fn_rejects_out_of_range_displacement() {
         let mut source = String::from("LOOP:\n");

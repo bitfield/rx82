@@ -97,14 +97,14 @@ impl Device for Cpu {
             ReadDec(addr) => {
                 let mut val = bus.data;
                 val = val.wrapping_sub(1);
-                bus.mem_write(addr, val);
+                bus.write_mem(addr, val);
                 self.flags.zero = val == 0;
                 FetchOpcode
             }
             ReadInc(addr) => {
                 let mut val = bus.data;
                 val = val.wrapping_add(1);
-                bus.mem_write(addr, val);
+                bus.write_mem(addr, val);
                 self.flags.zero = val == 0;
                 FetchOpcode
             }
@@ -129,7 +129,7 @@ impl Device for Cpu {
             }
             ReadResetLo => {
                 self.op_lo = bus.data;
-                bus.mem_read(VEC_RESET.wrapping_add(1));
+                bus.read_mem(VEC_RESET.wrapping_add(1));
                 WaitAddrHi
             }
             ReadAddrHi => {
@@ -154,7 +154,7 @@ impl Device for Cpu {
             }
             ReadTrapVecLo(addr) => {
                 self.op_lo = bus.data;
-                bus.mem_read(addr);
+                bus.read_mem(addr);
                 WaitAddrHi
             }
             WaitCall(hi, subr_addr) => {
@@ -180,7 +180,7 @@ impl Device for Cpu {
             WaitRetLo => ReadRetLo,
             WaitTrapCode(trap_code) => {
                 let mut vec_addr = u16::from(trap_code.strict_mul(2));
-                bus.mem_read(vec_addr);
+                bus.read_mem(vec_addr);
                 vec_addr = vec_addr.wrapping_add(1);
                 WaitTrapVecLo(vec_addr)
             }
@@ -224,10 +224,9 @@ impl Cpu {
     }
 
     /// Decrements the value at address in `reg`, updating flags.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn dec_indirect(&mut self, bus: &mut Bus) {
-        if let Some((source, _)) = source_and_target_from(self.op() as u8)
+        if let Some((source, _)) = source_and_target_from(self.op_lo)
             && source.is16()
         {
             let addr = self.regs.get(source);
@@ -240,7 +239,7 @@ impl Cpu {
     /// Decrements the value in address `addr`, updating flags.
     #[inline]
     pub fn dec_mem(&mut self, addr: u16, bus: &mut Bus) {
-        bus.mem_read(addr);
+        bus.read_mem(addr);
         self.state = WaitDec(addr);
     }
 
@@ -254,7 +253,7 @@ impl Cpu {
     /// Issues a memory fetch and advances PC.
     #[inline]
     pub fn fetch_and_advance(&mut self, bus: &mut Bus) {
-        bus.mem_read(self.pc);
+        bus.read_mem(self.pc);
         self.pc = self.pc.wrapping_add(1);
     }
 
@@ -265,10 +264,9 @@ impl Cpu {
     }
 
     /// Increments the value at address in `reg`, updating flags.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn inc_indirect(&mut self, bus: &mut Bus) {
-        if let Some((source, _)) = source_and_target_from(self.op() as u8)
+        if let Some((source, _)) = source_and_target_from(self.op_lo)
             && source.is16()
         {
             let addr = self.regs.get(source);
@@ -281,7 +279,7 @@ impl Cpu {
     /// Increments the value in address `addr`, updating flags.
     #[inline]
     pub fn inc_mem(&mut self, addr: u16, bus: &mut Bus) {
-        bus.mem_read(addr);
+        bus.read_mem(addr);
         self.state = WaitInc(addr);
     }
 
@@ -293,11 +291,10 @@ impl Cpu {
     }
 
     /// Executes a load register indirect instruction.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn ld_reg_indirect(&mut self, bus: &mut Bus) {
-        if let Some((source, target)) = source_and_target_from(self.op() as u8) {
-            bus.mem_read(self.regs.get(source));
+        if let Some((source, target)) = source_and_target_from(self.op_lo) {
+            bus.read_mem(self.regs.get(source));
             self.state = WaitLoad(target);
         } else {
             self.trap(TRAP_ILLEGAL, bus);
@@ -305,10 +302,9 @@ impl Cpu {
     }
 
     /// Executes a load register register instruction.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn ld_reg_reg(&mut self, bus: &mut Bus) {
-        if let Some((source, target)) = source_and_target_from(self.op() as u8)
+        if let Some((source, target)) = source_and_target_from(self.op_lo)
             && source.is16() == target.is16()
         {
             self.regs.set(target, self.regs.get(source));
@@ -347,7 +343,6 @@ impl Cpu {
             self.state = WaitPush(hi);
         } else {
             self.stack_push(val as u8, bus);
-            self.state = FetchOpcode;
         }
     }
 
@@ -359,7 +354,7 @@ impl Cpu {
     #[inline]
     pub fn reset(&mut self, bus: &mut Bus) {
         *self = Self::default();
-        bus.mem_read(VEC_RESET);
+        bus.read_mem(VEC_RESET);
         self.state = WaitResetLo;
     }
 
@@ -375,7 +370,7 @@ impl Cpu {
     pub fn rti(&mut self, bus: &mut Bus) {
         let mut addr = self.regs.get(Reg::SP);
         addr = addr.wrapping_add(2); // skip trap code
-        bus.mem_read(addr);
+        bus.read_mem(addr);
         self.regs.set(Reg::SP, addr);
         self.state = WaitRetHi;
     }
@@ -385,7 +380,7 @@ impl Cpu {
     pub fn stack_pop(&mut self, bus: &mut Bus) {
         let mut addr = self.regs.get(Reg::SP);
         addr = addr.wrapping_add(1);
-        bus.mem_read(addr);
+        bus.read_mem(addr);
         self.regs.set(Reg::SP, addr);
     }
 
@@ -393,7 +388,7 @@ impl Cpu {
     #[inline]
     pub fn stack_push(&mut self, val: u8, bus: &mut Bus) {
         let mut addr = self.regs.get(Reg::SP);
-        bus.mem_write(addr, val);
+        bus.write_mem(addr, val);
         addr = addr.wrapping_sub(1);
         self.regs.set(Reg::SP, addr);
     }
@@ -402,17 +397,15 @@ impl Cpu {
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn store_reg_direct(&mut self, reg: Reg, bus: &mut Bus) {
-        bus.mem_write(self.op(), self.regs.get(reg) as u8);
-        self.state = FetchOpcode;
+        bus.write_mem(self.op(), self.regs.get(reg) as u8);
     }
 
     /// Executes a store register indirect instruction.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn store_reg_indirect(&mut self, bus: &mut Bus) {
-        if let Some((source, target)) = source_and_target_from(self.op() as u8) {
-            bus.mem_write(self.regs.get(target), self.regs.get(source) as u8);
-            self.state = FetchOpcode;
+        if let Some((source, target)) = source_and_target_from(self.op_lo) {
+            bus.write_mem(self.regs.get(target), self.regs.get(source) as u8);
         } else {
             self.trap(TRAP_ILLEGAL, bus);
         }
@@ -422,7 +415,6 @@ impl Cpu {
     ///
     /// The trap code is used to select a vector from the trap table, and the CPU jumps
     /// to that address after pushing the return address and the trap code to the stack.
-    /// Calls the subroutine at `addr`, pushing the return address on the stack.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn trap(&mut self, mut trap_code: u8, bus: &mut Bus) {
@@ -555,7 +547,7 @@ impl Display for State {
                 WaitOpHi => "WOPH",
                 WaitOpLo => "WOPL",
                 WaitOpcode => "WOPC",
-                WaitPush(_) => "WWRT",
+                WaitPush(_) => "WPSH",
                 WaitAddrHi => "WTAH",
                 WaitResetLo => "WRSL",
                 WaitRetHi => "WRTH",
@@ -585,16 +577,10 @@ mod tests {
     #[test]
     fn cpu_states_are_correct_for_1_byte_instruction() {
         let mut sys = System::default();
-        sys.mem
-            .load(
-                0x0100,
-                &assemble(
-                    "
-                    nop
-                    halt",
-                ),
-            )
-            .unwrap();
+        let source = "
+        nop
+        halt";
+        sys.mem.load(0x0100, &assemble(source)).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         assert_eq!(sys.cpu.pc, 0x0100);
@@ -615,16 +601,10 @@ mod tests {
     #[test]
     fn cpu_states_are_correct_for_2_byte_instruction() {
         let mut sys = System::default();
-        sys.mem
-            .load(
-                0x0100,
-                &assemble(
-                    "
-                    ld a, 0xFF
-                    halt",
-                ),
-            )
-            .unwrap();
+        let source = "
+        ld a, 0xFF
+        halt";
+        sys.mem.load(0x0100, &assemble(source)).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -647,16 +627,10 @@ mod tests {
     #[test]
     fn cpu_states_are_correct_for_3_byte_instruction() {
         let mut sys = System::default();
-        sys.mem
-            .load(
-                0x0100,
-                &assemble(
-                    "
-                    ld ab, 0xBEEF
-                    halt",
-                ),
-            )
-            .unwrap();
+        let source = "
+        ld ab, 0xBEEF
+        halt";
+        sys.mem.load(0x0100, &assemble(source)).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -684,18 +658,12 @@ mod tests {
     #[test]
     fn cpu_states_are_correct_for_mem_read_instruction() {
         let mut sys = System::default();
+        let source = "
+        ld b, (cd)
+        halt";
         sys.mem.set(0x0110, 0xFF);
         sys.cpu.regs.set(Reg::CD, 0x0110);
-        sys.mem
-            .load(
-                0x0100,
-                &assemble(
-                    "
-                    ld b, (cd)
-                    halt",
-                ),
-            )
-            .unwrap();
+        sys.mem.load(0x0100, &assemble(source)).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -723,16 +691,10 @@ mod tests {
     #[test]
     fn cpu_states_are_correct_for_mem_write_instruction() {
         let mut sys = System::default();
-        sys.mem
-            .load(
-                0x0100,
-                &assemble(
-                    "
-                    ld 0xBEEF, a
-                    halt",
-                ),
-            )
-            .unwrap();
+        let source = "
+        ld 0xBEEF, a
+        halt";
+        sys.mem.load(0x0100, &assemble(source)).unwrap();
         sys.cpu.pc = 0x0100;
         sys.cpu.regs.set(A, 0xFF);
         assert_eq!(sys.cpu.state, FetchOpcode);
@@ -762,18 +724,12 @@ mod tests {
     #[test]
     fn cpu_states_are_correct_for_16_bit_pop_instruction() {
         let mut sys = System::default();
+        let source = "
+        pop cd
+        halt";
         sys.mem.load(0xBFFE, &[0xBA, 0xBE]).unwrap();
         sys.cpu.regs.set(SP, 0xBFFD);
-        sys.mem
-            .load(
-                0x0100,
-                &assemble(
-                    "
-                    pop cd
-                    halt",
-                ),
-            )
-            .unwrap();
+        sys.mem.load(0x0100, &assemble(source)).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -797,18 +753,12 @@ mod tests {
     #[test]
     fn cpu_states_are_correct_for_16_bit_push_instruction() {
         let mut sys = System::default();
+        let source = "
+        push ab
+        halt";
         sys.cpu.regs.set(SP, 0xBFFF);
         sys.cpu.regs.set(AB, 0xCAFE);
-        sys.mem
-            .load(
-                0x0100,
-                &assemble(
-                    "
-                    push ab
-                    halt",
-                ),
-            )
-            .unwrap();
+        sys.mem.load(0x0100, &assemble(source)).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();

@@ -1,5 +1,3 @@
-use anyhow::{Result, ensure};
-
 /// A desired or asserted bus state.
 #[non_exhaustive]
 #[derive(Clone, Debug)]
@@ -33,43 +31,6 @@ pub struct Bus {
 }
 
 impl Bus {
-    /// Asserts all the given bus states.
-    ///
-    /// # Errors
-    ///
-    /// On the first failed assertion.
-    #[inline]
-    pub fn assert(&self, states: &[Bstate], msg: impl AsRef<str>) -> Result<()> {
-        let msg = msg.as_ref();
-        for state in states {
-            match *state {
-                Bstate::Addr(addr) => ensure!(
-                    self.addr == addr,
-                    "want bus addr {:04X}, got {:04X} {msg}",
-                    addr,
-                    self.addr
-                ),
-                Bstate::Data(data) => ensure!(
-                    self.data == data,
-                    "want bus data {:02X}, got {:02X} {msg}",
-                    data,
-                    self.data
-                ),
-                Bstate::Mem(mem) => ensure!(
-                    self.mem == mem,
-                    "/MEM line {} {msg}",
-                    if self.mem { "active" } else { "inactive" }
-                ),
-                Bstate::Write(wr) => ensure!(
-                    self.write == wr,
-                    "/WR line {} {msg}",
-                    if self.write { "active" } else { "inactive" }
-                ),
-            }
-        }
-        Ok(())
-    }
-
     /// Sets the `/MEM` line inactive.
     #[inline]
     pub fn disable_mem(&mut self) {
@@ -78,22 +39,11 @@ impl Bus {
 
     /// Issues a memory read request for `addr`.
     #[inline]
-    pub fn mem_read(&mut self, addr: u16) {
+    pub fn read_mem(&mut self, addr: u16) {
         self.pending_write.get_or_insert(vec![
             Bstate::Addr(addr),
             Bstate::Mem(true),
             Bstate::Write(false),
-        ]);
-    }
-
-    /// Issues a memory write request for `addr` with `val`.
-    #[inline]
-    pub fn mem_write(&mut self, addr: u16, val: u8) {
-        self.pending_write.get_or_insert(vec![
-            Bstate::Addr(addr),
-            Bstate::Data(val),
-            Bstate::Mem(true),
-            Bstate::Write(true),
         ]);
     }
 
@@ -117,29 +67,45 @@ impl Bus {
     pub fn write_data(&mut self, data: u8) {
         self.pending_write.get_or_insert(vec![Bstate::Data(data)]);
     }
+
+    /// Issues a memory write request for `addr` with `val`.
+    #[inline]
+    pub fn write_mem(&mut self, addr: u16, val: u8) {
+        self.pending_write.get_or_insert(vec![
+            Bstate::Addr(addr),
+            Bstate::Data(val),
+            Bstate::Mem(true),
+            Bstate::Write(true),
+        ]);
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use anyhow::{Result, ensure};
+
     use crate::{asm::assemble, system::System};
 
     use super::*;
 
     #[test]
-    fn program_executes_with_correct_bus_states() -> Result<()> {
+    #[expect(clippy::unwrap_used, reason = "test")]
+    fn program_executes_with_correct_bus_states() {
         let mut sys = System {
             debug: true,
             ..Default::default()
         };
-        sys.mem.load(
-            0x0100,
-            &assemble(
-                "
+        sys.mem
+            .load(
+                0x0100,
+                &assemble(
+                    "
                 ld a, 0xFF
                 nop
                 halt",
-            ),
-        )?;
+                ),
+            )
+            .unwrap();
         sys.cpu.pc = 0x0100;
         let ticks = vec![
             (
@@ -189,10 +155,49 @@ mod tests {
         ];
 
         for (msg, start_states) in ticks {
-            sys.bus.assert(start_states, msg).inspect_err(|_| {
-                sys.trace();
-            })?;
+            assert(&sys.bus, start_states, msg)
+                .inspect_err(|_| {
+                    sys.trace();
+                })
+                .unwrap();
             sys.tick();
+        }
+    }
+
+    /// Asserts all the given bus states.
+    ///
+    /// # Errors
+    ///
+    /// On the first failed assertion.
+    #[expect(clippy::single_call_fn, reason = "clarity")]
+    #[inline]
+    pub fn assert(bus: &Bus, states: &[Bstate], msg: impl AsRef<str>) -> Result<()> {
+        let msg = msg.as_ref();
+        for state in states {
+            match *state {
+                Bstate::Addr(addr) => ensure!(
+                    bus.addr == addr,
+                    "want bus addr {:04X}, got {:04X} {msg}",
+                    addr,
+                    bus.addr
+                ),
+                Bstate::Data(data) => ensure!(
+                    bus.data == data,
+                    "want bus data {:02X}, got {:02X} {msg}",
+                    data,
+                    bus.data
+                ),
+                Bstate::Mem(mem) => ensure!(
+                    bus.mem == mem,
+                    "/MEM line {} {msg}",
+                    if bus.mem { "active" } else { "inactive" }
+                ),
+                Bstate::Write(wr) => ensure!(
+                    bus.write == wr,
+                    "/WR line {} {msg}",
+                    if bus.write { "active" } else { "inactive" }
+                ),
+            }
         }
         Ok(())
     }
