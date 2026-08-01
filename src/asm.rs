@@ -9,8 +9,7 @@ use core::{
 use std::collections::HashMap;
 
 use crate::{
-    instructions::InstructionKind::{self, *},
-    regs::{self, Reg, source_and_target_from, u8_from},
+    instructions::InstructionKind::{self, *}, regs::{self, Reg, source_and_target_from, source_from, u8_from},
 };
 
 use Token::*;
@@ -104,25 +103,15 @@ impl Assembler<'_> {
         }
     }
 
-    /// Skips the given string (or as much of it as is present in the source).
-    #[inline]
-    pub fn chomp(&mut self, st: &str) -> Option<()> {
-        for want in st.chars() {
-            _ = self.chars.next_if(|&got| want == got)?;
-        }
-        Some(())
-    }
-
     /// Emits literal data.
     ///
     /// # Errors
     ///
     /// * Syntax errors
-    #[expect(clippy::wildcard_enum_match_arm, reason = "other tokens illegal here")]
     #[inline]
     pub fn data(&mut self) -> Result<()> {
-        while let Some(token) = self.next_token() {
-            match token {
+        loop {
+            match self.next_token()? {
                 ByteLiteral(byte) => self.emit_byte(byte)?,
                 Comma => {}
                 DoubleQuote => {
@@ -189,9 +178,7 @@ impl Assembler<'_> {
     /// If the next token does not match the expectation.
     #[inline]
     pub fn expect(&mut self, expected: &Token) -> Result<()> {
-        let Some(token) = self.next_token() else {
-            bail!("unexpected end of input")
-        };
+        let token = self.next_token()?;
         if token != *expected {
             bail!("expected {expected}, got {token}")
         }
@@ -210,8 +197,9 @@ impl Assembler<'_> {
     #[expect(clippy::cast_possible_truncation, reason = "code ensures valid range")]
     #[inline]
     pub fn expect_displacement(&mut self) -> Result<u8> {
-        match self.next_token() {
-            Some(Identifier(label)) if self.pass2 => {
+        match self.next_token()? {
+            ByteLiteral(dis) => Ok(dis),
+            Identifier(label) if self.pass2 => {
                 let addr = self.resolve_label(&label)?;
                 // Displacement is calculated relative to the address of the next
                 // instruction (i.e. PC+2)
@@ -222,10 +210,8 @@ impl Assembler<'_> {
                     _ => bail!("displacement out of range: {long_dis:#06X}"),
                 }
             }
-            Some(Identifier(_)) => Ok(0), // resolve for real on next pass
-            Some(ByteLiteral(dis)) => Ok(dis),
-            Some(other) => bail!("expected label or immediate byte displacement, got {other}"),
-            None => bail!("unexpected end of input"),
+            Identifier(_) => Ok(0), // resolve for real on next pass
+            other => bail!("expected label or immediate byte displacement, got {other}"),
         }
     }
 
@@ -236,12 +222,11 @@ impl Assembler<'_> {
     /// If the operand is missing or the wrong size.
     #[inline]
     pub fn expect_op_for_reg(&mut self, reg: Reg) -> Result<Vec<u8>> {
-        Ok(match self.next_token() {
-            Some(ByteLiteral(operand)) if !reg.is16() => vec![operand],
-            Some(WordLiteral(operand)) if reg.is16() => Vec::from(operand.to_le_bytes()),
-            Some(other) if reg.is16() => bail!("expected immediate word, got {other}"),
-            Some(other) => bail!("expected immediate byte, got {other}"),
-            None => bail!("unexpected end of input"),
+        Ok(match self.next_token()? {
+            ByteLiteral(operand) if !reg.is16() => vec![operand],
+            WordLiteral(operand) if reg.is16() => Vec::from(operand.to_le_bytes()),
+            other if reg.is16() => bail!("expected immediate word, got {other}"),
+            other => bail!("expected immediate byte, got {other}"),
         })
     }
 
@@ -252,10 +237,9 @@ impl Assembler<'_> {
     /// If the next token is not a register name.
     #[inline]
     pub fn expect_reg(&mut self) -> Result<Reg> {
-        let reg = match self.next_token() {
-            Some(Register(reg)) => reg,
-            Some(other) => bail!("expected register name, got {other}"),
-            None => bail!("unexpected end of input"),
+        let reg = match self.next_token()? {
+            Register(reg) => reg,
+            other => bail!("expected register name, got {other}"),
         };
         Ok(reg)
     }
@@ -267,11 +251,10 @@ impl Assembler<'_> {
     /// If the next token is not a 16-bit register name.
     #[inline]
     pub fn expect_reg16(&mut self) -> Result<Reg> {
-        let reg = match self.next_token() {
-            Some(Register(reg)) if reg.is16() => reg,
-            Some(Register(reg)) => bail!("expected 16-bit register name, got '{reg}'"),
-            Some(other) => bail!("expected register name, got {other}"),
-            None => bail!("unexpected end of input"),
+        let reg = match self.next_token()? {
+            Register(reg) if reg.is16() => reg,
+            Register(reg) => bail!("expected 16-bit register name, got '{reg}'"),
+            other => bail!("expected register name, got {other}"),
         };
         Ok(reg)
     }
@@ -283,11 +266,10 @@ impl Assembler<'_> {
     /// If the next token is not a 8-bit register name.
     #[inline]
     pub fn expect_reg8(&mut self) -> Result<Reg> {
-        let reg = match self.next_token() {
-            Some(Register(reg)) if !reg.is16() => reg,
-            Some(Register(reg)) => bail!("expected 8-bit register name, got '{reg}'"),
-            Some(other) => bail!("expected register name, got {other}"),
-            None => bail!("unexpected end of input"),
+        let reg = match self.next_token()? {
+            Register(reg) if !reg.is16() => reg,
+            Register(reg) => bail!("expected 8-bit register name, got '{reg}'"),
+            other => bail!("expected register name, got {other}"),
         };
         Ok(reg)
     }
@@ -312,11 +294,10 @@ impl Assembler<'_> {
     /// * Missing or invalid label or address.
     #[inline]
     pub fn gen_call(&mut self) -> Result<()> {
-        let addr = match self.next_token() {
-            Some(WordLiteral(addr)) => addr,
-            Some(Identifier(label)) => self.resolve_label(&label)?,
-            Some(other) => bail!("expected label or address, got {other}"),
-            None => bail!("unexpected end of input"),
+        let addr = match self.next_token()? {
+            WordLiteral(addr) => addr,
+            Identifier(label) => self.resolve_label(&label)?,
+            other => bail!("expected label or address, got {other}"),
         };
         self.emit_byte(u8::from(Call))?;
         self.emit_word(addr)?;
@@ -349,25 +330,23 @@ impl Assembler<'_> {
     /// * Missing or invalid register name or address
     #[inline]
     pub fn gen_dec(&mut self) -> Result<()> {
-        match self.next_token() {
-            Some(Register(reg)) => self.emit_byte(u8::from(Dec(reg)))?,
-            Some(ParenOpen) => match self.next_token() {
-                Some(Register(source)) if source.is16() => {
+        match self.next_token()? {
+            Register(reg) => self.emit_byte(u8::from(Dec(reg)))?,
+            ParenOpen => match self.next_token()? {
+                Register(source) if source.is16() => {
                     self.expect(&ParenClose)?;
                     self.emit_byte(u8::from(DecIndirect))?;
                     let reg = u8_from(source, Reg::A); // dummy target
                     self.emit_byte(reg)?;
                 }
-                Some(WordLiteral(addr)) => {
+                WordLiteral(addr) => {
                     self.expect(&ParenClose)?;
                     self.emit_byte(u8::from(DecMem))?;
                     self.emit_word(addr)?;
                 }
-                Some(other) => bail!("expected 16-bit register or address, got {other}"),
-                None => bail!("unexpected end of input"),
+                other => bail!("expected 16-bit register or address, got {other}"),
             },
-            Some(other) => bail!("expected register or indirect address, got {other}"),
-            None => bail!("unexpected end of input"),
+            other => bail!("expected register or indirect address, got {other}"),
         }
         Ok(())
     }
@@ -377,7 +356,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * If the instruction is not an implied-address instruction.
-    #[expect(clippy::wildcard_enum_match_arm, reason = "others are invalid")]
     #[inline]
     pub fn gen_implied(&mut self, kind: InstructionKind) -> Result<()> {
         match kind {
@@ -396,25 +374,23 @@ impl Assembler<'_> {
     /// * Missing or invalid register name or address
     #[inline]
     pub fn gen_inc(&mut self) -> Result<()> {
-        match self.next_token() {
-            Some(Register(reg)) => self.emit_byte(u8::from(Inc(reg)))?,
-            Some(ParenOpen) => match self.next_token() {
-                Some(Register(source)) if source.is16() => {
+        match self.next_token()? {
+            Register(reg) => self.emit_byte(u8::from(Inc(reg)))?,
+            ParenOpen => match self.next_token()? {
+                Register(source) if source.is16() => {
                     self.expect(&ParenClose)?;
                     self.emit_byte(u8::from(IncIndirect))?;
                     let reg = u8_from(source, Reg::A); // dummy target
                     self.emit_byte(reg)?;
                 }
-                Some(WordLiteral(addr)) => {
+                WordLiteral(addr) => {
                     self.expect(&ParenClose)?;
                     self.emit_byte(u8::from(IncMem))?;
                     self.emit_word(addr)?;
                 }
-                Some(other) => bail!("expected 16-bit register or address, got {other}"),
-                None => bail!("unexpected end of input"),
+                other => bail!("expected 16-bit register or address, got {other}"),
             },
-            Some(other) => bail!("expected register or indirect address, got {other}"),
-            None => bail!("unexpected end of input"),
+            other => bail!("expected register or indirect address, got {other}"),
         }
         Ok(())
     }
@@ -426,52 +402,49 @@ impl Assembler<'_> {
     /// * Syntax errors
     #[inline]
     pub fn gen_ld(&mut self) -> Result<()> {
-        match self.next_token() {
-            Some(ParenOpen) => self.gen_store_indirect(),
-            Some(Register(target)) => {
+        match self.next_token()? {
+            ParenOpen => self.gen_store_indirect(),
+            Register(target) => {
                 self.expect(&Comma)?;
                 self.skip_whitespace();
-                match self.next_token() {
-                    Some(Identifier(label)) if target.is16() && self.pass2 => {
+                match self.next_token()? {
+                    Identifier(label) if target.is16() && self.pass2 => {
                         let word = self.resolve_label(&label)?;
                         self.emit_byte(u8::from(LdRegImm(target)))?;
                         self.emit_word(word)?;
                         Ok(())
                     }
-                    Some(Identifier(_)) if target.is16() => {
+                    Identifier(_) if target.is16() => {
                         self.emit_byte(u8::from(LdRegImm(target)))?;
                         self.emit_word(0x0000)?; // resolve for real on next pass
                         Ok(())
                     }
-                    Some(Identifier(label)) => {
-                        bail!("expected immediate byte, got label '{label}'")
-                    }
-                    Some(ParenOpen) => self.gen_ld_reg_indirect(target),
-                    Some(Register(source)) if source.is16() == target.is16() => {
+                    Identifier(label) => bail!("expected immediate byte, got label '{label}'"),
+                    ParenOpen if !target.is16() => self.gen_ld_reg_indirect(target),
+                    ParenOpen => bail!("expected 8-bit register, got '{target}'"),
+                    Register(source) if source.is16() == target.is16() => {
                         self.emit_byte(u8::from(LdRegReg))?;
                         self.emit_byte(regs::u8_from(source, target))?;
                         Ok(())
                     }
-                    Some(Register(source)) => bail!("expected same size register, got '{source}'"),
-                    Some(WordLiteral(word)) if target.is16() => {
+                    Register(source) => bail!("expected same size register, got '{source}'"),
+                    WordLiteral(word) if target.is16() => {
                         self.emit_byte(u8::from(LdRegImm(target)))?;
                         self.emit_word(word)?;
                         Ok(())
                     }
-                    Some(word @ WordLiteral(_)) => bail!("expected immediate byte, got {word}"),
-                    Some(ByteLiteral(byte)) if !target.is16() => {
+                    word @ WordLiteral(_) => bail!("expected immediate byte, got {word}"),
+                    ByteLiteral(byte) if !target.is16() => {
                         self.emit_byte(u8::from(LdRegImm(target)))?;
                         self.emit_byte(byte)?;
                         Ok(())
                     }
-                    Some(op @ ByteLiteral(_)) => bail!("expected immediate word, got {op}"),
-                    Some(other) => bail!("unexpected token {other}"),
-                    None => bail!("unexpected end of input"),
+                    op @ ByteLiteral(_) => bail!("expected immediate word, got {op}"),
+                    other => bail!("unexpected token {other}"),
                 }
             }
-            Some(WordLiteral(addr)) => self.gen_store_direct(addr),
-            Some(other) => bail!("expected register name, got {other}"),
-            None => bail!("unexpected end of input"),
+            WordLiteral(addr) => self.gen_store_direct(addr),
+            other => bail!("expected register name, got {other}"),
         }
     }
 
@@ -483,9 +456,6 @@ impl Assembler<'_> {
     /// * Syntax errors
     #[inline]
     pub fn gen_ld_reg_indirect(&mut self, target: Reg) -> Result<()> {
-        if target.is16() {
-            bail!("expected 8-bit register, got '{target}'")
-        }
         self.emit_byte(u8::from(LdRegIndirect))?;
         let source = self.expect_reg16()?;
         self.expect(&ParenClose)?;
@@ -556,10 +526,9 @@ impl Assembler<'_> {
     /// * Missing or invalid label or address.
     #[inline]
     pub fn gen_trap(&mut self) -> Result<()> {
-        let trap_code = match self.next_token() {
-            Some(ByteLiteral(code)) => code,
-            Some(other) => bail!("expected trap code byte, got {other}"),
-            None => bail!("unexpected end of input"),
+        let trap_code = match self.next_token()? {
+            ByteLiteral(code) => code,
+            other => bail!("expected trap code byte, got {other}"),
         };
         self.emit_byte(u8::from(Trap))?;
         self.emit_byte(trap_code)?;
@@ -567,8 +536,12 @@ impl Assembler<'_> {
     }
 
     /// Scans and returns the next token from the source code.
+    ///
+    /// # Errors
+    ///
+    /// * Unexpected end of input
     #[inline]
-    pub fn next_token(&mut self) -> Option<Token> {
+    pub fn next_token(&mut self) -> Result<Token> {
         self.skip_whitespace();
         if let Some(next_char) = self.chars.peek() {
             let next = *next_char;
@@ -584,9 +557,9 @@ impl Assembler<'_> {
                 ch => self.read_token(Illegal(ch.to_string())),
             };
             self.debug_print(format!("token: {token}"));
-            Some(token)
+            Ok(token)
         } else {
-            None
+            bail!("unexpected end of input")
         }
     }
 
@@ -597,10 +570,9 @@ impl Assembler<'_> {
     /// * Missing or invalid label or address.
     #[inline]
     pub fn org(&mut self) -> Result<()> {
-        let addr = match self.next_token() {
-            Some(WordLiteral(addr)) => addr,
-            Some(other) => bail!("expected address, got {other}"),
-            None => bail!("unexpected end of input"),
+        let addr = match self.next_token()? {
+            WordLiteral(addr) => addr,
+            other => bail!("expected address, got {other}"),
         };
         if !self.code.is_empty() {
             let (offset, underflow) = addr.overflowing_sub(self.loc);
@@ -619,13 +591,9 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// Syntax errors.
-    #[expect(
-        clippy::wildcard_enum_match_arm,
-        reason = "unexpected tokens are illegal"
-    )]
     #[inline]
     pub fn pass(&mut self) -> Result<()> {
-        while let Some(token) = self.next_token() {
+        while let Ok(token) = self.next_token() {
             match token {
                 Comment(_) | Newline => {}
                 Keyword(kw) => self.assemble_kw(&kw)?,
@@ -641,7 +609,7 @@ impl Assembler<'_> {
     /// Reads a comment token.
     #[inline]
     pub fn read_comment(&mut self) -> Token {
-        self.chars.next();
+        self.chars.next(); // skip ';' prefix
         self.skip_whitespace();
         let comment: String =
             iter::from_fn(|| self.chars.next_if(|&ch| ch != '\r' && ch != '\n')).collect();
@@ -652,7 +620,8 @@ impl Assembler<'_> {
     /// Reads a hex literal token.
     #[inline]
     pub fn read_hex_literal(&mut self) -> Token {
-        self.chomp("0x");
+        self.chars.next();
+        self.chars.next(); // skip "0x" prefix
         let literal: String =
             iter::from_fn(|| self.chars.next_if(char::is_ascii_hexdigit)).collect();
         match literal.len() {
@@ -788,7 +757,7 @@ impl<'code> Disassembler<'code> {
     #[inline]
     fn format_dec_indirect(&mut self) -> String {
         if let Some(&regs) = self.code.next()
-            && let Some((source, _)) = source_and_target_from(regs)
+            && let Some(source) = source_from(regs)
             && source.is16()
         {
             format!("dec ({source})")
@@ -802,7 +771,7 @@ impl<'code> Disassembler<'code> {
     #[inline]
     fn format_inc_indirect(&mut self) -> String {
         if let Some(&regs) = self.code.next()
-            && let Some((source, _)) = source_and_target_from(regs)
+            && let Some(source) = source_from(regs)
             && source.is16()
         {
             format!("inc ({source})")
@@ -891,7 +860,6 @@ pub enum Token {
 }
 
 impl Display for Token {
-    #[expect(clippy::wildcard_enum_match_arm, reason = "debug formatting is okay")]
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match *self {
@@ -1067,6 +1035,7 @@ mod tests {
             "call gh",
             "call 0x01",
             "cmp a, b, d",
+            "data",
             "data (",
             "data \"©\"",
             "dec",

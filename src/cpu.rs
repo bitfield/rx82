@@ -1,10 +1,7 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
-    bus::Bus,
-    instructions::{InstructionKind, Operands},
-    regs::{Reg, Regs, source_and_target_from},
-    system::Device,
+    bus::Bus, instructions::{InstructionKind, Operands}, regs::{Reg, Regs, source_and_target_from, source_from}, system::Device,
 };
 
 use State::*;
@@ -226,7 +223,7 @@ impl Cpu {
     /// Decrements the value at address in `reg`, updating flags.
     #[inline]
     pub fn dec_indirect(&mut self, bus: &mut Bus) {
-        if let Some((source, _)) = source_and_target_from(self.op_lo)
+        if let Some(source) = source_from(self.op_lo)
             && source.is16()
         {
             let addr = self.regs.get(source);
@@ -266,7 +263,7 @@ impl Cpu {
     /// Increments the value at address in `reg`, updating flags.
     #[inline]
     pub fn inc_indirect(&mut self, bus: &mut Bus) {
-        if let Some((source, _)) = source_and_target_from(self.op_lo)
+        if let Some(source) = source_from(self.op_lo)
             && source.is16()
         {
             let addr = self.regs.get(source);

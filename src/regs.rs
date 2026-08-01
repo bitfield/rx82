@@ -206,13 +206,23 @@ impl Regs {
 #[inline]
 #[must_use]
 pub fn source_and_target_from(regs: u8) -> Option<(Reg, Reg)> {
-    if let Ok(source) = Reg::try_from((regs & 0x0F0) >> 4_u8)
+    if let Some(source) = source_from(regs)
         && let Ok(target) = Reg::try_from(regs & 0x0F)
     {
         Some((source, target))
     } else {
         None
     }
+}
+
+/// Returns the source register specified by `reg`.
+///
+/// The encoding is as for [`source_and_target_from`], except that only the high nibble
+/// is encoded.
+#[inline]
+#[must_use]
+pub fn source_from(reg: u8) -> Option<Reg> {
+    Reg::try_from((reg & 0x0F0) >> 4_u8).ok()
 }
 
 /// Returns the operand byte encoding `source` and `target` registers.
