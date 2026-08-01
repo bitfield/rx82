@@ -58,8 +58,16 @@ STORE_DEFAULT_VECTOR:
     ld 0x0040, d  ; vector 0x20
     ld 0x0041, c
 
-PRINT_MESSAGE:
+PRINT_COPYRIGHT:
     ld cd, COPYRIGHT_MSG
+    call PRINT_STRING
+
+INVOKE_MONITOR:
+    halt
+
+; subroutines
+PRINT_STRING:
+    ; cd: pointer to length-prefixed string
     ld b, (cd)
 NEXT_CHAR:
     inc cd
@@ -67,12 +75,12 @@ NEXT_CHAR:
     trap 0x20
     dec b
     bne NEXT_CHAR
-
-INVOKE_MONITOR:
-    halt
+    ret
 
 ; trap handlers
 ILLEGAL_INSTRUCTION:
+    ld cd, ILLEGAL_INSTRUCTION_MSG
+    call PRINT_STRING
     halt
 
 UNHANDLED_TRAP:
@@ -84,6 +92,9 @@ PUTCHAR:
 ; data
 COPYRIGHT_MSG:
     data 0x23, "(C) 1982 RX Computers Ltd.", 0x0A, "Ready.", 0x0A, 0x0A
+
+ILLEGAL_INSTRUCTION_MSG:
+    data 0x14, "illegal instruction", 0x0A
 
 ; reset vector
     org 0xFFFE

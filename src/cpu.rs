@@ -1,7 +1,10 @@
 use core::fmt::{Display, Formatter};
 
 use crate::{
-    bus::Bus, instructions::{InstructionKind, Operands}, regs::{Reg, Regs, source_and_target_from, source_from}, system::Device,
+    bus::Bus,
+    instructions::{InstructionKind, Operands},
+    regs::{Reg, Regs, source_and_target_from, source_from},
+    system::Device,
 };
 
 use State::*;

@@ -58,6 +58,11 @@ To start the monitor in debug (single-step) mode:
 rx82 mon
 ```
 
+```
+(C) 1982 RX Computers Ltd.
+Ready.
+```
+
 You can also optionally load and run a binary file (such as one produced by the assembler, for example):
 
 ```sh
@@ -141,7 +146,17 @@ The RX82 is a single-board computer with one R8 CPU clocked at 4Mhz, 64KiB of st
 
 At power on, the CPU loads the reset vector at 0xFFFE, which in the RX82 system holds the ROM entry point, 0xC000. Execution begins here and a simple RAM test is performed to find the highest writable address in memory. The stack pointer is initialised to this address.
 
+The trap table is initialised, and all undefined traps are vectored to a single 'undefined trap' handler.
+
 Finally, the interactive monitor is invoked.
+
+## OS traps
+
+The following general-purpose traps are defined:
+
+| Code | Name | Purpose | Inputs |
+| :--- | :--- | :--- | :--- |
+| 0x20 | PUTCHAR | Print character to terminal | A = ASCII code of character |
 
 # R8 technical manual
 
@@ -169,6 +184,53 @@ The hardware stack is governed by the stack pointer register SP, which should be
 ## Reset
 
 On reset, all registers and flags are zeroed and cleared, and PC is initialised from the little-endian reset vector at 0xFFFE.
+
+## Traps
+
+Traps are the R8's way of handling exceptions, interrupts, and user-defined toolbox routines. When a trap occurs, the following stack frame will be generated:
+
+| Address | Data | 
+| :--- | :--- |
+| (SP) | Trap code (0x00-0x3F) |
+| (SP+1) | Return address (high byte) |
+| (SP+2) | Return address (low byte) |
+
+### Exceptions
+
+Trap codes 0x00-0x0F are reserved for CPU exceptions. The following exception traps are defined:
+
+| Code | Name | Reason | 
+| :--- | :--- | :--- | 
+| 0x00 | ILLEGAL | Illegal instruction |
+
+### Interrupts
+
+Trap codes 0x10-0x1F are reserved for interrupts.
+
+### User-defined traps
+
+Trap codes 0x20-0x3F may be used for user-defined traps. See the operating system documentation for details of any traps provided by the OS.
+
+The `trap` instruction will cause the CPU to trap with the specified code:
+
+```asm
+trap 0x20
+```
+
+### Handlers
+
+Each trap code is associated with a (little-endian) handler vector address in the trap table, spanning from address 0x0000-0x07F. The handler vector for trap N is at address 2 * N.
+
+For example, to install a handler for trap 0x20, write its vector to address 0x0040:
+
+```asm
+; set up the 'putchar' handler
+ld cd, PUTCHAR
+ld 0x0040, d  ; vector 0x20
+ld 0x0041, c
+```
+
+To return from a handler routine, use the `rti` instruction, which will clear the trap stack frame and return to a point immediately after the trapping instruction.
 
 # Programming the R8
 

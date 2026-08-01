@@ -9,7 +9,8 @@ use core::{
 use std::collections::HashMap;
 
 use crate::{
-    instructions::InstructionKind::{self, *}, regs::{self, Reg, source_and_target_from, source_from, u8_from},
+    instructions::InstructionKind::{self, *},
+    regs::{self, Reg, source_and_target_from, source_from, u8_from},
 };
 
 use Token::*;
