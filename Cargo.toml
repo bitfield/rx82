@@ -1,6 +1,6 @@
 [package]
 name = "rx82"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 authors = ["John Arundel <john@bitfieldconsulting.com>"]
 description = """An emulator for the RX82 fantasy retro computer system."""

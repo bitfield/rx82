@@ -2,7 +2,7 @@ use anyhow::{Context as _, Result, bail};
 
 use crate::{bus::Bus, system::Device};
 
-/// The system memory.
+/// The system RAM.
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct Memory {
@@ -44,20 +44,20 @@ impl Device for Memory {
 }
 
 impl Memory {
-    /// Returns the byte at address `addr`.
+    /// Returns the byte at logical address `addr`.
     ///
     /// Returns zero if the address is outside the configured memory range.
     #[inline]
     #[must_use]
-    pub fn get(&self, log_addr: u16) -> u8 {
-        let addr = log_addr.strict_sub(self.start);
+    pub fn get(&self, addr: u16) -> u8 {
+        let phys_addr = addr.strict_sub(self.start);
         self.data
-            .get(usize::from(addr))
+            .get(usize::from(phys_addr))
             .copied()
             .unwrap_or_default()
     }
 
-    /// Returns true if `addr` is in the memory's address range.
+    /// Returns true if `addr` is in the memory's logical address range.
     #[inline]
     #[must_use]
     pub fn in_range(&self, addr: u16) -> bool {
@@ -70,12 +70,12 @@ impl Memory {
     ///
     /// If the load exceeds bounds.
     #[inline]
-    pub fn load(&mut self, log_addr: u16, data: &[u8]) -> Result<()> {
-        if !self.in_range(log_addr) {
+    pub fn load(&mut self, addr: u16, data: &[u8]) -> Result<()> {
+        if !self.in_range(addr) {
             bail!("out of range")
         }
-        let addr = log_addr.saturating_sub(self.start);
-        let start = usize::from(addr);
+        let phys_addr = addr.saturating_sub(self.start);
+        let start = usize::from(phys_addr);
         let end = start.checked_add(data.len()).context("data too long")?;
         let slice = self.data.get_mut(start..end).context("out of bounds")?;
         slice.copy_from_slice(data);
@@ -86,9 +86,9 @@ impl Memory {
     ///
     /// If `addr` is out of range, this has no effect.
     #[inline]
-    pub fn set(&mut self, log_addr: u16, val: u8) {
-        let addr = log_addr.saturating_sub(self.start);
-        if let Some(loc) = self.data.get_mut(usize::from(addr)) {
+    pub fn set(&mut self, addr: u16, val: u8) {
+        let phys_addr = addr.saturating_sub(self.start);
+        if let Some(loc) = self.data.get_mut(usize::from(phys_addr)) {
             *loc = val;
         }
     }

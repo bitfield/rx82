@@ -24,7 +24,7 @@ pub const KEYWORDS: &[&str] = &[
     "push", "ret", "rti", "trap",
 ];
 
-/// Assembles a given program.
+/// Assembles a given source program.
 #[non_exhaustive]
 pub struct Assembler<'src> {
     /// Stores the source code being assembled.
@@ -63,7 +63,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Syntax errors
+    /// * Syntax errors.
     #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         self.pass()?;
@@ -79,7 +79,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Syntax errors
+    /// * Syntax errors.
     #[inline]
     pub fn assemble_kw(&mut self, kw: &String) -> Result<()> {
         match kw.as_str() {
@@ -108,7 +108,8 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Syntax errors
+    /// * Non-ASCII character in string.
+    /// * Unexpected token.
     #[inline]
     pub fn data(&mut self) -> Result<()> {
         loop {
@@ -176,7 +177,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// If the next token does not match the expectation.
+    /// * Next token does not match `expected`.
     #[inline]
     pub fn expect(&mut self, expected: &Token) -> Result<()> {
         let token = self.next_token()?;
@@ -192,9 +193,9 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Undefined label
-    /// * No displacement
-    /// * Displacement out of range (signed byte)
+    /// * Undefined label.
+    /// * No displacement.
+    /// * Displacement out of range (signed byte).
     #[expect(clippy::cast_possible_truncation, reason = "code ensures valid range")]
     #[inline]
     pub fn expect_displacement(&mut self) -> Result<u8> {
@@ -220,7 +221,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// If the operand is missing or the wrong size.
+    /// * Missing or wrong size operand.
     #[inline]
     pub fn expect_op_for_reg(&mut self, reg: Reg) -> Result<Vec<u8>> {
         Ok(match self.next_token()? {
@@ -235,7 +236,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// If the next token is not a register name.
+    /// * Next token is not a register name.
     #[inline]
     pub fn expect_reg(&mut self) -> Result<Reg> {
         let reg = match self.next_token()? {
@@ -249,7 +250,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// If the next token is not a 16-bit register name.
+    /// * Next token is not a 16-bit register name.
     #[inline]
     pub fn expect_reg16(&mut self) -> Result<Reg> {
         let reg = match self.next_token()? {
@@ -264,7 +265,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// If the next token is not a 8-bit register name.
+    /// * Next token is not an 8-bit register name.
     #[inline]
     pub fn expect_reg8(&mut self) -> Result<Reg> {
         let reg = match self.next_token()? {
@@ -279,7 +280,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Missing or invalid displacement
+    /// * Missing or invalid displacement.
     #[inline]
     pub fn gen_branch(&mut self, kind: InstructionKind) -> Result<()> {
         let dis = self.expect_displacement()?;
@@ -309,9 +310,9 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Missing register name
-    /// * Missing comma
-    /// * Missing or mis-sized operand
+    /// * Missing register name.
+    /// * Missing comma.
+    /// * Missing or mis-sized operand.
     #[inline]
     pub fn gen_cmp(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
@@ -328,7 +329,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Missing or invalid register name or address
+    /// * Missing or invalid register name or address.
     #[inline]
     pub fn gen_dec(&mut self) -> Result<()> {
         match self.next_token()? {
@@ -356,7 +357,11 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * If the instruction is not an implied-address instruction.
+    /// None.
+    ///
+    /// # Panics
+    ///
+    /// * If instruction is not an implied-address instruction.
     #[inline]
     pub fn gen_implied(&mut self, kind: InstructionKind) -> Result<()> {
         match kind {
@@ -372,7 +377,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Missing or invalid register name or address
+    /// * Missing or invalid register name or address.
     #[inline]
     pub fn gen_inc(&mut self) -> Result<()> {
         match self.next_token()? {
@@ -400,7 +405,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Syntax errors
+    /// * Syntax errors.
     #[inline]
     pub fn gen_ld(&mut self) -> Result<()> {
         match self.next_token()? {
@@ -453,8 +458,8 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Invalid source or target registers
-    /// * Syntax errors
+    /// * Invalid source or target registers.
+    /// * Syntax errors.
     #[inline]
     pub fn gen_ld_reg_indirect(&mut self, target: Reg) -> Result<()> {
         self.emit_byte(u8::from(LdRegIndirect))?;
@@ -468,7 +473,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Invalid register name
+    /// * Invalid register name.
     #[inline]
     pub fn gen_pop(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
@@ -480,7 +485,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Invalid register name
+    /// * Invalid register name.
     #[inline]
     pub fn gen_push(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
@@ -492,8 +497,8 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Missing comma before register name
-    /// * Invalid register name
+    /// * Missing comma before register name.
+    /// * Invalid register name.
     #[inline]
     pub fn gen_store_direct(&mut self, addr: u16) -> Result<()> {
         self.expect(&Comma)?;
@@ -507,8 +512,8 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Missing comma before register name
-    /// * Invalid register name
+    /// * Missing comma before register name.
+    /// * Invalid register name.
     #[inline]
     pub fn gen_store_indirect(&mut self) -> Result<()> {
         let target = self.expect_reg16()?;
@@ -540,7 +545,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Unexpected end of input
+    /// * Unexpected end of input.
     #[inline]
     pub fn next_token(&mut self) -> Result<Token> {
         self.skip_whitespace();
@@ -591,7 +596,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// Syntax errors.
+    /// * Syntax errors.
     #[inline]
     pub fn pass(&mut self) -> Result<()> {
         while let Ok(token) = self.next_token() {
@@ -669,7 +674,7 @@ impl Assembler<'_> {
     ///
     /// # Errors
     ///
-    /// * Undefined label
+    /// * Undefined label (on pass 2).
     #[inline]
     pub fn resolve_label(&self, label: &str) -> Result<u16> {
         Ok(match self.labels.get(label) {
@@ -690,8 +695,10 @@ impl Assembler<'_> {
     }
 }
 
+/// Disassembles a given binary program.
 #[non_exhaustive]
 pub struct Disassembler<'code> {
+    /// The code to be disassembled.
     pub code: Iter<'code, u8>,
 }
 
@@ -845,18 +852,31 @@ impl<'code> Disassembler<'code> {
 #[non_exhaustive]
 #[derive(Debug, PartialEq)]
 pub enum Token {
+    /// Hexadecimal byte literal (`0x00`).
     ByteLiteral(u8),
+    /// Comma.
     Comma,
+    /// Comment.
     Comment(String),
+    /// Double quote character (`"`).
     DoubleQuote,
+    /// Identifier.
     Identifier(String),
+    /// Illegal token.
     Illegal(String),
+    /// Assembler keyword.
     Keyword(String),
+    /// Label definition.
     LabelDef(String),
+    /// Newline character (`\n`).
     Newline,
+    /// Closing parenthesis (`)`).
     ParenClose,
+    /// Opening parenthesis (`(`).
     ParenOpen,
+    /// Register name.
     Register(Reg),
+    /// Hexadecimal word literal (`0x0000`).
     WordLiteral(u16),
 }
 
@@ -871,6 +891,7 @@ impl Display for Token {
     }
 }
 
+/// Formats the `data` slice as comma-separated hex bytes.
 #[inline]
 #[must_use]
 pub fn as_hex(data: &[u8]) -> String {

@@ -12,6 +12,7 @@ use crate::{
     rom::Rom,
 };
 
+/// The RX82 ROM code.
 pub const ROM_DATA: &[u8] = include_bytes!("../sys/rx82_rom.bin");
 
 /// The trait that all devices connected to the [`Bus`] implement.
@@ -137,7 +138,7 @@ impl System {
         disassemble(&code)
     }
 
-    /// Reads the contents of system memory at `addr`.
+    /// Reads the contents of system memory at logical address `addr`.
     ///
     /// This may be RAM, ROM, or a memory-mapped I/O device: the monitor puts the
     /// requested address on the bus and ticks the system to service the request, then

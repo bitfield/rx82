@@ -58,7 +58,7 @@ To start the monitor in debug (single-step) mode:
 rx82 mon
 ```
 
-```
+```txt
 (C) 1982 RX Computers Ltd.
 Ready.
 ```
@@ -214,7 +214,7 @@ Trap codes 0x20-0x3F may be used for user-defined traps. See the operating syste
 The `trap` instruction will cause the CPU to trap with the specified code:
 
 ```asm
-trap 0x20
+    trap 0x20
 ```
 
 ### Handlers
@@ -225,16 +225,16 @@ For example, to install a handler for trap 0x20, write its vector to address 0x0
 
 ```asm
 ; set up the 'putchar' handler
-ld cd, PUTCHAR
-ld 0x0040, d  ; vector 0x20
-ld 0x0041, c
+    ld cd, PUTCHAR
+    ld 0x0040, d  ; vector 0x20
+    ld 0x0041, c
 ```
 
 To return from a handler routine, use the `rti` instruction, which will clear the trap stack frame and return to a point immediately after the trapping instruction.
 
 # Programming the R8
 
-The input format recognised by the R8 assembler is very similar to that of most Z80 or 6502 assemblers. Here's a simple [example program](examples/ram_test.asm):
+The input format recognised by the R8 assembler is very similar to that of most Z80 or 6502 assemblers. Here's a simple example:
 
 ```asm
 ; RAM test
@@ -265,7 +265,8 @@ Whitespace is ignored, and only `0x`-prefixed hexadecimal numbers are recognised
 
 # Changelog
 
-* **0.4.0** — beq, bne, inc, dec, and cmp instructions; zero and carry flags; backward labels, comments
+* **0.5.0** — `org` and `data` directives, traps implemented, `trap`, `rti`, `call`, `ret`, `ld (RR), R`, `ld R, R`, `push`, `pop`, `inc/dec (RR)`, `inc/dec (NN)`, `bra` instructions, reset vector, stack pointer, ROM binary, forward labels
+* **0.4.0** — `beq`, `bne`, `inc`, `dec`, and `cmp` instructions; zero and carry flags; backward labels, comments
 * **0.3.0** — all registers, load immediate and store direct instructions
 * **0.2.0** — monitor improvements, add `halt` instruction, add assembler
 * **0.1.0** — first release

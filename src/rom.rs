@@ -1,11 +1,14 @@
 use crate::{bus::Bus, system::Device};
 
-/// A ROM memory.
+/// A system ROM.
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct Rom {
+    /// Holds the ROM data.
     pub data: Vec<u8>,
+    /// The last logical address mapped to this ROM.
     pub end: u16,
+    /// The first logical address mapped to this ROM.
     pub start: u16,
 }
 
@@ -21,20 +24,20 @@ impl Device for Rom {
 }
 
 impl Rom {
-    /// Returns the byte at address `addr`.
+    /// Returns the byte at logical address `addr`.
     ///
     /// Returns zero if the address is outside the configured memory range.
     #[inline]
     #[must_use]
-    pub fn get(&self, log_addr: u16) -> u8 {
-        let addr = log_addr.strict_sub(self.start);
+    pub fn get(&self, addr: u16) -> u8 {
+        let phys_addr = addr.strict_sub(self.start);
         self.data
-            .get(usize::from(addr))
+            .get(usize::from(phys_addr))
             .copied()
             .unwrap_or_default()
     }
 
-    /// Returns true if `addr` is in the ROM's address range.
+    /// Returns true if logical address `addr` is in the ROM's address range.
     #[inline]
     #[must_use]
     pub fn in_range(&self, addr: u16) -> bool {

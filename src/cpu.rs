@@ -9,7 +9,10 @@ use crate::{
 
 use State::*;
 
+/// Trap code for the 'illegal instruction' trap.
 pub const TRAP_ILLEGAL: u8 = 0x00;
+
+/// The hard-wired reset vector address.
 pub const VEC_RESET: u16 = 0xFFFE;
 
 /// The system CPU.
@@ -18,7 +21,7 @@ pub const VEC_RESET: u16 = 0xFFFE;
 pub struct Cpu {
     /// Flags.
     pub flags: Flags,
-    /// HALT flag.
+    /// Is the CPU halted?
     pub halt: bool,
     /// The current instruction.
     pub ins: InstructionKind,
@@ -208,11 +211,11 @@ impl Cpu {
 
     /// Calls the subroutine at `addr`, pushing the return address on the stack.
     #[inline]
-    pub fn call(&mut self, subr_addr: u16, bus: &mut Bus) {
+    pub fn call(&mut self, addr: u16, bus: &mut Bus) {
         let ret_addr = self.pc;
         let [hi, lo] = ret_addr.to_be_bytes();
         self.stack_push(lo, bus);
-        self.state = WaitCall(hi, subr_addr);
+        self.state = WaitCall(hi, addr);
     }
 
     /// Compares the value in register `reg` with the operand, updating flags.
@@ -223,7 +226,7 @@ impl Cpu {
         self.flags.carry = lhs >= rhs;
     }
 
-    /// Decrements the value at address in `reg`, updating flags.
+    /// Decrements the value at the address in `reg`, updating flags.
     #[inline]
     pub fn dec_indirect(&mut self, bus: &mut Bus) {
         if let Some(source) = source_from(self.op_lo)
@@ -236,7 +239,7 @@ impl Cpu {
         }
     }
 
-    /// Decrements the value in address `addr`, updating flags.
+    /// Decrements the value at the address `addr`, updating flags.
     #[inline]
     pub fn dec_mem(&mut self, addr: u16, bus: &mut Bus) {
         bus.read_mem(addr);
@@ -263,7 +266,7 @@ impl Cpu {
         self.halt = true;
     }
 
-    /// Increments the value at address in `reg`, updating flags.
+    /// Increments the value at the address in `reg`, updating flags.
     #[inline]
     pub fn inc_indirect(&mut self, bus: &mut Bus) {
         if let Some(source) = source_from(self.op_lo)
@@ -276,7 +279,7 @@ impl Cpu {
         }
     }
 
-    /// Increments the value in address `addr`, updating flags.
+    /// Increments the value at the address `addr`, updating flags.
     #[inline]
     pub fn inc_mem(&mut self, addr: u16, bus: &mut Bus) {
         bus.read_mem(addr);
@@ -320,7 +323,7 @@ impl Cpu {
         u16::from_be_bytes([self.op_hi, self.op_lo])
     }
 
-    /// Executes a pop instruction with `reg`.
+    /// Executes a `pop` instruction with `reg`.
     #[inline]
     pub fn pop(&mut self, reg: Reg, bus: &mut Bus) {
         self.stack_pop(bus);
@@ -332,7 +335,7 @@ impl Cpu {
         }
     }
 
-    /// Executes a push instruction with `reg`.
+    /// Executes a `push` instruction with `reg`.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
     pub fn push(&mut self, reg: Reg, bus: &mut Bus) {
@@ -349,8 +352,8 @@ impl Cpu {
     /// Resets the CPU to its power-on state.
     ///
     /// The initial state is: all registers and flags zero, not halted, state
-    /// [`WaitResetLo`](State::WaitResetLo). On the next tick, the CPU will request the
-    /// reset vector from memory.
+    /// [`WaitResetLo`]. On the next tick, the CPU will request the low byte of the
+    /// reset vector from the address [`VEC_RESET`].
     #[inline]
     pub fn reset(&mut self, bus: &mut Bus) {
         *self = Self::default();
@@ -411,9 +414,9 @@ impl Cpu {
         }
     }
 
-    /// Executes a trap instruction.
+    /// Executes a trap.
     ///
-    /// The trap code is used to select a vector from the trap table, and the CPU jumps
+    /// The `trap_code` is used to select a vector from the trap table, and the CPU jumps
     /// to that address after pushing the return address and the trap code to the stack.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     #[inline]
@@ -431,7 +434,7 @@ impl Cpu {
     }
 }
 
-/// The state of CPU's flags.
+/// The state of the CPU's flag bits.
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct Flags {
@@ -474,7 +477,7 @@ pub enum State {
     ReadRetLo,
     /// Reads the first of two stack values from the bus.
     ReadStackHi(Reg),
-    /// Reads the low byte of the trap vector for a `trap` instruction.
+    /// Reads the low byte of the selected trap vector.
     ReadTrapVecLo(u16),
     /// Waits for the high byte of the address to jump to.
     WaitAddrHi,
@@ -505,15 +508,13 @@ pub enum State {
     WaitRetLo,
     /// Waits for the first of 2 stack pops to a register.
     WaitStackHi(Reg),
-    /// Waits for the trap code to be pushed for a `trap` instruction.
+    /// Waits for the trap code to be pushed following a trap.
     WaitTrapCode(u8),
-    /// Waits for the high byte of the return address to be pushed for a `trap`
-    /// instruction.
+    /// Waits for the high byte of the return address to be pushed following a trap.
     WaitTrapHi(u8),
-    /// Waits for the low byte of the return address to be pushed for a `trap`
-    /// instruction.
+    /// Waits for the low byte of the return address to be pushed following a trap.
     WaitTrapLo(u8, u8),
-    /// Waits for the low byte of the trap vector for a `trap` instruction.
+    /// Waits for the low byte of the trap vector following a trap.
     WaitTrapVecLo(u16),
 }
 
