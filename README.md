@@ -191,9 +191,9 @@ Traps are the R8's way of handling exceptions, interrupts, and user-defined tool
 
 | Address | Data | 
 | :--- | :--- |
-| (SP) | Trap code (0x00-0x3F) |
-| (SP+1) | Return address (high byte) |
-| (SP+2) | Return address (low byte) |
+| (SP+1) | Trap code (0x00-0x3F) |
+| (SP+2) | Return address (high byte) |
+| (SP+3) | Return address (low byte) |
 
 ### Exceptions
 
