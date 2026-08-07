@@ -219,7 +219,7 @@ The `trap` instruction will cause the CPU to trap with the specified code:
 
 ### Handlers
 
-Each trap code is associated with a (little-endian) handler vector address in the trap table, spanning from address 0x0000-0x07F. The handler vector for trap N is at address 2 * N.
+Each trap code is associated with a (little-endian) handler vector address in the trap table, spanning from address 0x0000-0x007F. The handler vector for trap N is at address 2 * N.
 
 For example, to install a handler for trap 0x20, write its vector to address 0x0040:
 

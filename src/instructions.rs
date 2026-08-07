@@ -1,3 +1,5 @@
+use core::fmt::{Display, Formatter};
+
 use anyhow::bail;
 
 use crate::{bus::Bus, cpu::Cpu, regs::Reg};
@@ -54,12 +56,48 @@ pub enum InstructionKind {
     Trap,
 }
 
+use InstructionKind::*;
+
+impl Display for InstructionKind {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                BranchAlways => "bra D".to_owned(),
+                BranchEq => "beq D".to_owned(),
+                BranchNe => "bne D".to_owned(),
+                Call => "call NN".to_owned(),
+                Cmp(reg) => format!("cmp {reg}, N"),
+                Dec(reg) => format!("dec {reg}"),
+                DecIndirect => "dec (RR)".to_owned(),
+                DecMem => "dec (NN)".to_owned(),
+                Halt => "halt".to_owned(),
+                Inc(reg) => format!("inc {reg}"),
+                IncIndirect => "inc (RR)".to_owned(),
+                IncMem => "inc (NN)".to_owned(),
+                LdRegImm(reg) => format!("ld {reg}, {}", if reg.is16() { "NN" } else { "N" }),
+                LdRegIndirect => "ld R, ({RR})".to_owned(),
+                LdRegReg => "ld R, R".to_owned(),
+                Nop => "nop".to_owned(),
+                Pop(reg) => format!("pop {reg}"),
+                Push(reg) => format!("push {reg}"),
+                Ret => "ret".to_owned(),
+                Rti => "rti".to_owned(),
+                StoreRegDirect(reg) => format!("ld NN, {reg}"),
+                StoreRegIndirect => "ld (RR), R".to_owned(),
+                Trap => "trap T".to_owned(),
+            }
+        )
+    }
+}
+
 impl TryFrom<u8> for InstructionKind {
     type Error = anyhow::Error;
 
     #[inline]
     fn try_from(opcode: u8) -> Result<Self, Self::Error> {
-        use InstructionKind::*;
         let reg = Reg::try_from(opcode & 0x0F);
         Ok(match opcode {
             0x00 => Halt,
@@ -93,7 +131,6 @@ impl TryFrom<u8> for InstructionKind {
 impl From<InstructionKind> for u8 {
     #[inline]
     fn from(ins: InstructionKind) -> Self {
-        use InstructionKind::*;
         match ins {
             BranchAlways => 0xF0,
             BranchEq => 0xF1,
@@ -126,7 +163,6 @@ impl InstructionKind {
     /// Executes the instruction.
     #[inline]
     pub fn execute(&self, cpu: &mut Cpu, bus: &mut Bus) {
-        use InstructionKind::*;
         match *self {
             BranchAlways => cpu.branch(cpu.op_lo),
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
@@ -158,7 +194,6 @@ impl InstructionKind {
     #[inline]
     #[must_use]
     pub fn operands(&self) -> Operands {
-        use InstructionKind::*;
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti => Zero,

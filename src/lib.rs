@@ -4,6 +4,7 @@ pub mod asm;
 pub mod bus;
 pub mod clock;
 pub mod cpu;
+pub mod doc;
 pub mod instructions;
 pub mod memory;
 pub mod monitor;

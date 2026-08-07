@@ -5,8 +5,11 @@ use std::{fs, path::PathBuf};
 
 use rx82::{
     asm::{Assembler, Disassembler},
+    doc::opcodes,
     monitor::Monitor,
 };
+
+use crate::DocCommand::Opcodes;
 
 /// An emulator for the RX82 fantasy retro computer system.
 #[derive(Debug, Parser)]
@@ -30,6 +33,11 @@ enum Command {
         /// Path to the binary file.
         path: PathBuf,
     },
+    /// Generate documentation.
+    Doc {
+        #[clap(subcommand)]
+        doc_cmd: DocCommand,
+    },
     /// Start the interactive monitor.
     Mon {
         /// Path to a binary file to load.
@@ -40,6 +48,12 @@ enum Command {
         /// Path to the source file.
         path: PathBuf,
     },
+}
+
+#[derive(Clone, Debug, Subcommand)]
+enum DocCommand {
+    /// Generate opcode table.
+    Opcodes,
 }
 
 fn main() -> Result<()> {
@@ -59,6 +73,12 @@ fn main() -> Result<()> {
             let code = fs::read(&path)?;
             for source in Disassembler::from(code.as_slice()) {
                 println!("    {source}");
+            }
+            Ok(())
+        }
+        Command::Doc { doc_cmd } => {
+            match doc_cmd {
+                Opcodes => opcodes(),
             }
             Ok(())
         }
