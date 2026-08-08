@@ -16,7 +16,6 @@ pub const TRAP_ILLEGAL: u8 = 0x00;
 pub const VEC_RESET: u16 = 0xFFFE;
 
 /// The system CPU.
-#[non_exhaustive]
 #[derive(Debug)]
 pub struct Cpu {
     /// Flags.
@@ -38,7 +37,6 @@ pub struct Cpu {
 }
 
 impl Default for Cpu {
-    #[inline]
     fn default() -> Self {
         Self {
             flags: Flags::default(),
@@ -56,7 +54,6 @@ impl Default for Cpu {
 impl Device for Cpu {
     /// Transitions to the next state.
     #[expect(clippy::too_many_lines, reason = "it's just long")]
-    #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         self.state = match self.state {
             Decode => {
@@ -204,13 +201,11 @@ impl Cpu {
     /// Branches to PC+`dis`.
     #[expect(clippy::cast_possible_wrap, reason = "i8 to u16 is sound")]
     #[expect(clippy::cast_sign_loss, reason = "okay with wrapping_add")]
-    #[inline]
     pub fn branch(&mut self, dis: u8) {
         self.pc = self.pc.wrapping_add(dis as i8 as u16); // sign-extend displacement
     }
 
     /// Calls the subroutine at `addr`, pushing the return address on the stack.
-    #[inline]
     pub fn call(&mut self, addr: u16, bus: &mut Bus) {
         let ret_addr = self.pc;
         let [hi, lo] = ret_addr.to_be_bytes();
@@ -219,7 +214,6 @@ impl Cpu {
     }
 
     /// Compares the value in register `reg` with the operand, updating flags.
-    #[inline]
     pub fn cmp(&mut self, reg: Reg, rhs: u16) {
         let lhs = self.regs.get(reg);
         self.flags.zero = lhs == rhs;
@@ -227,7 +221,6 @@ impl Cpu {
     }
 
     /// Decrements the value at the address in `reg`, updating flags.
-    #[inline]
     pub fn dec_indirect(&mut self, bus: &mut Bus) {
         if let Some(source) = source_from(self.op_lo)
             && source.is16()
@@ -240,34 +233,29 @@ impl Cpu {
     }
 
     /// Decrements the value at the address `addr`, updating flags.
-    #[inline]
     pub fn dec_mem(&mut self, addr: u16, bus: &mut Bus) {
         bus.read_mem(addr);
         self.state = WaitDec(addr);
     }
 
     /// Decrements the value in register `reg`, updating flags.
-    #[inline]
     pub fn decrement(&mut self, reg: Reg) {
         let value = self.regs.get(reg).wrapping_sub(1);
         self.flags.zero = self.regs.set(reg, value) == 0;
     }
 
     /// Issues a memory fetch and advances PC.
-    #[inline]
     pub fn fetch_and_advance(&mut self, bus: &mut Bus) {
         bus.read_mem(self.pc);
         self.pc = self.pc.wrapping_add(1);
     }
 
     /// Halts the CPU.
-    #[inline]
     pub fn halt(&mut self) {
         self.halt = true;
     }
 
     /// Increments the value at the address in `reg`, updating flags.
-    #[inline]
     pub fn inc_indirect(&mut self, bus: &mut Bus) {
         if let Some(source) = source_from(self.op_lo)
             && source.is16()
@@ -280,21 +268,18 @@ impl Cpu {
     }
 
     /// Increments the value at the address `addr`, updating flags.
-    #[inline]
     pub fn inc_mem(&mut self, addr: u16, bus: &mut Bus) {
         bus.read_mem(addr);
         self.state = WaitInc(addr);
     }
 
     /// Increments the value in register `reg`, updating flags.
-    #[inline]
     pub fn increment(&mut self, reg: Reg) {
         let value = self.regs.get(reg).wrapping_add(1);
         self.flags.zero = self.regs.set(reg, value) == 0;
     }
 
     /// Executes a load register indirect instruction.
-    #[inline]
     pub fn ld_reg_indirect(&mut self, bus: &mut Bus) {
         if let Some((source, target)) = source_and_target_from(self.op_lo) {
             bus.read_mem(self.regs.get(source));
@@ -305,7 +290,6 @@ impl Cpu {
     }
 
     /// Executes a load register register instruction.
-    #[inline]
     pub fn ld_reg_reg(&mut self, bus: &mut Bus) {
         if let Some((source, target)) = source_and_target_from(self.op_lo)
             && source.is16() == target.is16()
@@ -317,14 +301,12 @@ impl Cpu {
     }
 
     /// Returns the 16-bit value of the two operand registers.
-    #[inline]
     #[must_use]
     pub fn op(&self) -> u16 {
         u16::from_be_bytes([self.op_hi, self.op_lo])
     }
 
     /// Executes a `pop` instruction with `reg`.
-    #[inline]
     pub fn pop(&mut self, reg: Reg, bus: &mut Bus) {
         self.stack_pop(bus);
         if reg.is16() {
@@ -337,7 +319,6 @@ impl Cpu {
 
     /// Executes a `push` instruction with `reg`.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
-    #[inline]
     pub fn push(&mut self, reg: Reg, bus: &mut Bus) {
         let val = self.regs.get(reg);
         if reg.is16() {
@@ -354,7 +335,6 @@ impl Cpu {
     /// The initial state is: all registers and flags zero, not halted, state
     /// [`WaitResetLo`]. On the next tick, the CPU will request the low byte of the
     /// reset vector from the address [`VEC_RESET`].
-    #[inline]
     pub fn reset(&mut self, bus: &mut Bus) {
         *self = Self::default();
         bus.read_mem(VEC_RESET);
@@ -362,14 +342,12 @@ impl Cpu {
     }
 
     /// Returns from a subroutine to a return address on the stack.
-    #[inline]
     pub fn ret(&mut self, bus: &mut Bus) {
         self.stack_pop(bus);
         self.state = WaitRetHi;
     }
 
     /// Returns from a trap to a return address on the stack.
-    #[inline]
     pub fn rti(&mut self, bus: &mut Bus) {
         let mut addr = self.regs.get(Reg::SP);
         addr = addr.wrapping_add(2); // skip trap code
@@ -379,7 +357,6 @@ impl Cpu {
     }
 
     /// Reads the current top-of-stack value, adjusting SP.
-    #[inline]
     pub fn stack_pop(&mut self, bus: &mut Bus) {
         let mut addr = self.regs.get(Reg::SP);
         addr = addr.wrapping_add(1);
@@ -388,7 +365,6 @@ impl Cpu {
     }
 
     /// Writes `val` to the stack, adjusting SP.
-    #[inline]
     pub fn stack_push(&mut self, val: u8, bus: &mut Bus) {
         let mut addr = self.regs.get(Reg::SP);
         bus.write_mem(addr, val);
@@ -398,14 +374,12 @@ impl Cpu {
 
     /// Executes a store register direct instruction.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
-    #[inline]
     pub fn store_reg_direct(&mut self, reg: Reg, bus: &mut Bus) {
         bus.write_mem(self.op(), self.regs.get(reg) as u8);
     }
 
     /// Executes a store register indirect instruction.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
-    #[inline]
     pub fn store_reg_indirect(&mut self, bus: &mut Bus) {
         if let Some((source, target)) = source_and_target_from(self.op_lo) {
             bus.write_mem(self.regs.get(target), self.regs.get(source) as u8);
@@ -419,7 +393,6 @@ impl Cpu {
     /// The `trap_code` is used to select a vector from the trap table, and the CPU jumps
     /// to that address after pushing the return address and the trap code to the stack.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
-    #[inline]
     pub fn trap(&mut self, mut trap_code: u8, bus: &mut Bus) {
         if trap_code == 0x20 {
             print!("{}", self.regs.get(Reg::A) as u8 as char);
@@ -435,7 +408,6 @@ impl Cpu {
 }
 
 /// The state of the CPU's flag bits.
-#[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct Flags {
     /// Indicates carry (from addition) or 'no borrow' (from subtraction or comparison).
@@ -445,7 +417,6 @@ pub struct Flags {
 }
 
 /// The state of the CPU on the next tick.
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum State {
     /// Reads the opcode from the data bus.
@@ -519,7 +490,6 @@ pub enum State {
 }
 
 impl Display for State {
-    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
             f,

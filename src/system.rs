@@ -27,7 +27,6 @@ pub trait Device {
 }
 
 /// A snapshot of the system state for debugging.
-#[non_exhaustive]
 pub struct Snapshot {
     /// Bus state at end of tick.
     pub bus: Bus,
@@ -56,7 +55,6 @@ pub struct Snapshot {
 /// solely to regulate the system cycle rate by waiting (if necessary) until the next
 /// cycle is actually due. Thus the clock can only slow down a speeding system, not
 /// speed up a slow one.
-#[non_exhaustive]
 pub struct System {
     /// The system bus.
     pub bus: Bus,
@@ -78,7 +76,6 @@ pub struct System {
 
 impl Default for System {
     /// The default `System` has all-default devices.
-    #[inline]
     fn default() -> Self {
         let mut sys = Self {
             bus: Bus::default(),
@@ -104,7 +101,6 @@ impl Default for System {
 impl System {
     /// Prints the current CPU state and the next instruction in memory.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
-    #[inline]
     pub fn debug_print(&mut self) {
         let next = self.disassemble_next();
         println!("  PC   SP  A  B  C  D  E  F  G  H ZC | NEXT");
@@ -127,7 +123,6 @@ impl System {
     }
 
     /// Returns the disassembly of the instruction at PC.
-    #[inline]
     #[must_use]
     pub fn disassemble_next(&mut self) -> String {
         let code = vec![
@@ -143,7 +138,6 @@ impl System {
     /// This may be RAM, ROM, or a memory-mapped I/O device: the monitor puts the
     /// requested address on the bus and ticks the system to service the request, then
     /// reads back the contents of the data bus.
-    #[inline]
     pub fn peek_mem(&mut self, addr: u16) -> u8 {
         // Save current CPU/bus state
         let halted = self.cpu.halt;
@@ -169,14 +163,12 @@ impl System {
     ///
     /// This resets the CPU to its default state and starts execution from the reset
     /// vector. Memory and other devices are not affected.
-    #[inline]
     pub fn reset(&mut self) {
         self.cpu.reset(&mut self.bus);
         self.run();
     }
 
     /// Runs the system until halted.
-    #[inline]
     pub fn run(&mut self) {
         self.cpu.halt = false;
         while !self.cpu.halt {
@@ -189,7 +181,6 @@ impl System {
     /// # Errors
     ///
     /// If the program does not fit into memory.
-    #[inline]
     pub fn run_program(&mut self, program: &[u8]) -> Result<()> {
         self.mem.load(0x0100, program)?;
         self.cpu.pc = 0x0100;
@@ -198,7 +189,6 @@ impl System {
     }
 
     /// Advances the system by one clock cycle.
-    #[inline]
     pub fn tick(&mut self) {
         let state = self.cpu.state; // save before cpu.tick() overwrites it
         self.cpu.tick(&mut self.bus);
@@ -225,7 +215,6 @@ impl System {
     /// If writing to the strings fails.
     #[expect(clippy::non_ascii_literal, reason = "looks nice")]
     #[expect(clippy::unwrap_used, reason = "panic is okay here")]
-    #[inline]
     pub fn trace(&self) {
         if self.history.is_empty() {
             return;
@@ -281,7 +270,6 @@ impl System {
     /// # Errors
     ///
     /// As for [`run_program`](Self::run_program).
-    #[inline]
     pub fn trace_program(&mut self, program: &[u8]) -> Result<()> {
         self.debug = true;
         self.history = Vec::new();

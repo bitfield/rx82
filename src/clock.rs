@@ -7,7 +7,6 @@ use crate::{bus::Bus, system::Device};
 ///
 /// Does nothing except try to slow down the system to the nominal cycle rate by
 /// delaying its return from the [`Clock::tick`] method.
-#[non_exhaustive]
 pub struct Clock {
     /// Time the next tick is due.
     pub next_tick: Instant,
@@ -17,7 +16,6 @@ pub struct Clock {
 
 impl Default for Clock {
     /// Creates a default [`Clock`] with a nominal frequency of 4MHz.
-    #[inline]
     fn default() -> Self {
         Self {
             next_tick: Instant::now(),
@@ -31,7 +29,6 @@ impl Device for Clock {
     ///
     /// If the projected next tick time overflows `usize`, or we are already past the
     /// next tick time, returns immediately.
-    #[inline]
     fn tick(&mut self, _bus: &mut Bus) {
         let now = Instant::now();
         self.next_tick = self

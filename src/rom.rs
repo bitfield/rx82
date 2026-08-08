@@ -1,7 +1,6 @@
 use crate::{bus::Bus, system::Device};
 
 /// A system ROM.
-#[non_exhaustive]
 #[derive(Debug)]
 pub struct Rom {
     /// Holds the ROM data.
@@ -14,7 +13,6 @@ pub struct Rom {
 
 impl Device for Rom {
     /// Responds to a memory request if the [`Bus::mem`] line is active.
-    #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         if bus.mem && self.in_range(bus.addr) {
             let data = self.get(bus.addr);
@@ -27,7 +25,6 @@ impl Rom {
     /// Returns the byte at logical address `addr`.
     ///
     /// Returns zero if the address is outside the configured memory range.
-    #[inline]
     #[must_use]
     pub fn get(&self, addr: u16) -> u8 {
         let phys_addr = addr.strict_sub(self.start);
@@ -38,7 +35,6 @@ impl Rom {
     }
 
     /// Returns true if logical address `addr` is in the ROM's address range.
-    #[inline]
     #[must_use]
     pub fn in_range(&self, addr: u16) -> bool {
         self.start <= addr && addr <= self.end

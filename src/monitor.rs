@@ -15,7 +15,6 @@ Q             = Quit
 Enter         = Repeat last command";
 
 /// A user command.
-#[non_exhaustive]
 #[derive(Copy, Clone)]
 pub enum Command {
     /// Run continuously.
@@ -33,7 +32,6 @@ pub enum Command {
 use Command::*;
 
 /// The interactive CLI system monitor.
-#[non_exhaustive]
 pub struct Monitor {
     /// Last address referenced.
     pub last_addr: Option<u16>,
@@ -46,7 +44,6 @@ pub struct Monitor {
 }
 
 impl Default for Monitor {
-    #[inline]
     fn default() -> Self {
         let mut sys = System::default();
         sys.reset();
@@ -83,14 +80,12 @@ impl Monitor {
     }
 
     /// Runs the system until halted.
-    #[inline]
     pub fn go(&mut self, addr: Option<u16>) {
         self.step = false;
         self.run(addr);
     }
 
     /// Prints usage information.
-    #[inline]
     pub fn help(&self) {
         println!("{USAGE}");
     }
@@ -100,7 +95,6 @@ impl Monitor {
     /// # Errors
     ///
     /// If reading the user's command input fails.
-    #[inline]
     pub fn interact(&mut self) -> Result<()> {
         println!("{BANNER}");
         self.step = true;
@@ -119,7 +113,6 @@ impl Monitor {
     }
 
     /// Dumps memory at `addr` (default: PC).
-    #[inline]
     pub fn memory(&mut self, addr: Option<u16>) {
         let mut base = addr.unwrap_or(self.last_addr.unwrap_or(self.sys.cpu.pc));
         for _ in 0..8_u8 {
@@ -140,7 +133,6 @@ impl Monitor {
     ///
     /// If `self.step` is true, stops after the next instruction. Otherwise runs until
     /// halted.
-    #[inline]
     pub fn run(&mut self, addr: Option<u16>) {
         self.sys.cpu.halt = false;
         if let Some(addr) = addr {
@@ -163,7 +155,6 @@ impl Monitor {
     }
 
     /// Steps the system by one instruction.
-    #[inline]
     pub fn step(&mut self, addr: Option<u16>) {
         self.step = true;
         self.run(addr);

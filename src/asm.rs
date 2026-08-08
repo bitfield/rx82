@@ -25,7 +25,6 @@ pub const KEYWORDS: &[&str] = &[
 ];
 
 /// Assembles a given source program.
-#[non_exhaustive]
 pub struct Assembler<'src> {
     /// Stores the source code being assembled.
     pub chars: Peekable<Chars<'src>>,
@@ -44,7 +43,6 @@ pub struct Assembler<'src> {
 }
 
 impl<'src> From<&'src str> for Assembler<'src> {
-    #[inline]
     fn from(source: &'src str) -> Self {
         Self {
             chars: source.chars().peekable(),
@@ -64,7 +62,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Syntax errors.
-    #[inline]
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
         self.pass()?;
         self.code.clear();
@@ -80,7 +77,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Syntax errors.
-    #[inline]
     pub fn assemble_kw(&mut self, kw: &String) -> Result<()> {
         match kw.as_str() {
             "beq" => self.gen_branch(BranchEq),
@@ -110,7 +106,6 @@ impl Assembler<'_> {
     ///
     /// * Non-ASCII character in string.
     /// * Unexpected token.
-    #[inline]
     pub fn data(&mut self) -> Result<()> {
         loop {
             match self.next_token()? {
@@ -133,7 +128,6 @@ impl Assembler<'_> {
     }
 
     /// Prints `msg` if in debug mode, but only in pass 1.
-    #[inline]
     pub fn debug_print(&self, msg: impl AsRef<str>) {
         if self.debug && !self.pass2 {
             println!("{}", msg.as_ref());
@@ -145,7 +139,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Code too big for (target system) memory.
-    #[inline]
     pub fn emit_byte(&mut self, byte: u8) -> Result<()> {
         self.code.push(byte);
         self.loc = self.loc.wrapping_add(1);
@@ -162,7 +155,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Code too big for (target system) memory.
-    #[inline]
     pub fn emit_word(&mut self, word: u16) -> Result<()> {
         self.code.extend(word.to_le_bytes());
         self.loc = self.loc.wrapping_add(2);
@@ -178,7 +170,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Next token does not match `expected`.
-    #[inline]
     pub fn expect(&mut self, expected: &Token) -> Result<()> {
         let token = self.next_token()?;
         if token != *expected {
@@ -197,7 +188,6 @@ impl Assembler<'_> {
     /// * No displacement.
     /// * Displacement out of range (signed byte).
     #[expect(clippy::cast_possible_truncation, reason = "code ensures valid range")]
-    #[inline]
     pub fn expect_displacement(&mut self) -> Result<u8> {
         match self.next_token()? {
             ByteLiteral(dis) => Ok(dis),
@@ -222,7 +212,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Missing or wrong size operand.
-    #[inline]
     pub fn expect_op_for_reg(&mut self, reg: Reg) -> Result<Vec<u8>> {
         Ok(match self.next_token()? {
             ByteLiteral(operand) if !reg.is16() => vec![operand],
@@ -237,7 +226,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Next token is not a register name.
-    #[inline]
     pub fn expect_reg(&mut self) -> Result<Reg> {
         let reg = match self.next_token()? {
             Register(reg) => reg,
@@ -251,7 +239,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Next token is not a 16-bit register name.
-    #[inline]
     pub fn expect_reg16(&mut self) -> Result<Reg> {
         let reg = match self.next_token()? {
             Register(reg) if reg.is16() => reg,
@@ -266,7 +253,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Next token is not an 8-bit register name.
-    #[inline]
     pub fn expect_reg8(&mut self) -> Result<Reg> {
         let reg = match self.next_token()? {
             Register(reg) if !reg.is16() => reg,
@@ -281,7 +267,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Missing or invalid displacement.
-    #[inline]
     pub fn gen_branch(&mut self, kind: InstructionKind) -> Result<()> {
         let dis = self.expect_displacement()?;
         self.emit_byte(u8::from(kind))?;
@@ -294,7 +279,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Missing or invalid label or address.
-    #[inline]
     pub fn gen_call(&mut self) -> Result<()> {
         let addr = match self.next_token()? {
             Identifier(label) => self.resolve_label(&label)?,
@@ -313,7 +297,6 @@ impl Assembler<'_> {
     /// * Missing register name.
     /// * Missing comma.
     /// * Missing or mis-sized operand.
-    #[inline]
     pub fn gen_cmp(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
         self.expect(&Comma)?;
@@ -330,7 +313,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Missing or invalid register name or address.
-    #[inline]
     pub fn gen_dec(&mut self) -> Result<()> {
         match self.next_token()? {
             ParenOpen => match self.next_token()? {
@@ -362,7 +344,6 @@ impl Assembler<'_> {
     /// # Panics
     ///
     /// * If instruction is not an implied-address instruction.
-    #[inline]
     pub fn gen_implied(&mut self, kind: InstructionKind) -> Result<()> {
         match kind {
             Halt | Nop | Ret | Rti => {
@@ -378,7 +359,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Missing or invalid register name or address.
-    #[inline]
     pub fn gen_inc(&mut self) -> Result<()> {
         match self.next_token()? {
             ParenOpen => match self.next_token()? {
@@ -406,7 +386,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Syntax errors.
-    #[inline]
     pub fn gen_ld(&mut self) -> Result<()> {
         match self.next_token()? {
             ParenOpen => self.gen_store_indirect(),
@@ -421,7 +400,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Syntax errors.
-    #[inline]
     pub fn gen_ld_reg(&mut self, target: Reg) -> Result<()> {
         self.expect(&Comma)?;
         self.skip_whitespace();
@@ -440,7 +418,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Wrong target register width.
-    #[inline]
     pub fn gen_ld_reg_imm16(&mut self, target: Reg, word: u16) -> Result<()> {
         if !target.is16() {
             bail!("expected immediate byte, got {word:#06X}")
@@ -454,7 +431,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Wrong target register width.
-    #[inline]
     pub fn gen_ld_reg_imm8(&mut self, target: Reg, byte: u8) -> Result<()> {
         if target.is16() {
             bail!("expected immediate word, got {byte:#04X}")
@@ -468,7 +444,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * If the target is not a 16-bit register.
-    #[inline]
     pub fn gen_ld_reg_imm_label(&mut self, target: Reg, label: &String) -> Result<()> {
         if !target.is16() {
             bail!("expected immediate byte, got label '{label}'")
@@ -487,7 +462,6 @@ impl Assembler<'_> {
     ///
     /// * Invalid source or target registers.
     /// * Syntax errors.
-    #[inline]
     pub fn gen_ld_reg_indirect(&mut self, target: Reg) -> Result<()> {
         if target.is16() {
             bail!("expected 8-bit register, got '{target}'")
@@ -504,7 +478,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Mismatched register widths.
-    #[inline]
     pub fn gen_ld_reg_reg(&mut self, source: Reg, target: Reg) -> Result<()> {
         if source.is16() != target.is16() {
             bail!("expected same size register, got '{source}'")
@@ -518,7 +491,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Invalid register name.
-    #[inline]
     pub fn gen_pop(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
         self.emit_byte(u8::from(Pop(reg)))?;
@@ -530,7 +502,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Invalid register name.
-    #[inline]
     pub fn gen_push(&mut self) -> Result<()> {
         let reg = self.expect_reg()?;
         self.emit_byte(u8::from(Push(reg)))?;
@@ -543,7 +514,6 @@ impl Assembler<'_> {
     ///
     /// * Missing comma before register name.
     /// * Invalid register name.
-    #[inline]
     pub fn gen_store_direct(&mut self, addr: u16) -> Result<()> {
         self.expect(&Comma)?;
         let reg = self.expect_reg8()?;
@@ -558,7 +528,6 @@ impl Assembler<'_> {
     ///
     /// * Missing comma before register name.
     /// * Invalid register name.
-    #[inline]
     pub fn gen_store_indirect(&mut self) -> Result<()> {
         let target = self.expect_reg16()?;
         self.expect(&ParenClose)?;
@@ -574,7 +543,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Invalid trap code.
-    #[inline]
     pub fn gen_trap(&mut self) -> Result<()> {
         let trap_code = match self.next_token()? {
             ByteLiteral(code @ 0x00..=0x3F) => code,
@@ -591,7 +559,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Unexpected end of input.
-    #[inline]
     pub fn next_token(&mut self) -> Result<Token> {
         self.skip_whitespace();
         if let Some(next_char) = self.chars.peek() {
@@ -619,7 +586,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Missing or invalid label or address.
-    #[inline]
     pub fn org(&mut self) -> Result<()> {
         let addr = match self.next_token()? {
             WordLiteral(addr) => addr,
@@ -642,7 +608,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Syntax errors.
-    #[inline]
     pub fn pass(&mut self) -> Result<()> {
         while let Ok(token) = self.next_token() {
             match token {
@@ -658,7 +623,6 @@ impl Assembler<'_> {
     }
 
     /// Reads a comment token.
-    #[inline]
     pub fn read_comment(&mut self) -> Token {
         self.chars.next(); // skip ';' prefix
         self.skip_whitespace();
@@ -669,7 +633,6 @@ impl Assembler<'_> {
     }
 
     /// Reads a hex literal token.
-    #[inline]
     pub fn read_hex_literal(&mut self) -> Token {
         self.chars.next();
         self.chars.next(); // skip "0x" prefix
@@ -689,7 +652,6 @@ impl Assembler<'_> {
     }
 
     /// Reads an identifier, register name, or keyword.
-    #[inline]
     pub fn read_identifier(&mut self) -> Token {
         let ident: String = iter::from_fn(|| {
             self.chars
@@ -709,7 +671,6 @@ impl Assembler<'_> {
     }
 
     /// Reads a given token.
-    #[inline]
     pub fn read_token(&mut self, token: Token) -> Token {
         self.chars.next();
         token
@@ -720,7 +681,6 @@ impl Assembler<'_> {
     /// # Errors
     ///
     /// * Undefined label (on pass 2).
-    #[inline]
     pub fn resolve_label(&self, label: &str) -> Result<u16> {
         Ok(match self.labels.get(label) {
             Some(&addr) => addr,
@@ -730,7 +690,6 @@ impl Assembler<'_> {
     }
 
     /// Advances to the next non-whitespace, non-newline character.
-    #[inline]
     pub fn skip_whitespace(&mut self) {
         while self
             .chars
@@ -741,14 +700,12 @@ impl Assembler<'_> {
 }
 
 /// Disassembles a given binary program.
-#[non_exhaustive]
 pub struct Disassembler<'code> {
     /// The code to be disassembled.
     pub code: Iter<'code, u8>,
 }
 
 impl<'code> From<&'code [u8]> for Disassembler<'code> {
-    #[inline]
     fn from(code: &'code [u8]) -> Self {
         Self { code: code.iter() }
     }
@@ -758,7 +715,6 @@ impl Iterator for Disassembler<'_> {
     type Item = String;
 
     /// Disassembles the next instruction.
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let &opcode = self.code.next()?;
         Some(if let Ok(ins) = InstructionKind::try_from(opcode) {
@@ -796,7 +752,6 @@ impl Iterator for Disassembler<'_> {
 #[expect(clippy::elidable_lifetime_names, reason = "can't be elided here")]
 impl<'code> Disassembler<'code> {
     /// Reads a byte operand and formats it for display.
-    #[inline]
     fn format_byte(&mut self) -> String {
         if let Some(op) = self.code.next() {
             format!("{op:#04X}")
@@ -807,7 +762,6 @@ impl<'code> Disassembler<'code> {
 
     /// Reads an operand specifying the source register and formats the
     /// instruction for display.
-    #[inline]
     fn format_dec_indirect(&mut self) -> String {
         if let Some(&regs) = self.code.next()
             && let Some(source) = source_from(regs)
@@ -821,7 +775,6 @@ impl<'code> Disassembler<'code> {
 
     /// Reads an operand specifying the source register and formats the
     /// instruction for display.
-    #[inline]
     fn format_inc_indirect(&mut self) -> String {
         if let Some(&regs) = self.code.next()
             && let Some(source) = source_from(regs)
@@ -835,7 +788,6 @@ impl<'code> Disassembler<'code> {
 
     /// Reads an operand specifying source and target registers and formats the
     /// instruction for display.
-    #[inline]
     fn format_ld_reg_indirect(&mut self) -> String {
         if let Some(&regs) = self.code.next()
             && let Some((source, target)) = source_and_target_from(regs)
@@ -848,7 +800,6 @@ impl<'code> Disassembler<'code> {
 
     /// Reads an operand specifying source and target registers and formats the
     /// instruction for display.
-    #[inline]
     fn format_ld_reg_reg(&mut self) -> String {
         if let Some(&regs) = self.code.next()
             && let Some((source, target)) = source_and_target_from(regs)
@@ -860,7 +811,6 @@ impl<'code> Disassembler<'code> {
     }
 
     /// Reads an operand for `reg` and formats it for display.
-    #[inline]
     fn format_op_for_reg(&mut self, reg: Reg) -> String {
         if reg.is16() {
             self.format_word()
@@ -871,7 +821,6 @@ impl<'code> Disassembler<'code> {
 
     /// Reads an operand specifying source and target registers and formats the
     /// instruction for display.
-    #[inline]
     fn format_store_reg_indirect(&mut self) -> String {
         if let Some(&regs) = self.code.next()
             && let Some((source, target)) = source_and_target_from(regs)
@@ -883,7 +832,6 @@ impl<'code> Disassembler<'code> {
     }
 
     /// Reads a word operand and formats it for display.
-    #[inline]
     fn format_word(&mut self) -> String {
         if let (Some(&lo), Some(&hi)) = (self.code.next(), self.code.next()) {
             format!("{:#06X}", u16::from_le_bytes([lo, hi]))
@@ -894,7 +842,6 @@ impl<'code> Disassembler<'code> {
 }
 
 /// A source code token.
-#[non_exhaustive]
 #[derive(Debug, PartialEq)]
 pub enum Token {
     /// Hexadecimal byte literal (`0x00`).
@@ -926,7 +873,6 @@ pub enum Token {
 }
 
 impl Display for Token {
-    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match *self {
             ByteLiteral(byte) => write!(f, "ByteLiteral({byte:#04X})"),
@@ -937,7 +883,6 @@ impl Display for Token {
 }
 
 /// Formats the `data` slice as comma-separated hex bytes.
-#[inline]
 #[must_use]
 pub fn as_hex(data: &[u8]) -> String {
     let mut byte_strs = Vec::new();
@@ -955,7 +900,6 @@ pub fn as_hex(data: &[u8]) -> String {
 ///
 /// If the program fails to assemble.
 #[expect(clippy::unwrap_used, reason = "for testing")]
-#[inline]
 #[must_use]
 pub fn assemble(source: &str) -> Vec<u8> {
     let mut asm = Assembler::from(source);
@@ -968,7 +912,6 @@ pub fn assemble(source: &str) -> Vec<u8> {
 /// Disassembles a single instruction from `code`.
 ///
 /// Useful for writing tests.
-#[inline]
 #[must_use]
 pub fn disassemble(code: &[u8]) -> String {
     let mut dis = Disassembler::from(code);

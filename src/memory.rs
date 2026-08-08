@@ -3,7 +3,6 @@ use anyhow::{Context as _, Result, bail};
 use crate::{bus::Bus, system::Device};
 
 /// The system RAM.
-#[non_exhaustive]
 #[derive(Debug)]
 pub struct Memory {
     pub data: Vec<u8>,
@@ -12,7 +11,6 @@ pub struct Memory {
 }
 
 impl Default for Memory {
-    #[inline]
     fn default() -> Self {
         Self {
             start: 0x0000,
@@ -24,7 +22,6 @@ impl Default for Memory {
 
 impl Device for Memory {
     /// Responds to a memory request if the [`Bus::mem`] line is active.
-    #[inline]
     fn tick(&mut self, bus: &mut Bus) {
         if bus.mem && self.in_range(bus.addr) {
             match (bus.mem, bus.write) {
@@ -47,7 +44,6 @@ impl Memory {
     /// Returns the byte at logical address `addr`.
     ///
     /// Returns zero if the address is outside the configured memory range.
-    #[inline]
     #[must_use]
     pub fn get(&self, addr: u16) -> u8 {
         let phys_addr = addr.strict_sub(self.start);
@@ -58,7 +54,6 @@ impl Memory {
     }
 
     /// Returns true if `addr` is in the memory's logical address range.
-    #[inline]
     #[must_use]
     pub fn in_range(&self, addr: u16) -> bool {
         self.start <= addr && addr <= self.end
@@ -69,7 +64,6 @@ impl Memory {
     /// # Errors
     ///
     /// If the load exceeds bounds.
-    #[inline]
     pub fn load(&mut self, addr: u16, data: &[u8]) -> Result<()> {
         if !self.in_range(addr) {
             bail!("out of range")
@@ -85,7 +79,6 @@ impl Memory {
     /// Sets the byte at address `addr` to `val`.
     ///
     /// If `addr` is out of range, this has no effect.
-    #[inline]
     pub fn set(&mut self, addr: u16, val: u8) {
         let phys_addr = addr.saturating_sub(self.start);
         if let Some(loc) = self.data.get_mut(usize::from(phys_addr)) {

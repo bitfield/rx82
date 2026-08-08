@@ -8,7 +8,6 @@ use core::{
 /// The 8-bit registers.
 #[expect(clippy::min_ident_chars, reason = "the actual names")]
 #[expect(clippy::arbitrary_source_item_ordering, reason = "logical order")]
-#[non_exhaustive]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Reg {
     A,
@@ -27,7 +26,6 @@ pub enum Reg {
 }
 
 impl Display for Reg {
-    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
@@ -54,7 +52,6 @@ impl Display for Reg {
 impl FromStr for Reg {
     type Err = anyhow::Error;
 
-    #[inline]
     fn from_str(value: &str) -> Result<Self, anyhow::Error> {
         Ok(match value {
             "a" => Reg::A,
@@ -78,7 +75,6 @@ impl FromStr for Reg {
 impl TryFrom<u8> for Reg {
     type Error = anyhow::Error;
 
-    #[inline]
     fn try_from(id: u8) -> Result<Self, Self::Error> {
         Ok(match id {
             0x00 => Reg::A,
@@ -100,7 +96,6 @@ impl TryFrom<u8> for Reg {
 }
 
 impl From<Reg> for u8 {
-    #[inline]
     fn from(reg: Reg) -> Self {
         match reg {
             Reg::A => 0x00,
@@ -122,7 +117,6 @@ impl From<Reg> for u8 {
 
 impl Reg {
     /// Returns true if `reg` is a 16-bit register pair.
-    #[inline]
     #[must_use]
     pub fn is16(&self) -> bool {
         matches!(self, Reg::AB | Reg::CD | Reg::EF | Reg::GH | Reg::SP)
@@ -147,7 +141,6 @@ impl Regs {
     /// Returns the value in register `reg`.
     ///
     /// For 8-bit registers, the high byte will always be 0.
-    #[inline]
     #[must_use]
     pub fn get(&self, reg: Reg) -> u16 {
         use Reg::*;
@@ -172,7 +165,6 @@ impl Regs {
     ///
     /// For 8-bit registers, the high byte is ignored.
     #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
-    #[inline]
     pub fn set(&mut self, reg: Reg, val: u16) -> u16 {
         use Reg::*;
         let byte = val as u8;
@@ -203,7 +195,6 @@ impl Regs {
 /// source register is `cd` and the target register is `a`. The instruction is followed
 /// by an operand byte encoding these registers as 0x91 (9 = 0b1001 = `cd`, 1 = 0b0001 =
 /// `a`).
-#[inline]
 #[must_use]
 pub fn source_and_target_from(regs: u8) -> Option<(Reg, Reg)> {
     if let Some(source) = source_from(regs)
@@ -219,7 +210,6 @@ pub fn source_and_target_from(regs: u8) -> Option<(Reg, Reg)> {
 ///
 /// The encoding is as for [`source_and_target_from`], except that only the high nibble
 /// is encoded.
-#[inline]
 #[must_use]
 pub fn source_from(reg: u8) -> Option<Reg> {
     Reg::try_from((reg & 0x0F0) >> 4_u8).ok()
@@ -228,7 +218,6 @@ pub fn source_from(reg: u8) -> Option<Reg> {
 /// Returns the operand byte encoding `source` and `target` registers.
 ///
 /// See [`source_and_target_from`] for details of the encoding.
-#[inline]
 #[must_use]
 pub fn u8_from(source: Reg, target: Reg) -> u8 {
     (u8::from(source) << 4_u8) | u8::from(target)

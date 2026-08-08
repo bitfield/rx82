@@ -1,5 +1,4 @@
 /// A desired or asserted bus state.
-#[non_exhaustive]
 #[derive(Clone, Debug)]
 pub enum Bstate {
     /// Address bus value.
@@ -13,7 +12,6 @@ pub enum Bstate {
 }
 
 /// The system bus.
-#[non_exhaustive]
 #[derive(Clone, Debug, Default)]
 pub struct Bus {
     /// The 16-bit address bus.
@@ -32,13 +30,11 @@ pub struct Bus {
 
 impl Bus {
     /// Sets the `/MEM` line inactive.
-    #[inline]
     pub fn disable_mem(&mut self) {
         self.pending_write.get_or_insert(vec![Bstate::Mem(false)]);
     }
 
     /// Issues a memory read request for `addr`.
-    #[inline]
     pub fn read_mem(&mut self, addr: u16) {
         self.pending_write.get_or_insert(vec![
             Bstate::Addr(addr),
@@ -48,7 +44,6 @@ impl Bus {
     }
 
     /// Applies any pending write to the bus.
-    #[inline]
     pub fn reconcile(&mut self) {
         if let Some(states) = self.pending_write.take() {
             for state in states {
@@ -63,13 +58,11 @@ impl Bus {
     }
 
     /// Puts `data` on the data bus.
-    #[inline]
     pub fn write_data(&mut self, data: u8) {
         self.pending_write.get_or_insert(vec![Bstate::Data(data)]);
     }
 
     /// Issues a memory write request for `addr` with `val`.
-    #[inline]
     pub fn write_mem(&mut self, addr: u16, val: u8) {
         self.pending_write.get_or_insert(vec![
             Bstate::Addr(addr),
@@ -170,7 +163,6 @@ mod tests {
     ///
     /// On the first failed assertion.
     #[expect(clippy::single_call_fn, reason = "clarity")]
-    #[inline]
     pub fn assert(bus: &Bus, states: &[Bstate], msg: impl AsRef<str>) -> Result<()> {
         let msg = msg.as_ref();
         for state in states {

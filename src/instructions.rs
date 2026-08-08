@@ -5,7 +5,6 @@ use anyhow::bail;
 use crate::{bus::Bus, cpu::Cpu, regs::Reg};
 
 /// Instruction kinds.
-#[non_exhaustive]
 #[derive(Copy, Clone, Debug)]
 pub enum InstructionKind {
     /// Branch always.
@@ -59,7 +58,6 @@ pub enum InstructionKind {
 use InstructionKind::*;
 
 impl Display for InstructionKind {
-    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
@@ -96,7 +94,6 @@ impl Display for InstructionKind {
 impl TryFrom<u8> for InstructionKind {
     type Error = anyhow::Error;
 
-    #[inline]
     fn try_from(opcode: u8) -> Result<Self, Self::Error> {
         let reg = Reg::try_from(opcode & 0x0F);
         Ok(match opcode {
@@ -129,7 +126,6 @@ impl TryFrom<u8> for InstructionKind {
 }
 
 impl From<InstructionKind> for u8 {
-    #[inline]
     fn from(ins: InstructionKind) -> Self {
         match ins {
             BranchAlways => 0xF0,
@@ -161,7 +157,6 @@ impl From<InstructionKind> for u8 {
 
 impl InstructionKind {
     /// Executes the instruction.
-    #[inline]
     pub fn execute(&self, cpu: &mut Cpu, bus: &mut Bus) {
         match *self {
             BranchAlways => cpu.branch(cpu.op_lo),
@@ -191,7 +186,6 @@ impl InstructionKind {
     }
 
     /// Returns the number of operands this instruction takes.
-    #[inline]
     #[must_use]
     pub fn operands(&self) -> Operands {
         use Operands::*;
