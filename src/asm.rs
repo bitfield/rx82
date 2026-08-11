@@ -86,15 +86,15 @@ impl Assembler<'_> {
             "cmp" => self.gen_cmp(),
             "data" => self.data(),
             "dec" => self.gen_dec(),
-            "halt" => self.gen_implied(Halt),
+            "halt" => self.emit_byte(u8::from(Halt)),
             "inc" => self.gen_inc(),
             "ld" => self.gen_ld(),
-            "nop" => self.gen_implied(Nop),
+            "nop" => self.emit_byte(u8::from(Nop)),
             "org" => self.org(),
             "pop" => self.gen_pop(),
             "push" => self.gen_push(),
-            "ret" => self.gen_implied(Ret),
-            "rti" => self.gen_implied(Rti),
+            "ret" => self.emit_byte(u8::from(Ret)),
+            "rti" => self.emit_byte(u8::from(Rti)),
             "trap" => self.gen_trap(),
             _ => unreachable!("unknown keyword '{kw}'"),
         }
@@ -156,13 +156,9 @@ impl Assembler<'_> {
     ///
     /// * Code too big for (target system) memory.
     pub fn emit_word(&mut self, word: u16) -> Result<()> {
-        self.code.extend(word.to_le_bytes());
-        self.loc = self.loc.wrapping_add(2);
-        if self.loc <= 2 && self.code.len() > 2 {
-            // We must have wrapped around past the end of memory
-            bail!("code too big for memory");
-        }
-        Ok(())
+        let [lo, hi] = word.to_le_bytes();
+        self.emit_byte(lo)?;
+        self.emit_byte(hi)
     }
 
     /// Consumes the specified token.
@@ -335,25 +331,6 @@ impl Assembler<'_> {
         Ok(())
     }
 
-    /// Generates an implied-address instruction of `kind`.
-    ///
-    /// # Errors
-    ///
-    /// None.
-    ///
-    /// # Panics
-    ///
-    /// * If instruction is not an implied-address instruction.
-    pub fn gen_implied(&mut self, kind: InstructionKind) -> Result<()> {
-        match kind {
-            Halt | Nop | Ret | Rti => {
-                self.emit_byte(u8::from(kind))?;
-                Ok(())
-            }
-            _ => unreachable!("invalid instruction kind {kind:?}"),
-        }
-    }
-
     /// Generates an increment instruction.
     ///
     /// # Errors
@@ -449,11 +426,7 @@ impl Assembler<'_> {
             bail!("expected immediate byte, got label '{label}'")
         }
         self.emit_byte(u8::from(LdRegImm(target)))?;
-        self.emit_word(if self.pass2 {
-            self.resolve_label(label)?
-        } else {
-            0x0000 // resolve for real on next pass
-        })
+        self.emit_word(self.resolve_label(label)?)
     }
 
     /// Generates a load register indirect instruction.
