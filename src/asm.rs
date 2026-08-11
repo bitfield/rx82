@@ -34,10 +34,14 @@ pub struct Assembler<'src> {
     pub debug: bool,
     /// Label table.
     pub labels: HashMap<String, u16>,
+    /// Line counter.
+    pub line: usize,
     /// Location counter.
     pub loc: u16,
     /// Are we on the second pass?
     pub pass2: bool,
+    /// Path to source file.
+    pub path: String,
     /// Source code being assembled.
     pub source: &'src str,
 }
@@ -49,8 +53,10 @@ impl<'src> From<&'src str> for Assembler<'src> {
             code: Vec::new(),
             debug: false,
             labels: HashMap::new(),
+            line: 1,
             loc: BASE,
             pass2: false,
+            path: "input".to_owned(),
             source,
         }
     }
@@ -63,10 +69,12 @@ impl Assembler<'_> {
     ///
     /// * Syntax errors.
     pub fn assemble(&mut self) -> Result<Vec<u8>> {
-        self.pass()?;
+        self.pass()
+            .context(format!("syntax error in {}:{}", self.path, self.line))?;
         self.code.clear();
         self.chars = self.source.chars().peekable();
         self.pass2 = true;
+        self.line = 1;
         self.loc = BASE;
         self.pass()?;
         Ok(self.code.clone())
@@ -584,7 +592,9 @@ impl Assembler<'_> {
     pub fn pass(&mut self) -> Result<()> {
         while let Ok(token) = self.next_token() {
             match token {
-                Comment(_) | Newline => {}
+                Comment(_) | Newline => {
+                    self.line = self.line.checked_add(1).context("line count overflow")?;
+                }
                 Keyword(kw) => self.assemble_kw(&kw)?,
                 LabelDef(label) => {
                     self.labels.insert(label, self.loc);
@@ -988,6 +998,15 @@ mod tests {
             generated,
             &[u8::from(LdRegImm(Reg::CD)), 0x00, 0x01]
         );
+    }
+
+    #[test]
+    fn assembler_counts_lines_correctly() {
+        let source = "ld a, 0xFF\ninc a\nhalt";
+        let mut asm = Assembler::from(source);
+        asm.debug = true;
+        asm.assemble().unwrap();
+        assert_eq!(asm.line, 3, "wrong line count");
     }
 
     #[test]

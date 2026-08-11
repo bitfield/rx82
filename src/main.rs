@@ -63,6 +63,7 @@ fn main() -> Result<()> {
             let source = fs::read_to_string(&path)?;
             let mut asm = Assembler::from(source.as_str());
             asm.debug = debug;
+            asm.path = path.display().to_string();
             let data = asm.assemble()?;
             let mut bin_path = path.clone();
             bin_path.set_extension("bin");
