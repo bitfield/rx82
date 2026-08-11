@@ -300,6 +300,19 @@ impl Cpu {
         }
     }
 
+    /// Executes a logical shift right instruction.
+    pub fn lsr(&mut self, reg: Reg, mut bits: u8) {
+        bits = bits.clamp(1, 8);
+        let mut value = self
+            .regs
+            .get(reg)
+            .unbounded_shr(u32::from(bits.strict_sub(1))); // clamped >= 1
+        let last_bit = value & 1;
+        value = value.unbounded_shr(1);
+        self.regs.set(reg, value);
+        self.flags.carry = last_bit == 1;
+    }
+
     /// Returns the 16-bit value of the two operand registers.
     #[must_use]
     pub fn op(&self) -> u16 {

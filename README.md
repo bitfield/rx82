@@ -88,7 +88,7 @@ Enter         = Repeat last command
 >
 ```
 
-To dump memory, use the `M` command. This will print a block of memory starting at the current value of PC:
+To dump memory, use the `M` command. This will print a block of memory starting at the current value of `pc`:
 
 ```txt
 > m
@@ -164,26 +164,54 @@ The R8 is a little-endian CPU with an 8-bit data bus, a 16-bit address bus, and 
 
 ## Registers
 
-The CPU has eight 8-bit registers: A, B, C, D, E, F, G, and H. As with the Z80, these can also be addressed as 16-bit register pairs: AB, CD, EF, and GH.
+The CPU has eight 8-bit registers: `a`, `b`, `c`, `d`, `e`, `f`, `g`, and `h`. As with the Z80, these can also be addressed as 16-bit register pairs: `ab`, `cd`, `ef`, and `gh`.
 
-The 16-bit address bus allows the R8 to address up to 64KiB of memory, and the program counter register PC holds the 16-bit address of the next memory location to fetch from.
+The 16-bit address bus allows the R8 to address up to 64KiB of memory, and the program counter register `pc` holds the 16-bit address of the next memory location to fetch from.
 
 ## Flags
 
-The processor status register PS contains the following flags:
+The processor status register `ps` contains the following flags:
 
 * **Carry** (bit 0) — After addition, this is the carry result. After subtraction or comparison, this flag is set if no borrow occurred (that is, for X - Y, if X >= Y). Increment and decrement instructions do not affect the carry flag.
 * **Zero** (bit 1) — After instructions with a value result, this flag is set if the result is zero, or cleared otherwise.
 
+## Opcodes
+
+| HI/LO | -0 | -1 | -2 | -3 | -4 | -5 | -6 | -7 | -8 | -9 | -A | -B | -C | -D | -E | -F |
+| :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| `0-` | `halt` | `nop` | `--` | `--` | `--` | `--` | `--` | `--` | `ret` | `rti` | `--` | `--` | `--` | `--` | `--` | `--` |
+| `1-` | `ld a, N` | `ld b, N` | `ld c, N` | `ld d, N` | `ld e, N` | `ld f, N` | `ld g, N` | `ld h, N` | `ld ab, NN` | `ld cd, NN` | `ld ef, NN` | `ld gh, NN` | `ld sp, NN` | `--` | `--` | `--` |
+| `2-` | `ld NN, a` | `ld NN, b` | `ld NN, c` | `ld NN, d` | `ld NN, e` | `ld NN, f` | `ld NN, g` | `ld NN, h` | `--` | `--` | `--` | `--` | `--` | `ld R, ({RR})` | `ld (RR), R` | `ld R, R` |
+| `3-` | `inc a` | `inc b` | `inc c` | `inc d` | `inc e` | `inc f` | `inc g` | `inc h` | `inc ab` | `inc cd` | `inc ef` | `inc gh` | `inc sp` | `inc (RR)` | `inc (NN)` | `--` |
+| `4-` | `dec a` | `dec b` | `dec c` | `dec d` | `dec e` | `dec f` | `dec g` | `dec h` | `dec ab` | `dec cd` | `dec ef` | `dec gh` | `dec sp` | `dec (RR)` | `dec (NN)` | `--` |
+| `5-` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` |
+| `6-` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` |
+| `7-` | `cmp a, N` | `cmp b, N` | `cmp c, N` | `cmp d, N` | `cmp e, N` | `cmp f, N` | `cmp g, N` | `cmp h, N` | `cmp ab, N` | `cmp cd, N` | `cmp ef, N` | `cmp gh, N` | `--` | `--` | `--` | `--` |
+| `8-` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` |
+| `9-` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` |
+| `A-` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `lsr a` | `lsr b` | `lsr c` | `lsr d` | `lsr e` | `lsr f` | `lsr g` | `lsr h` |
+| `B-` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` |
+| `C-` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` | `--` |
+| `D-` | `push a` | `push b` | `push c` | `push d` | `push e` | `push f` | `push g` | `push h` | `push ab` | `push cd` | `push ef` | `push gh` | `--` | `--` | `--` | `--` |
+| `E-` | `pop a` | `pop b` | `pop c` | `pop d` | `pop e` | `pop f` | `pop g` | `pop h` | `pop ab` | `pop cd` | `pop ef` | `pop gh` | `--` | `--` | `--` | `--` |
+| `F-` | `bra D` | `beq D` | `bne D` | `--` | `--` | `--` | `--` | `--` | `call NN` | `trap T` | `--` | `--` | `--` | `--` | `--` | `--` |
+
+Key:
+
+* `N`: immediate value
+* `R`: register
+* `D`: signed byte displacement
+* `T`: trap code byte
+
 ## Stack
 
-The hardware stack is governed by the stack pointer register SP, which should be initialised to a suitable address in RAM. The stack grows downwards unboundedly. SP always points to the next location where a value will be pushed: that is, an address one byte lower than the address of the current top-of-stack value.
+The hardware stack is governed by the stack pointer register `sp`, which should be initialised to a suitable address in RAM. The stack grows downwards unboundedly. `sp` always points to the next location where a value will be pushed: that is, an address one byte lower than the address of the current top-of-stack value.
 
 16-bit registers and return addresses are pushed in little-endian order: that is, the low byte is pushed first, followed by the high byte.
 
 ## Reset
 
-On reset, all registers and flags are zeroed and cleared, and PC is initialised from the little-endian reset vector at 0xFFFE.
+On reset, all registers and flags are zeroed and cleared, and `pc` is initialised from the little-endian reset vector at 0xFFFE.
 
 ## Traps
 
@@ -191,9 +219,9 @@ Traps are the R8's way of handling exceptions, interrupts, and user-defined tool
 
 | Address | Data | 
 | :--- | :--- |
-| (SP+1) | Trap code (0x00-0x3F) |
-| (SP+2) | Return address (high byte) |
-| (SP+3) | Return address (low byte) |
+| (`sp`+1) | Trap code (0x00-0x3F) |
+| (`sp`+2) | Return address (high byte) |
+| (`sp`+3) | Return address (low byte) |
 
 ### Exceptions
 
@@ -219,7 +247,7 @@ The `trap` instruction will cause the CPU to trap with the specified code:
 
 ### Handlers
 
-Each trap code is associated with a (little-endian) handler vector address in the trap table, spanning from address 0x0000-0x007F. The handler vector for trap N is at address 2 * N.
+Each trap code is associated with a (little-endian) handler vector address in the trap table, spanning from address 0x0000-0x007F. The handler vector for trap `T` is at address 2 * `T`.
 
 For example, to install a handler for trap 0x20, write its vector to address 0x0040:
 

@@ -37,6 +37,8 @@ pub enum InstructionKind {
     LdRegIndirect,
     /// Load a register from another register.
     LdRegReg,
+    /// Logical shift right.
+    Lsr(Reg),
     /// No operation.
     Nop,
     /// Pop a register value from the stack.
@@ -78,6 +80,7 @@ impl Display for InstructionKind {
                 LdRegImm(reg) => format!("ld {reg}, {}", if reg.is16() { "NN" } else { "N" }),
                 LdRegIndirect => "ld R, ({RR})".to_owned(),
                 LdRegReg => "ld R, R".to_owned(),
+                Lsr(reg) => format!("lsr {reg}"),
                 Nop => "nop".to_owned(),
                 Pop(reg) => format!("pop {reg}"),
                 Push(reg) => format!("push {reg}"),
@@ -95,7 +98,10 @@ impl TryFrom<u8> for InstructionKind {
     type Error = anyhow::Error;
 
     fn try_from(opcode: u8) -> Result<Self, Self::Error> {
+        // Register ID for instructions with X0.. opcodes.
         let reg = Reg::try_from(opcode & 0x0F);
+        // Register ID for instructions with X8..XF opcodes.
+        let reg2 = Reg::try_from(opcode.wrapping_sub(8) & 0x0F);
         Ok(match opcode {
             0x00 => Halt,
             0x01 => Nop,
@@ -113,6 +119,7 @@ impl TryFrom<u8> for InstructionKind {
             0x4D => DecIndirect,
             0x4E => DecMem,
             0x70..=0x7B => Cmp(reg?),
+            0xA8..=0xAF => Lsr(reg2?),
             0xD0..=0xDB => Push(reg?),
             0xE0..=0xEB => Pop(reg?),
             0xF0 => BranchAlways,
@@ -143,6 +150,7 @@ impl From<InstructionKind> for u8 {
             LdRegImm(reg) => 0x10 | u8::from(reg),
             LdRegIndirect => 0x2D,
             LdRegReg => 0x2F,
+            Lsr(reg) => 0xA8 | u8::from(reg),
             Nop => 0x01,
             Pop(reg) => 0xE0 | u8::from(reg),
             Push(reg) => 0xD0 | u8::from(reg),
@@ -174,6 +182,7 @@ impl InstructionKind {
             LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
             LdRegIndirect => cpu.ld_reg_indirect(bus),
             LdRegReg => cpu.ld_reg_reg(bus),
+            Lsr(reg) => cpu.lsr(reg, cpu.op_lo),
             Pop(reg) => cpu.pop(reg, bus),
             Push(reg) => cpu.push(reg, bus),
             Ret => cpu.ret(bus),
@@ -192,7 +201,7 @@ impl InstructionKind {
         match *self {
             Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti => Zero,
             BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect | LdRegIndirect
-            | LdRegReg | StoreRegIndirect | Trap => One,
+            | LdRegReg | Lsr(_) | StoreRegIndirect | Trap => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -205,7 +214,6 @@ impl InstructionKind {
     }
 }
 
-#[expect(clippy::exhaustive_enums, reason = "this actually is exhaustive")]
 /// Specifies whether an instruction takes zero, one, or two operands.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operands {
@@ -222,6 +230,7 @@ pub enum Operands {
 #[expect(clippy::unwrap_used, reason = "test")]
 #[expect(clippy::default_numeric_fallback, reason = "hex literals")]
 mod tests {
+    use super::*;
     use crate::{asm::assemble, regs::Reg::*, system::System};
 
     macro_rules! assert_hex {
@@ -682,6 +691,37 @@ mod tests {
         assert_hex!(sys.cpu.regs.get(B), 0xFF, "wrong B");
         assert_hex!(sys.cpu.regs.get(CD), 0xFFFF, "wrong CD");
         assert_hex!(sys.cpu.regs.get(E), 0xFF, "wrong E");
+    }
+
+    #[test]
+    fn lsr() {
+        use InstructionKind::Lsr;
+        let mut sys = System::default();
+        let cases: &[(&str, u8, bool, u8, u8, bool)] = &[
+            ("shifts correctly", 0xF0, false, 0x04, 0x0F, false),
+            ("clears carry", 0x17, true, 0x04, 0x01, false),
+            ("sets carry", 0x78, false, 0x04, 0x07, true),
+            ("min shift == 1", 0x01, false, 0x00, 0x00, true),
+            ("max shift == 8", 0xF1, false, 0xFF, 0x00, true),
+            ("shift 8, no carry", 0x7F, true, 0x08, 0x00, false),
+            ("shift 8, carry", 0xFF, false, 0x08, 0x00, true),
+        ];
+        for &(name, start_a, start_carry, shift, want_a, want_carry) in cases {
+            sys.cpu.flags.carry = start_carry;
+            sys.cpu.regs.set(A, u16::from(start_a));
+            sys.trace_program(&[u8::from(Lsr(A)), shift]).unwrap();
+            assert_hex!(
+                sys.cpu.regs.get(A),
+                u16::from(want_a),
+                format!("{name}: wrong A")
+            );
+            assert_eq!(
+                sys.cpu.flags.carry,
+                want_carry,
+                "{name}: carry wrongly {}",
+                if want_carry { "clear" } else { "set" }
+            );
+        }
     }
 
     #[test]

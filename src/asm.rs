@@ -20,8 +20,8 @@ pub const BASE: u16 = 0x0100;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "beq", "bne", "bra", "call", "cmp", "data", "dec", "halt", "inc", "ld", "nop", "org", "pop",
-    "push", "ret", "rti", "trap",
+    "beq", "bne", "bra", "call", "cmp", "data", "dec", "halt", "inc", "ld", "lsr", "nop", "org",
+    "pop", "push", "ret", "rti", "trap",
 ];
 
 /// Assembles a given source program.
@@ -97,6 +97,7 @@ impl Assembler<'_> {
             "halt" => self.emit_byte(u8::from(Halt)),
             "inc" => self.gen_inc(),
             "ld" => self.gen_ld(),
+            "lsr" => self.gen_lsr(),
             "nop" => self.emit_byte(u8::from(Nop)),
             "org" => self.org(),
             "pop" => self.gen_pop(),
@@ -467,6 +468,21 @@ impl Assembler<'_> {
         self.emit_byte(regs::u8_from(source, target))
     }
 
+    /// Generates a logical shift right instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Syntax errors.
+    pub fn gen_lsr(&mut self) -> Result<()> {
+        let target = self.expect_reg8()?;
+        self.emit_byte(u8::from(Lsr(target)))?;
+        self.expect(&Comma)?;
+        match self.next_token()? {
+            ByteLiteral(shift) => self.emit_byte(shift),
+            other => bail!("expected shift count, got {other}"),
+        }
+    }
+
     /// Generates a pop instruction.
     ///
     /// # Errors
@@ -717,6 +733,7 @@ impl Iterator for Disassembler<'_> {
                 LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
                 LdRegIndirect => self.format_ld_reg_indirect(),
                 LdRegReg => self.format_ld_reg_reg(),
+                Lsr(reg) => format!("lsr {reg}, {}", self.format_byte()),
                 Nop => "nop".into(),
                 Pop(reg) => format!("pop {reg}"),
                 Push(reg) => format!("push {reg}"),
@@ -943,48 +960,6 @@ mod tests {
     }
 
     #[test]
-    fn assembler_assembles_and_disassembles_instructions_correctly() {
-        use Reg::*;
-        let cases: &[(&str, &[u8])] = &[
-            ("", &[]),
-            ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
-            ("bne 0x01", &[u8::from(BranchNe), 0x01]),
-            ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
-            ("call 0xBEEE", &[u8::from(Call), 0xEE, 0xBE]),
-            ("cmp d, 0x01", &[u8::from(Cmp(D)), 0x01]),
-            ("cmp gh, 0xDEAD", &[u8::from(Cmp(GH)), 0xAD, 0xDE]),
-            ("dec (0xBABE)", &[u8::from(DecMem), 0xBE, 0xBA]),
-            ("dec (gh)", &[u8::from(DecIndirect), 0xB0]),
-            ("dec ab", &[u8::from(Dec(AB))]),
-            ("dec g", &[u8::from(Dec(G))]),
-            ("halt", &[u8::from(Halt)]),
-            ("inc (0xCAFE)", &[u8::from(IncMem), 0xFE, 0xCA]),
-            ("inc (cd)", &[u8::from(IncIndirect), 0x90]),
-            ("inc a", &[u8::from(Inc(A))]),
-            ("inc ef", &[u8::from(Inc(EF))]),
-            ("ld (ef), a", &[u8::from(StoreRegIndirect), 0x0A]),
-            ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
-            ("ld a, b", &[u8::from(LdRegReg), 0x10]),
-            ("ld ab, 0x000F", &[u8::from(LdRegImm(AB)), 0x0F, 0x00]),
-            ("ld b, (cd)", &[u8::from(LdRegIndirect), 0x91]),
-            ("ld b, 0xFF", &[u8::from(LdRegImm(B)), 0xFF]),
-            ("ld cd, 0xBEEF", &[u8::from(LdRegImm(CD)), 0xEF, 0xBE]),
-            ("ld sp, 0x010F", &[u8::from(LdRegImm(SP)), 0x0F, 0x01]),
-            ("nop", &[u8::from(Nop)]),
-            ("pop e", &[u8::from(Pop(E))]),
-            ("push c", &[u8::from(Push(C))]),
-            ("ret", &[u8::from(Ret)]),
-            ("rti", &[u8::from(Rti)]),
-            ("trap 0x01", &[u8::from(Trap), 0x01]),
-        ];
-        for &(source, object) in cases {
-            let generated = assemble(source);
-            assert_asm!(source, generated, object);
-            assert_disasm!(generated, source);
-        }
-    }
-
-    #[test]
     fn assembler_accepts_label_as_immediate_word_value() {
         let source = "
         LABEL:
@@ -1021,74 +996,6 @@ mod tests {
         asm.debug = true;
         asm.assemble().unwrap();
         assert_hex!(asm.resolve_label("AHEAD").unwrap(), 0x0104, "wrong address");
-    }
-
-    #[test]
-    #[expect(clippy::non_ascii_literal, reason = "test")]
-    fn assembler_rejects_invalid_code() {
-        let cases: &[&str] = &[
-            "&",
-            "beq UNDEFINED_LABEL",
-            "beq",
-            "bne 0x1000",
-            "bogus",
-            "bra a",
-            "call 0x01",
-            "call gh",
-            "call",
-            "cmp a, b, d",
-            "data (",
-            "data \"©\"",
-            "data",
-            "dec (",
-            "dec (a)",
-            "dec z",
-            "dec",
-            "inc (",
-            "inc (0xFF)",
-            "inc (a)",
-            "inc ,",
-            "inc 0x0000",
-            "inc ax",
-            "inc",
-            "ld (0x0), b",
-            "ld 0x0000",
-            "ld 0x0000, ",
-            "ld 0x00AF, ab",
-            "ld a 0x01",
-            "ld a",
-            "ld a, ",
-            "ld a, (bogus)",
-            "ld a, 0x1000",
-            "ld a, 0xZ",
-            "ld a, LABEL",
-            "ld a, cd",
-            "ld ab, (cd)",
-            "ld ab, 0x--",
-            "ld ab, 0x00009",
-            "ld ab, UNDEFINED",
-            "ld bogus, 0x01",
-            "ld cd, 0x09",
-            "ld ef",
-            "ld ef, 0x02",
-            "ld",
-            "nop\norg 0x0000",
-            "org 0xFFFF\nld a, 0x01",
-            "pop 0x01",
-            "push",
-            "ret cd",
-            "rti 0x0100",
-            "trap 0x40",
-            "trap 0xFF",
-            "trap a",
-            "trap",
-        ];
-        for &source in cases {
-            let mut asm = Assembler::from(source);
-            asm.debug = true;
-            asm.assemble()
-                .expect_err(&format!("assembling invalid source '{source}' should fail"));
-        }
     }
 
     #[test]
@@ -1305,5 +1212,119 @@ mod tests {
     #[test]
     fn as_hex_fn_formats_value_as_hex() {
         assert_eq!(as_hex(&[1, 255]), "[0x01, 0xFF]");
+    }
+
+    #[test]
+    fn assembler_assembles_and_disassembles_instructions_correctly() {
+        use Reg::*;
+        let cases: &[(&str, &[u8])] = &[
+            ("", &[]),
+            ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
+            ("bne 0x01", &[u8::from(BranchNe), 0x01]),
+            ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
+            ("call 0xBEEE", &[u8::from(Call), 0xEE, 0xBE]),
+            ("cmp d, 0x01", &[u8::from(Cmp(D)), 0x01]),
+            ("cmp gh, 0xDEAD", &[u8::from(Cmp(GH)), 0xAD, 0xDE]),
+            ("dec (0xBABE)", &[u8::from(DecMem), 0xBE, 0xBA]),
+            ("dec (gh)", &[u8::from(DecIndirect), 0xB0]),
+            ("dec ab", &[u8::from(Dec(AB))]),
+            ("dec g", &[u8::from(Dec(G))]),
+            ("halt", &[u8::from(Halt)]),
+            ("inc (0xCAFE)", &[u8::from(IncMem), 0xFE, 0xCA]),
+            ("inc (cd)", &[u8::from(IncIndirect), 0x90]),
+            ("inc a", &[u8::from(Inc(A))]),
+            ("inc ef", &[u8::from(Inc(EF))]),
+            ("ld (ef), a", &[u8::from(StoreRegIndirect), 0x0A]),
+            ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
+            ("ld a, b", &[u8::from(LdRegReg), 0x10]),
+            ("ld ab, 0x000F", &[u8::from(LdRegImm(AB)), 0x0F, 0x00]),
+            ("ld b, (cd)", &[u8::from(LdRegIndirect), 0x91]),
+            ("ld b, 0xFF", &[u8::from(LdRegImm(B)), 0xFF]),
+            ("ld cd, 0xBEEF", &[u8::from(LdRegImm(CD)), 0xEF, 0xBE]),
+            ("ld sp, 0x010F", &[u8::from(LdRegImm(SP)), 0x0F, 0x01]),
+            ("lsr a, 0x04", &[u8::from(Lsr(A)), 0x04]),
+            ("nop", &[u8::from(Nop)]),
+            ("pop e", &[u8::from(Pop(E))]),
+            ("push c", &[u8::from(Push(C))]),
+            ("ret", &[u8::from(Ret)]),
+            ("rti", &[u8::from(Rti)]),
+            ("trap 0x01", &[u8::from(Trap), 0x01]),
+        ];
+        for &(source, object) in cases {
+            let generated = assemble(source);
+            assert_asm!(source, generated, object);
+            assert_disasm!(generated, source);
+        }
+    }
+
+    #[test]
+    #[expect(clippy::non_ascii_literal, reason = "test")]
+    fn assembler_rejects_invalid_code() {
+        let cases: &[&str] = &[
+            "&",
+            "beq UNDEFINED_LABEL",
+            "beq",
+            "bne 0x1000",
+            "bogus",
+            "bra a",
+            "call 0x01",
+            "call gh",
+            "call",
+            "cmp a, b, d",
+            "data (",
+            "data \"©\"",
+            "data",
+            "dec (",
+            "dec (a)",
+            "dec z",
+            "dec",
+            "inc (",
+            "inc (0xFF)",
+            "inc (a)",
+            "inc ,",
+            "inc 0x0000",
+            "inc ax",
+            "inc",
+            "ld (0x0), b",
+            "ld 0x0000",
+            "ld 0x0000, ",
+            "ld 0x00AF, ab",
+            "ld a 0x01",
+            "ld a",
+            "ld a, ",
+            "ld a, (bogus)",
+            "ld a, 0x1000",
+            "ld a, 0xZ",
+            "ld a, LABEL",
+            "ld a, cd",
+            "ld ab, (cd)",
+            "ld ab, 0x--",
+            "ld ab, 0x00009",
+            "ld ab, UNDEFINED",
+            "ld bogus, 0x01",
+            "ld cd, 0x09",
+            "ld ef",
+            "ld ef, 0x02",
+            "ld",
+            "lsr",
+            "lsr a",
+            "lsr ab, 0x02",
+            "nop\norg 0x0000",
+            "org 0xFFFF\nld a, 0x01",
+            "pop 0x01",
+            "push",
+            "ret cd",
+            "rti 0x0100",
+            "trap 0x40",
+            "trap 0xFF",
+            "trap a",
+            "trap",
+        ];
+        for &source in cases {
+            let mut asm = Assembler::from(source);
+            asm.debug = true;
+            asm.assemble()
+                .expect_err(&format!("assembling invalid source '{source}' should fail"));
+        }
     }
 }
