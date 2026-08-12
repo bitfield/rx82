@@ -8,13 +8,13 @@ pub fn opcodes() {
         "| :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |"
     );
     for hi in 0x0..=0xF_u8 {
-        print!("| `{hi:X}-` |");
+        print!("| {hi:X}- |");
         for lo in 0x0..=0xF_u8 {
             let opcode = (hi << 4_u8) | lo;
             if let Ok(ins) = InstructionKind::try_from(opcode) {
-                print!(" `{ins}` |");
+                print!(" {ins} |");
             } else {
-                print!(" `--` |");
+                print!(" |");
             }
         }
         println!();
