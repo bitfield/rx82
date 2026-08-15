@@ -6,7 +6,7 @@ use core::{
     slice::Iter,
     str::{Chars, FromStr as _},
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::Path};
 
 use crate::{
     instructions::InstructionKind::{self, *},
@@ -907,6 +907,20 @@ pub fn assemble(source: &str) -> Vec<u8> {
     asm.assemble()
         .context(format!("assembling '{source}'"))
         .unwrap()
+}
+
+/// Assembles a program from the file at `path`.
+///
+/// # Errors
+///
+/// * File read errors
+/// * Syntax errors
+pub fn assemble_source_file(path: impl AsRef<Path>, debug: bool) -> Result<Vec<u8>> {
+    let source = fs::read_to_string(&path)?;
+    let mut asm = Assembler::from(source.as_str());
+    asm.debug = debug;
+    asm.path = path.as_ref().display().to_string();
+    asm.assemble()
 }
 
 /// Disassembles a single instruction from `code`.

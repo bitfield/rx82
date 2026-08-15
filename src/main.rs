@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use std::{fs, path::PathBuf};
 
 use rx82::{
-    asm::{Assembler, Disassembler},
+    asm::{Disassembler, assemble_source_file},
     doc::opcodes,
     monitor::Monitor,
 };
@@ -45,6 +45,9 @@ enum Command {
     },
     /// Assemble and load a source file into the monitor.
     Run {
+        /// Enable verbose debugging.
+        #[clap(short, long)]
+        debug: bool,
         /// Path to the source file.
         path: PathBuf,
     },
@@ -60,11 +63,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Asm { debug, path } => {
-            let source = fs::read_to_string(&path)?;
-            let mut asm = Assembler::from(source.as_str());
-            asm.debug = debug;
-            asm.path = path.display().to_string();
-            let data = asm.assemble()?;
+            let data = assemble_source_file(&path, debug)?;
             let mut bin_path = path.clone();
             bin_path.set_extension("bin");
             fs::write(bin_path, data)?;
@@ -91,9 +90,8 @@ fn main() -> Result<()> {
             mon.interact()
         }
         Command::Mon { path: None, .. } => Monitor::default().interact(),
-        Command::Run { path } => {
-            let source = fs::read_to_string(&path)?;
-            let data = Assembler::from(source.as_str()).assemble()?;
+        Command::Run { path, debug } => {
+            let data = assemble_source_file(&path, debug)?;
             let mut mon = Monitor::default();
             mon.sys.mem.load(0x0100, &data)?;
             mon.sys.cpu.pc = 0x0100;

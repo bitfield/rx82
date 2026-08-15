@@ -23,7 +23,7 @@ For boot ROM we need:
 
 For `to_hex` we need:
 [ ] `and R, N`
-[ ] `lsr R, N`
+[X] `lsr R, N`
 [X] `call` / `ret`
 
 Use case programs to write:
@@ -38,9 +38,12 @@ Other:
 [ ] Monitor: assembly
 [ ] Monitor: modify memory
 [ ] Monitor: command history/editing (`rustyline`)
+[ ] System: “turbo mode”
 [ ] Assembler: define symbols (`=`)
 [ ] Assembler: format source file
-[ ] Assembler: file/line error reporting
+[X] Assembler: file/line error reporting
+[ ] Asm: report program size
+[ ] Asm: decimal literals
 [ ] Assembler: fancy error reporting (`annotate-snippets-rs`)
 [ ] Disassembler: SkoolKit-style HTML cross-linked listings
 [ ] System: emulated serial device
