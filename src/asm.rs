@@ -20,8 +20,8 @@ pub const BASE: u16 = 0x0100;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "beq", "bne", "bra", "call", "cmp", "data", "dec", "halt", "inc", "ld", "lsr", "nop", "org",
-    "pop", "push", "ret", "rti", "trap",
+    "and", "beq", "bne", "bra", "call", "cmp", "data", "dec", "halt", "inc", "ld", "lsr", "nop",
+    "org", "pop", "push", "ret", "rti", "trap",
 ];
 
 /// Assembles a given source program.
@@ -87,6 +87,7 @@ impl Assembler<'_> {
     /// * Syntax errors.
     pub fn assemble_kw(&mut self, kw: &String) -> Result<()> {
         match kw.as_str() {
+            "and" => self.gen_and(),
             "beq" => self.gen_branch(BranchEq),
             "bne" => self.gen_branch(BranchNe),
             "bra" => self.gen_branch(BranchAlways),
@@ -265,6 +266,24 @@ impl Assembler<'_> {
             other => bail!("expected register name, got {other}"),
         };
         Ok(reg)
+    }
+
+    /// Generates a bitwise immediate and instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing register name.
+    /// * Missing comma.
+    /// * Missing or mis-sized operand.
+    pub fn gen_and(&mut self) -> Result<()> {
+        let reg = self.expect_reg8()?;
+        self.expect(&Comma)?;
+        self.emit_byte(u8::from(And(reg)))?;
+        let op = self.expect_op_for_reg(reg)?;
+        for byte in op {
+            self.emit_byte(byte)?;
+        }
+        Ok(())
     }
 
     /// Generates a branch instruction of kind `kind`.
@@ -718,6 +737,7 @@ impl Iterator for Disassembler<'_> {
         let &opcode = self.code.next()?;
         Some(if let Ok(ins) = InstructionKind::try_from(opcode) {
             match ins {
+                And(reg) => format!("and {reg}, {}", self.format_byte()),
                 BranchAlways => format!("bra {}", self.format_byte()),
                 BranchEq => format!("beq {}", self.format_byte()),
                 BranchNe => format!("bne {}", self.format_byte()),
@@ -1233,6 +1253,7 @@ mod tests {
         use Reg::*;
         let cases: &[(&str, &[u8])] = &[
             ("", &[]),
+            ("and a, 0x01", &[u8::from(And(A)), 0x01]),
             ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
             ("bne 0x01", &[u8::from(BranchNe), 0x01]),
             ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
@@ -1276,6 +1297,11 @@ mod tests {
     fn assembler_rejects_invalid_code() {
         let cases: &[&str] = &[
             "&",
+            "and",
+            "and ab, 0xFF",
+            "and cd, 0xC0DE",
+            "and a, 0x1000",
+            "and 0x01, 0x0F",
             "beq UNDEFINED_LABEL",
             "beq",
             "bne 0x1000",

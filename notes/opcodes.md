@@ -8,7 +8,7 @@
 | 5- | | | | | | | | | | | | | | | | |
 | 6- | | | | | | | | | | | | | | | | |
 | 7- | cmp a, N | cmp b, N | cmp c, N | cmp d, N | cmp e, N | cmp f, N | cmp g, N | cmp h, N | cmp ab, N | cmp cd, N | cmp ef, N | cmp gh, N | | | | |
-| 8- | | | | | | | | | | | | | | | | |
+| 8- | and a, N | and b, N | and c, N | and d, N | and e, N | and f, N | and g, N | and h, N | | | | | | | | |
 | 9- | | | | | | | | | | | | | | | | |
 | A- | | | | | | | | | lsr a, S | lsr b, S | lsr c, S | lsr d, S | lsr e, S | lsr f, S | lsr g, S | lsr h, S |
 | B- | | | | | | | | | | | | | | | | |

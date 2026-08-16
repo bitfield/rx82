@@ -7,6 +7,8 @@ use crate::{bus::Bus, cpu::Cpu, regs::Reg};
 /// Instruction kinds.
 #[derive(Copy, Clone, Debug)]
 pub enum InstructionKind {
+    /// Bitwise immediate AND.
+    And(Reg),
     /// Branch always.
     BranchAlways,
     /// Branch if the zero flag is set.
@@ -65,6 +67,7 @@ impl Display for InstructionKind {
             f,
             "{}",
             match *self {
+                And(reg) => format!("and {reg}, N"),
                 BranchAlways => "bra D".to_owned(),
                 BranchEq => "beq D".to_owned(),
                 BranchNe => "bne D".to_owned(),
@@ -119,6 +122,7 @@ impl TryFrom<u8> for InstructionKind {
             0x4D => DecIndirect,
             0x4E => DecMem,
             0x70..=0x7B => Cmp(reg?),
+            0x80..=0x87 => And(reg?),
             0xA8..=0xAF => Lsr(reg2?),
             0xD0..=0xDB => Push(reg?),
             0xE0..=0xEB => Pop(reg?),
@@ -135,6 +139,7 @@ impl TryFrom<u8> for InstructionKind {
 impl From<InstructionKind> for u8 {
     fn from(ins: InstructionKind) -> Self {
         match ins {
+            And(reg) => 0x80 | u8::from(reg),
             BranchAlways => 0xF0,
             BranchEq => 0xF1,
             BranchNe => 0xF2,
@@ -167,6 +172,7 @@ impl InstructionKind {
     /// Executes the instruction.
     pub fn execute(&self, cpu: &mut Cpu, bus: &mut Bus) {
         match *self {
+            And(reg) => cpu.and(reg, cpu.op_lo),
             BranchAlways => cpu.branch(cpu.op_lo),
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
@@ -200,8 +206,8 @@ impl InstructionKind {
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti => Zero,
-            BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect | LdRegIndirect
-            | LdRegReg | Lsr(_) | StoreRegIndirect | Trap => One,
+            And(_) | BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect
+            | LdRegIndirect | LdRegReg | Lsr(_) | StoreRegIndirect | Trap => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -241,6 +247,39 @@ mod tests {
                 $msg, $want, $got,
             );
         };
+    }
+
+    #[test]
+    fn and() {
+        let mut sys = System::default();
+        sys.cpu.flags.zero = false;
+        sys.trace_program(&assemble(
+            "
+            ld a, 0x01
+            and a, 0x01
+            halt",
+        ))
+        .unwrap();
+        assert_hex!(sys.cpu.regs.get(A), 0x01, "wrong A");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: non-zero and");
+        sys.trace_program(&assemble(
+            "
+            ld a, 0x03
+            and a, 0x01
+            halt",
+        ))
+        .unwrap();
+        assert_hex!(sys.cpu.regs.get(A), 0x01, "wrong A");
+        assert_eq!(sys.cpu.flags.zero, false, "zero set: non-zero and");
+        sys.trace_program(&assemble(
+            "
+            ld a, 0xFF
+            and a, 0x00
+            halt",
+        ))
+        .unwrap();
+        assert_hex!(sys.cpu.regs.get(A), 0x00, "wrong A");
+        assert_eq!(sys.cpu.flags.zero, true, "zero clear: zero and");
     }
 
     #[test]

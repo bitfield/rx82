@@ -22,9 +22,11 @@ For boot ROM we need:
 [ ] Monitor: load zipped binary as ROM or user program
 
 For `to_hex` we need:
-[ ] `and R, N`
+[X] `and R, N`
 [X] `lsr R, N`
 [X] `call` / `ret`
+[ ] `add R, N`
+[ ] `bcc D`
 
 Use case programs to write:
 [ ] 16-bit multiply routine
@@ -42,6 +44,7 @@ Other:
 [ ] Assembler: define symbols (`=`)
 [ ] Assembler: format source file
 [X] Assembler: file/line error reporting
+[ ] Asm: assemble line by line
 [ ] Asm: report program size
 [ ] Asm: decimal literals
 [ ] Assembler: fancy error reporting (`annotate-snippets-rs`)

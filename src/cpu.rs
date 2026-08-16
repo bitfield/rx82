@@ -198,6 +198,12 @@ impl Device for Cpu {
 }
 
 impl Cpu {
+    /// Bitwise AND.
+    pub fn and(&mut self, reg: Reg, mask: u8) {
+        let value = self.regs.get(reg);
+        self.flags.zero = self.regs.set(reg, value & u16::from(mask)) == 0;
+    }
+
     /// Branches to PC+`dis`.
     #[expect(clippy::cast_possible_wrap, reason = "i8 to u16 is sound")]
     #[expect(clippy::cast_sign_loss, reason = "okay with wrapping_add")]
