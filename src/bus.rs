@@ -96,7 +96,8 @@ mod tests {
                 ld a, 0xFF
                 nop
                 halt",
-                ).unwrap(),
+                )
+                .unwrap(),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;

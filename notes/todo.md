@@ -10,7 +10,7 @@ For `to_hex` we need:
 [X] `and R, N`
 [X] `lsr R, N`
 [X] `call` / `ret`
-[ ] `add R, N`
+[X] `add R, N`
 [ ] `bcc D`
 
 Use case programs to write:

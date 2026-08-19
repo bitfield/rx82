@@ -198,6 +198,16 @@ impl Device for Cpu {
 }
 
 impl Cpu {
+    /// Add with carry.
+    pub fn add(&mut self, reg: Reg, addend: u8) {
+        let mut value = self.regs.get(reg);
+        let mut addend16 = u16::from(addend);
+        addend16 = addend16.wrapping_add(u16::from(self.flags.carry));
+        value = value.wrapping_add(addend16);
+        self.flags.carry = u8::try_from(value).is_err();
+        self.flags.zero = self.regs.set(reg, value) == 0;
+    }
+
     /// Bitwise AND.
     pub fn and(&mut self, reg: Reg, mask: u8) {
         let value = self.regs.get(reg);
@@ -570,7 +580,9 @@ mod tests {
         let source = "
         nop
         halt";
-        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
+        sys.mem
+            .load(0x0100, &assemble_with_debug(source).unwrap())
+            .unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         assert_eq!(sys.cpu.pc, 0x0100);
@@ -594,7 +606,9 @@ mod tests {
         let source = "
         ld a, 0xFF
         halt";
-        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
+        sys.mem
+            .load(0x0100, &assemble_with_debug(source).unwrap())
+            .unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -620,7 +634,9 @@ mod tests {
         let source = "
         ld ab, 0xBEEF
         halt";
-        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
+        sys.mem
+            .load(0x0100, &assemble_with_debug(source).unwrap())
+            .unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -653,7 +669,9 @@ mod tests {
         halt";
         sys.mem.set(0x0110, 0xFF);
         sys.cpu.regs.set(Reg::CD, 0x0110);
-        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
+        sys.mem
+            .load(0x0100, &assemble_with_debug(source).unwrap())
+            .unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -684,7 +702,9 @@ mod tests {
         let source = "
         ld 0xBEEF, a
         halt";
-        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
+        sys.mem
+            .load(0x0100, &assemble_with_debug(source).unwrap())
+            .unwrap();
         sys.cpu.pc = 0x0100;
         sys.cpu.regs.set(A, 0xFF);
         assert_eq!(sys.cpu.state, FetchOpcode);
@@ -719,7 +739,9 @@ mod tests {
         halt";
         sys.mem.load(0xBFFE, &[0xBA, 0xBE]).unwrap();
         sys.cpu.regs.set(SP, 0xBFFD);
-        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
+        sys.mem
+            .load(0x0100, &assemble_with_debug(source).unwrap())
+            .unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -748,7 +770,9 @@ mod tests {
         halt";
         sys.cpu.regs.set(SP, 0xBFFF);
         sys.cpu.regs.set(AB, 0xCAFE);
-        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
+        sys.mem
+            .load(0x0100, &assemble_with_debug(source).unwrap())
+            .unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();

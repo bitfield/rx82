@@ -7,6 +7,8 @@ use crate::{bus::Bus, cpu::Cpu, regs::Reg};
 /// Instruction kinds.
 #[derive(Copy, Clone, Debug)]
 pub enum InstructionKind {
+    /// Add with carry.
+    Add(Reg),
     /// Bitwise immediate AND.
     And(Reg),
     /// Branch always.
@@ -67,6 +69,7 @@ impl Display for InstructionKind {
             f,
             "{}",
             match *self {
+                Add(reg) => format!("add {reg}, N"),
                 And(reg) => format!("and {reg}, N"),
                 BranchAlways => "bra D".to_owned(),
                 BranchEq => "beq D".to_owned(),
@@ -121,6 +124,7 @@ impl TryFrom<u8> for InstructionKind {
             0x40..=0x4C => Dec(reg?),
             0x4D => DecIndirect,
             0x4E => DecMem,
+            0x50..=0x57 => Add(reg?),
             0x70..=0x7B => Cmp(reg?),
             0x80..=0x87 => And(reg?),
             0xA8..=0xAF => Lsr(reg2?),
@@ -139,6 +143,7 @@ impl TryFrom<u8> for InstructionKind {
 impl From<InstructionKind> for u8 {
     fn from(ins: InstructionKind) -> Self {
         match ins {
+            Add(reg) => 0x50 | u8::from(reg),
             And(reg) => 0x80 | u8::from(reg),
             BranchAlways => 0xF0,
             BranchEq => 0xF1,
@@ -172,6 +177,7 @@ impl InstructionKind {
     /// Executes the instruction.
     pub fn execute(&self, cpu: &mut Cpu, bus: &mut Bus) {
         match *self {
+            Add(reg) => cpu.add(reg, cpu.op_lo),
             And(reg) => cpu.and(reg, cpu.op_lo),
             BranchAlways => cpu.branch(cpu.op_lo),
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
@@ -206,7 +212,7 @@ impl InstructionKind {
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti => Zero,
-            And(_) | BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect
+            Add(_) | And(_) | BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect
             | LdRegIndirect | LdRegReg | Lsr(_) | StoreRegIndirect | Trap => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
@@ -247,6 +253,47 @@ mod tests {
                 $msg, $want, $got,
             );
         };
+    }
+
+    #[test]
+    fn add() {
+        use InstructionKind::Add;
+        let mut sys = System::default();
+        let cases: &[(&str, u8, bool, u8, u8, bool, bool)] = &[
+            ("!c in, zero result", 0x01, false, 0xFF, 0x00, true, true),
+            ("c in, zero result", 0x00, true, 0xFF, 0x00, true, true),
+            ("carry clears", 0xFD, true, 0x01, 0xFF, false, false),
+            ("carry affects result", 0x7F, true, 0x00, 0x80, false, false),
+            ("high bit, no carry", 0x80, false, 0x01, 0x81, false, false),
+            ("two high bits", 0x80, false, 0x80, 0x00, true, true),
+            ("ordinary addition", 0x12, false, 0x34, 0x46, false, false),
+            ("carry changes zero", 0xFF, true, 0x00, 0x00, true, true),
+            ("nonzero clears zero", 0x01, false, 0x01, 0x02, false, false),
+            ("zero sets zero", 0x01, false, 0xFF, 0x00, true, true),
+        ];
+        for &(name, start_a, start_carry, addend, want_a, want_carry, want_zero) in cases {
+            sys.cpu.flags.carry = start_carry;
+            sys.cpu.flags.zero = true;
+            sys.cpu.regs.set(A, u16::from(start_a));
+            sys.test_prog(&[u8::from(Add(A)), addend]);
+            assert_hex!(
+                sys.cpu.regs.get(A),
+                u16::from(want_a),
+                format!("{name}: wrong A")
+            );
+            assert_eq!(
+                sys.cpu.flags.carry,
+                want_carry,
+                "{name}: carry not {}",
+                if want_carry { "set" } else { "cleared" }
+            );
+            assert_eq!(
+                sys.cpu.flags.zero,
+                want_zero,
+                "{name}: zero not {}",
+                if want_zero { "set" } else { "cleared" }
+            );
+        }
     }
 
     #[test]
@@ -539,7 +586,7 @@ mod tests {
     #[test]
     fn halt() {
         let mut sys = System::default();
-        sys.test_asm("halt"); 
+        sys.test_asm("halt");
         assert!(sys.cpu.halt, "not halted");
         assert_hex!(sys.cpu.pc, 0x0101, "wrong PC");
     }
@@ -717,8 +764,8 @@ mod tests {
             assert_eq!(
                 sys.cpu.flags.carry,
                 want_carry,
-                "{name}: carry wrongly {}",
-                if want_carry { "clear" } else { "set" }
+                "{name}: carry not {}",
+                if want_carry { "set" } else { "cleared" }
             );
         }
     }

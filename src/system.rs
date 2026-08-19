@@ -3,7 +3,13 @@ use anyhow::Result;
 use core::fmt::Write as _;
 
 use crate::{
-    asm::{assemble, disassemble}, bus::Bus, clock::Clock, cpu::{Cpu, State}, memory::Memory, regs::Reg::*, rom::Rom,
+    asm::{assemble, disassemble},
+    bus::Bus,
+    clock::Clock,
+    cpu::{Cpu, State},
+    memory::Memory,
+    regs::Reg::*,
+    rom::Rom,
 };
 
 /// The RX82 ROM code.
