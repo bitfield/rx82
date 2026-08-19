@@ -77,7 +77,7 @@ impl Bus {
 mod tests {
     use anyhow::{Result, ensure};
 
-    use crate::{asm::assemble, system::System};
+    use crate::{asm::assemble_with_debug, system::System};
 
     use super::*;
 
@@ -91,12 +91,12 @@ mod tests {
         sys.mem
             .load(
                 0x0100,
-                &assemble(
+                &assemble_with_debug(
                     "
                 ld a, 0xFF
                 nop
                 halt",
-                ),
+                ).unwrap(),
             )
             .unwrap();
         sys.cpu.pc = 0x0100;

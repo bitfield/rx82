@@ -3,13 +3,7 @@ use anyhow::Result;
 use core::fmt::Write as _;
 
 use crate::{
-    asm::disassemble,
-    bus::Bus,
-    clock::Clock,
-    cpu::{Cpu, State},
-    memory::Memory,
-    regs::Reg::*,
-    rom::Rom,
+    asm::{assemble, disassemble}, bus::Bus, clock::Clock, cpu::{Cpu, State}, memory::Memory, regs::Reg::*, rom::Rom,
 };
 
 /// The RX82 ROM code.
@@ -188,6 +182,29 @@ impl System {
         Ok(())
     }
 
+    /// Assembles and runs `program` and prints a trace, panicking on error.
+    ///
+    /// # Panics
+    ///
+    /// * On errors from [`assemble_with_debug`] or [`run_program`](Self::run_program).
+    #[expect(clippy::unwrap_used, reason = "just for tests")]
+    pub fn test_asm(&mut self, source: &str) {
+        self.test_prog(&assemble(source).unwrap());
+    }
+
+    /// Runs `program` and prints a trace, panicking on error.
+    ///
+    /// # Panics
+    ///
+    /// * On errors from [`run_program`](Self::run_program).
+    #[expect(clippy::unwrap_used, reason = "just for tests")]
+    pub fn test_prog(&mut self, program: &[u8]) {
+        self.debug = true;
+        self.history = Vec::new();
+        self.run_program(program).unwrap();
+        self.trace();
+    }
+
     /// Advances the system by one clock cycle.
     pub fn tick(&mut self) {
         let state = self.cpu.state; // save before cpu.tick() overwrites it
@@ -264,19 +281,6 @@ impl System {
             println!();
         }
     }
-
-    /// Runs `program` and prints a trace.
-    ///
-    /// # Errors
-    ///
-    /// As for [`run_program`](Self::run_program).
-    pub fn trace_program(&mut self, program: &[u8]) -> Result<()> {
-        self.debug = true;
-        self.history = Vec::new();
-        self.run_program(program)?;
-        self.trace();
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -284,13 +288,12 @@ mod tests {
     use super::*;
     use crate::instructions::InstructionKind::*;
 
-    #[expect(clippy::unwrap_used, reason = "test")]
     #[test]
     fn trace_formatting_copes_with_long_lines() {
         let mut sys = System::default();
         let mut nops = vec![u8::from(Nop); 7];
         nops.push(u8::from(Halt));
-        sys.trace_program(&nops).unwrap();
+        sys.test_prog(&nops);
         // panic!("uncomment me to check trace formatting");
     }
 }

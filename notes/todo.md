@@ -1,19 +1,4 @@
 For boot ROM we need:
-[X] Load programs at 0x0100 instead of 0x0000
-[X] CPU: Stack pointer
-[X] `push R` / `pop R`
-[X] System: include ROM binary from file
-[X] Asm/CPU: `ld R, R`
-[X] CPU: reset vector
-[X] ROM: run RAM test
-[X] Assembler: `org` directive
-[X] Asm: pad with zeroes before `org` if necessary
-[X] `trap N` / `rti`
-[X] ROM: set up basic trap table / handlers
-[X] Assembler: `data` directive for bytes
-[X] (simulated) BIOS putchar at trap 0x20
-[X] `data` for strings
-[X] ROM: show startup message
 [ ] Assembler: `--zip` flag to generate zipped binaries
 [ ] System: include zipped ROM binary
 [ ] ROM: print decimal routine
@@ -33,8 +18,6 @@ Use case programs to write:
 [ ] Print status flags
 
 Other:
-[X] Monitor: memory dump should show ROM contents
-[X] CPU: trap on illegal instruction
 [ ] Monitor: bus tracing
 [ ] Monitor: disassembly
 [ ] Monitor: assembly
@@ -43,13 +26,10 @@ Other:
 [ ] System: “turbo mode”
 [ ] Assembler: define symbols (`=`)
 [ ] Assembler: format source file
-[X] Assembler: file/line error reporting
-[ ] Asm: assemble line by line
 [ ] Asm: report program size
 [ ] Asm: decimal literals
 [ ] Assembler: fancy error reporting (`annotate-snippets-rs`)
 [ ] Disassembler: SkoolKit-style HTML cross-linked listings
 [ ] System: emulated serial device
 [ ] ROM: write character to serial
-[ ] CPU: generate opcode table
 [ ] CPU: generate state transition diagram

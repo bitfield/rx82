@@ -43,11 +43,10 @@ impl Rom {
 
 #[cfg(test)]
 mod tests {
-    use crate::{asm::assemble, regs::Reg::A, system::System};
+    use crate::{regs::Reg::A, system::System};
 
     use super::*;
 
-    #[expect(clippy::unwrap_used, reason = "test")]
     #[test]
     fn rom_responds_to_in_range_requests() {
         let mut sys = System::default();
@@ -56,37 +55,29 @@ mod tests {
             end: 0xB002,
             data: vec![0xF0, 0xF1, 0xF2],
         }));
-        sys.trace_program(&assemble(
-            "
+        sys.test_asm("
             ld cd, 0xBFFF
             ld a, (cd)
             halt",
-        ))
-        .unwrap();
+        );
         assert_eq!(sys.cpu.regs.get(A), 0x00, "wrong A");
-        sys.trace_program(&assemble(
-            "
+        sys.test_asm("
             ld cd, 0xB000
             ld a, (cd)
             halt",
-        ))
-        .unwrap();
+        );
         assert_eq!(sys.cpu.regs.get(A), 0xF0, "wrong A");
-        sys.trace_program(&assemble(
-            "
+        sys.test_asm("
             ld cd, 0xB001
             ld a, (cd)
             halt",
-        ))
-        .unwrap();
+        );
         assert_eq!(sys.cpu.regs.get(A), 0xF1, "wrong A");
-        sys.trace_program(&assemble(
-            "
+        sys.test_asm("
             ld cd, 0xB002
             ld a, (cd)
             halt",
-        ))
-        .unwrap();
+        );
         assert_eq!(sys.cpu.regs.get(A), 0xF2, "wrong A");
     }
 }

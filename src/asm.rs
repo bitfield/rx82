@@ -912,21 +912,24 @@ pub fn as_hex(data: &[u8]) -> String {
     format!("[{}]", byte_strs.join(", "))
 }
 
-/// Assembles `source` with debug output, panicking on any error.
+/// Assembles `source`.
 ///
-/// Useful for writing tests.
+/// # Errors
 ///
-/// # Panics
+/// * Syntax errors.
+pub fn assemble(source: &str) -> Result<Vec<u8>> {
+    Assembler::from(source).assemble()
+}
+
+/// Assembles `source` with debug output.
 ///
-/// If the program fails to assemble.
-#[expect(clippy::unwrap_used, reason = "for testing")]
-#[must_use]
-pub fn assemble(source: &str) -> Vec<u8> {
+/// # Errors
+///
+/// * Syntax errors.
+pub fn assemble_with_debug(source: &str) -> Result<Vec<u8>> {
     let mut asm = Assembler::from(source);
     asm.debug = true;
     asm.assemble()
-        .context(format!("assembling '{source}'"))
-        .unwrap()
 }
 
 /// Assembles a program from the file at `path`.
@@ -999,9 +1002,7 @@ mod tests {
         LABEL:
             ld cd, LABEL
 ";
-        let mut asm = Assembler::from(source);
-        asm.debug = true;
-        let generated = asm.assemble().unwrap();
+        let generated = assemble_with_debug(source).unwrap();
         assert_asm!(
             source,
             generated,
@@ -1035,7 +1036,7 @@ mod tests {
     #[test]
     fn assembler_ignores_comments() {
         let source = "ld a, 0xFF ; loop count";
-        let generated = assemble(source);
+        let generated = assemble_with_debug(source).unwrap();
         let object = &[u8::from(LdRegImm(Reg::A)), 0xFF];
         assert_asm!(source, generated, object);
     }
@@ -1053,7 +1054,7 @@ mod tests {
         bne LOOP
         halt
 ";
-        let generated = assemble(source);
+        let generated = assemble_with_debug(source).unwrap();
         let object = &[
             u8::from(LdRegImm(Reg::A)),
             0x06,
@@ -1079,7 +1080,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let generated = assemble(source);
+        let generated = assemble_with_debug(source).unwrap();
         let object = &[u8::from(BranchAlways), 0x01, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
@@ -1092,7 +1093,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let generated = assemble(source);
+        let generated = assemble_with_debug(source).unwrap();
         let object = &[u8::from(Call), 0x04, 0x01, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
@@ -1104,7 +1105,7 @@ mod tests {
         data 0x01, 0x02, 0x03
         halt
 ";
-        let generated = assemble(source);
+        let generated = assemble_with_debug(source).unwrap();
         let object = &[u8::from(Nop), 0x01, 0x02, 0x03, u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
@@ -1116,7 +1117,7 @@ mod tests {
         data 0x01, \"hello\", 0x0A, 0x03
         halt
 ";
-        let generated = assemble(source);
+        let generated = assemble_with_debug(source).unwrap();
         let object = &[
             u8::from(Nop),
             0x01,
@@ -1137,9 +1138,7 @@ mod tests {
         let source = "
         org 0xFFFF
         data 0x01, 0x02";
-        let mut asm = Assembler::from(source);
-        asm.debug = true;
-        asm.assemble().expect_err("overflowing memory should fail");
+        assemble_with_debug(source).expect_err("overflowing memory should fail");
     }
 
     #[test]
@@ -1147,9 +1146,7 @@ mod tests {
         let source = "
         org 0xFFFF
         call 0xBABE";
-        let mut asm = Assembler::from(source);
-        asm.debug = true;
-        asm.assemble().expect_err("overflowing memory should fail");
+        assemble_with_debug(source).expect_err("overflowing memory should fail");
     }
 
     #[test]
@@ -1157,9 +1154,7 @@ mod tests {
         let source = "
         org 0xFFFE
         call 0xBABE";
-        let mut asm = Assembler::from(source);
-        asm.debug = true;
-        asm.assemble().expect_err("overflowing memory should fail");
+        assemble_with_debug(source).expect_err("overflowing memory should fail");
     }
 
     #[test]
@@ -1171,7 +1166,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let generated = assemble(source);
+        let generated = assemble_with_debug(source).unwrap();
         let object = &[u8::from(Call), 0x04, 0xC0, u8::from(Halt), u8::from(Halt)];
         assert_asm!(source, generated, object);
     }
@@ -1185,7 +1180,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let generated = assemble(source);
+        let generated = assemble_with_debug(source).unwrap();
         let object = &[
             u8::from(LdRegImm(Reg::A)),
             0xFF,
@@ -1205,7 +1200,7 @@ mod tests {
         let mut source = String::from("LOOP:\n");
         source.push_str("nop\n".repeat(126).as_str());
         source.push_str("beq LOOP");
-        let generated = assemble(&source);
+        let generated = assemble_with_debug(&source).unwrap();
         let mut object = vec![u8::from(Nop); 126];
         object.extend([u8::from(BranchEq), 0x80]);
         assert_asm!(source, generated, &object);
@@ -1216,15 +1211,13 @@ mod tests {
         let mut source = String::from("LOOP:\n");
         source.push_str("nop\n".repeat(127).as_str());
         source.push_str("beq LOOP");
-        let mut asm = Assembler::from(source.as_str());
-        asm.assemble()
-            .expect_err("invalid displacement should be rejected");
+        assemble_with_debug(source.as_str()).expect_err("invalid displacement should be rejected");
     }
 
     #[test]
     fn disassembler_correctly_disassembles_multiline_programs() {
         let source = "ld a, 0x01\ndec a\nld b, 0x02\ninc b\nld c, 0x03\ndec c\ndec c";
-        let code = Assembler::from(source).assemble().unwrap();
+        let code = assemble_with_debug(source).unwrap();
         let output: Vec<_> = Disassembler::from(code.as_slice()).collect();
         assert_eq!(output.join("\n"), source);
     }
@@ -1286,7 +1279,7 @@ mod tests {
             ("trap 0x01", &[u8::from(Trap), 0x01]),
         ];
         for &(source, object) in cases {
-            let generated = assemble(source);
+            let generated = assemble_with_debug(source).unwrap();
             assert_asm!(source, generated, object);
             assert_disasm!(generated, source);
         }
@@ -1361,10 +1354,7 @@ mod tests {
             "trap",
         ];
         for &source in cases {
-            let mut asm = Assembler::from(source);
-            asm.debug = true;
-            asm.assemble()
-                .expect_err(&format!("assembling invalid source '{source}' should fail"));
+            assemble_with_debug(source).expect_err(&format!("assembling invalid source '{source}' should fail"));
         }
     }
 }

@@ -556,7 +556,7 @@ impl Display for State {
 #[expect(clippy::unwrap_used, reason = "test")]
 mod tests {
     use crate::{
-        asm::{as_hex, assemble},
+        asm::{as_hex, assemble_with_debug},
         instructions::InstructionKind::Halt,
         regs::Reg::*,
         system::System,
@@ -570,7 +570,7 @@ mod tests {
         let source = "
         nop
         halt";
-        sys.mem.load(0x0100, &assemble(source)).unwrap();
+        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         assert_eq!(sys.cpu.pc, 0x0100);
@@ -594,7 +594,7 @@ mod tests {
         let source = "
         ld a, 0xFF
         halt";
-        sys.mem.load(0x0100, &assemble(source)).unwrap();
+        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -620,7 +620,7 @@ mod tests {
         let source = "
         ld ab, 0xBEEF
         halt";
-        sys.mem.load(0x0100, &assemble(source)).unwrap();
+        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -653,7 +653,7 @@ mod tests {
         halt";
         sys.mem.set(0x0110, 0xFF);
         sys.cpu.regs.set(Reg::CD, 0x0110);
-        sys.mem.load(0x0100, &assemble(source)).unwrap();
+        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -684,7 +684,7 @@ mod tests {
         let source = "
         ld 0xBEEF, a
         halt";
-        sys.mem.load(0x0100, &assemble(source)).unwrap();
+        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
         sys.cpu.pc = 0x0100;
         sys.cpu.regs.set(A, 0xFF);
         assert_eq!(sys.cpu.state, FetchOpcode);
@@ -719,7 +719,7 @@ mod tests {
         halt";
         sys.mem.load(0xBFFE, &[0xBA, 0xBE]).unwrap();
         sys.cpu.regs.set(SP, 0xBFFD);
-        sys.mem.load(0x0100, &assemble(source)).unwrap();
+        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -748,7 +748,7 @@ mod tests {
         halt";
         sys.cpu.regs.set(SP, 0xBFFF);
         sys.cpu.regs.set(AB, 0xCAFE);
-        sys.mem.load(0x0100, &assemble(source)).unwrap();
+        sys.mem.load(0x0100, &assemble_with_debug(source).unwrap()).unwrap();
         sys.cpu.pc = 0x0100;
         assert_eq!(sys.cpu.state, FetchOpcode);
         sys.tick();
@@ -782,7 +782,7 @@ mod tests {
             sys.cpu.regs.set(SP, 0xBFFF);
             // junk to be overwritten by trap stack frame
             sys.mem.load(0xBFFD, &[0xFF, 0xFF, 0xFF]).unwrap();
-            sys.trace_program(prog).unwrap();
+            sys.test_prog(prog);
             // verify trap stack frame
             assert_eq!(
                 sys.mem.get(0xBFFD),
