@@ -184,7 +184,7 @@ The processor status register `ps` contains the following flags:
 | 2- | ld NN, a | ld NN, b | ld NN, c | ld NN, d | ld NN, e | ld NN, f | ld NN, g | ld NN, h | | | | | | ld R, (RR) | ld (RR), R | ld R, R |
 | 3- | inc a | inc b | inc c | inc d | inc e | inc f | inc g | inc h | inc ab | inc cd | inc ef | inc gh | inc sp | inc (RR) | inc (NN) | |
 | 4- | dec a | dec b | dec c | dec d | dec e | dec f | dec g | dec h | dec ab | dec cd | dec ef | dec gh | dec sp | dec (RR) | dec (NN) | |
-| 5- | | | | | | | | | | | | | | | | |
+| 5- | add a, N | add b, N | add c, N | add d, N | add e, N | add f, N | add g, N | add h, N | | | | | | | | |
 | 6- | | | | | | | | | | | | | | | | |
 | 7- | cmp a, N | cmp b, N | cmp c, N | cmp d, N | cmp e, N | cmp f, N | cmp g, N | cmp h, N | cmp ab, N | cmp cd, N | cmp ef, N | cmp gh, N | | | | |
 | 8- | and a, N | and b, N | and c, N | and d, N | and e, N | and f, N | and g, N | and h, N | | | | | | | | |
