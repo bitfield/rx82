@@ -200,12 +200,11 @@ impl Device for Cpu {
 impl Cpu {
     /// Add with carry.
     pub fn add(&mut self, reg: Reg, addend: u8) {
-        let mut value = self.regs.get(reg);
-        let mut addend16 = u16::from(addend);
-        addend16 = addend16.wrapping_add(u16::from(self.flags.carry));
-        value = value.wrapping_add(addend16);
-        self.flags.carry = u8::try_from(value).is_err();
-        self.flags.zero = self.regs.set(reg, value) == 0;
+        let value = self.regs.get(reg);
+        let carry = u16::from(self.flags.carry);
+        let result = value.wrapping_add(u16::from(addend)).wrapping_add(carry);
+        self.flags.carry = result > 0xFF;
+        self.flags.zero = self.regs.set(reg, result & 0xFF) == 0;
     }
 
     /// Bitwise AND.
