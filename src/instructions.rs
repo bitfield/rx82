@@ -13,6 +13,10 @@ pub enum InstructionKind {
     And(Reg),
     /// Branch always.
     BranchAlways,
+    /// Branch if the carry flag is clear.
+    BranchCc,
+    /// Branch if the carry flag is set.
+    BranchCs,
     /// Branch if the zero flag is set.
     BranchEq,
     /// Branch if the zero flag is clear.
@@ -72,6 +76,8 @@ impl Display for InstructionKind {
                 Add(reg) => format!("add {reg}, N"),
                 And(reg) => format!("and {reg}, N"),
                 BranchAlways => "bra D".to_owned(),
+                BranchCc => "bcc D".to_owned(),
+                BranchCs => "bcs D".to_owned(),
                 BranchEq => "beq D".to_owned(),
                 BranchNe => "bne D".to_owned(),
                 Call => "call NN".to_owned(),
@@ -133,6 +139,8 @@ impl TryFrom<u8> for InstructionKind {
             0xF0 => BranchAlways,
             0xF1 => BranchEq,
             0xF2 => BranchNe,
+            0xF3 => BranchCs,
+            0xF4 => BranchCc,
             0xF8 => Call,
             0xF9 => Trap,
             _ => bail!("invalid opcode {opcode}"),
@@ -146,6 +154,8 @@ impl From<InstructionKind> for u8 {
             Add(reg) => 0x50 | u8::from(reg),
             And(reg) => 0x80 | u8::from(reg),
             BranchAlways => 0xF0,
+            BranchCc => 0xF4,
+            BranchCs => 0xF3,
             BranchEq => 0xF1,
             BranchNe => 0xF2,
             Call => 0xF8,
@@ -180,6 +190,8 @@ impl InstructionKind {
             Add(reg) => cpu.add(reg, cpu.op_lo),
             And(reg) => cpu.and(reg, cpu.op_lo),
             BranchAlways => cpu.branch(cpu.op_lo),
+            BranchCc if !cpu.flags.carry => cpu.branch(cpu.op_lo),
+            BranchCs if cpu.flags.carry => cpu.branch(cpu.op_lo),
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
             Call => cpu.call(cpu.op(), bus),
@@ -202,7 +214,7 @@ impl InstructionKind {
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
             StoreRegIndirect => cpu.store_reg_indirect(bus),
             Trap => cpu.trap(cpu.op_lo, bus),
-            Nop | BranchEq | BranchNe => {}
+            Nop | BranchCc | BranchCs | BranchEq | BranchNe => {}
         }
     }
 
@@ -212,8 +224,9 @@ impl InstructionKind {
         use Operands::*;
         match *self {
             Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti => Zero,
-            Add(_) | And(_) | BranchAlways | BranchEq | BranchNe | DecIndirect | IncIndirect
-            | LdRegIndirect | LdRegReg | Lsr(_) | StoreRegIndirect | Trap => One,
+            Add(_) | And(_) | BranchAlways | BranchCc | BranchCs | BranchEq | BranchNe
+            | DecIndirect | IncIndirect | LdRegIndirect | LdRegReg | Lsr(_) | StoreRegIndirect
+            | Trap => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -324,6 +337,48 @@ mod tests {
         );
         assert_hex!(sys.cpu.regs.get(A), 0x00, "wrong A");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: zero and");
+    }
+
+    #[test]
+    fn bcc() {
+        let mut sys = System::default();
+        sys.cpu.flags.carry = true;
+        sys.test_asm(
+            "
+            bcc 0x01
+            halt
+            halt",
+        );
+        assert_hex!(sys.cpu.pc, 0x0103, "branch taken");
+        sys.cpu.flags.carry = false;
+        sys.test_asm(
+            "
+            bcc 0x01
+            halt
+            halt",
+        );
+        assert_hex!(sys.cpu.pc, 0x0104, "branch not taken");
+    }
+
+    #[test]
+    fn bcs() {
+        let mut sys = System::default();
+        sys.cpu.flags.carry = false;
+        sys.test_asm(
+            "
+            bcs 0x01
+            halt
+            halt",
+        );
+        assert_hex!(sys.cpu.pc, 0x0103, "branch taken");
+        sys.cpu.flags.carry = true;
+        sys.test_asm(
+            "
+            bcs 0x01
+            halt
+            halt",
+        );
+        assert_hex!(sys.cpu.pc, 0x0104, "branch not taken");
     }
 
     #[test]

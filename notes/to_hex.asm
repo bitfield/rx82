@@ -2,6 +2,7 @@
 ;
 ; In:
 ;   A = byte
+    ld a, 0x0A
     push a
     ld a, 0x30   ; '0'
     trap 0x20    ; print

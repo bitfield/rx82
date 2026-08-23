@@ -20,8 +20,8 @@ pub const BASE: u16 = 0x0100;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "add", "and", "beq", "bne", "bra", "call", "cmp", "data", "dec", "halt", "inc", "ld", "lsr",
-    "nop", "org", "pop", "push", "ret", "rti", "trap",
+    "add", "and", "bcc", "bcs", "beq", "bne", "bra", "call", "cmp", "data", "dec", "halt", "inc",
+    "ld", "lsr", "nop", "org", "pop", "push", "ret", "rti", "trap",
 ];
 
 /// Assembles a given source program.
@@ -89,6 +89,8 @@ impl Assembler<'_> {
         match kw.as_str() {
             "add" => self.gen_add(),
             "and" => self.gen_and(),
+            "bcc" => self.gen_branch(BranchCc),
+            "bcs" => self.gen_branch(BranchCs),
             "beq" => self.gen_branch(BranchEq),
             "bne" => self.gen_branch(BranchNe),
             "bra" => self.gen_branch(BranchAlways),
@@ -759,6 +761,8 @@ impl Iterator for Disassembler<'_> {
                 Add(reg) => format!("add {reg}, {}", self.format_byte()),
                 And(reg) => format!("and {reg}, {}", self.format_byte()),
                 BranchAlways => format!("bra {}", self.format_byte()),
+                BranchCc => format!("bcc {}", self.format_byte()),
+                BranchCs => format!("bcs {}", self.format_byte()),
                 BranchEq => format!("beq {}", self.format_byte()),
                 BranchNe => format!("bne {}", self.format_byte()),
                 Call => format!("call {}", self.format_word()),
@@ -1268,6 +1272,8 @@ mod tests {
             ("", &[]),
             ("add a, 0x01", &[u8::from(Add(A)), 0x01]),
             ("and a, 0x01", &[u8::from(And(A)), 0x01]),
+            ("bcc 0x10", &[u8::from(BranchCc), 0x10]),
+            ("bcs 0x10", &[u8::from(BranchCs), 0x10]),
             ("beq 0xF0", &[u8::from(BranchEq), 0xF0]),
             ("bne 0x01", &[u8::from(BranchNe), 0x01]),
             ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
@@ -1320,6 +1326,9 @@ mod tests {
             "and cd, 0xC0DE",
             "and a, 0x1000",
             "and 0x01, 0x0F",
+            "bcc",
+            "bcs a",
+            "bcs 0x1000",
             "beq UNDEFINED_LABEL",
             "beq",
             "bne 0x1000",
