@@ -32,6 +32,7 @@ pub enum Command {
 use Command::*;
 
 /// The interactive CLI system monitor.
+#[derive(Default)]
 pub struct Monitor {
     /// Last address referenced.
     pub last_addr: Option<u16>,
@@ -41,19 +42,6 @@ pub struct Monitor {
     pub step: bool,
     /// The running system.
     pub sys: System,
-}
-
-impl Default for Monitor {
-    fn default() -> Self {
-        let mut sys = System::default();
-        sys.reset();
-        Self {
-            last_addr: None,
-            last_cmd: None,
-            step: false,
-            sys,
-        }
-    }
 }
 
 impl Monitor {
@@ -154,6 +142,24 @@ impl Monitor {
         self.sys.debug_print();
     }
 
+    /// Runs a given program.
+    /// 
+    /// # Errors
+    /// 
+    /// * Any errors returned by [`interact`](Self::interact).
+    pub fn run_program(&mut self, program: &[u8]) -> Result<()> {
+        self.sys.reset();
+        self.sys.mem.load(0x0100, program)?;
+        self.sys.cpu.pc = 0x0100;
+        if self.step {
+            self.interact()
+        } else {
+            self.run(None);
+            Ok(())
+        }
+
+    }
+    
     /// Steps the system by one instruction.
     pub fn step(&mut self, addr: Option<u16>) {
         self.step = true;

@@ -966,10 +966,9 @@ pub fn assemble_with_debug(source: &str) -> Result<Vec<u8>> {
 ///
 /// * File read errors
 /// * Syntax errors
-pub fn assemble_source_file(path: impl AsRef<Path>, debug: bool) -> Result<Vec<u8>> {
+pub fn assemble_source_file(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     let source = fs::read_to_string(&path)?;
     let mut asm = Assembler::from(source.as_str());
-    asm.debug = debug;
     asm.path = path.as_ref().display().to_string();
     asm.assemble()
 }

@@ -1,5 +1,5 @@
 ; countdown timer
-    ld a, 0x06 ; = about 1 second at 4MHz
+    ld a, 0x0B ; = about 2 seconds at 4MHz
 LOOP:
     ld cd, 0xFFFF ; inner loop
 INNER:

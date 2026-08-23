@@ -22,9 +22,6 @@ struct Cli {
 enum Command {
     /// Assemble a source file.
     Asm {
-        /// Enable verbose debugging.
-        #[clap(short, long)]
-        debug: bool,
         /// Path to the source file.
         path: PathBuf,
     },
@@ -40,16 +37,25 @@ enum Command {
     },
     /// Start the interactive monitor.
     Mon {
+        /// Single-step if loading a binary file.
+        #[clap(short, long)]
+        step: bool,
         /// Path to a binary file to load.
         path: Option<PathBuf>,
-    },
-    /// Assemble and load a source file into the monitor.
-    Run {
-        /// Enable verbose debugging.
+        /// Full host-native speed.
         #[clap(short, long)]
-        debug: bool,
+        turbo: bool,
+    },
+    /// Assemble and run a program in the monitor.
+    Run {
+        /// Single-step the program.
+        #[clap(short, long)]
+        step: bool,
         /// Path to the source file.
         path: PathBuf,
+        /// Full host-native speed.
+        #[clap(short, long)]
+        turbo: bool,
     },
 }
 
@@ -62,8 +68,8 @@ enum DocCommand {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Asm { debug, path } => {
-            let data = assemble_source_file(&path, debug)?;
+        Command::Asm { path } => {
+            let data = assemble_source_file(&path)?;
             let mut bin_path = path.clone();
             bin_path.set_extension("bin");
             fs::write(bin_path, data)?;
@@ -82,20 +88,31 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Command::Mon { path: Some(path) } => {
+        Command::Mon {
+            path: Some(path),
+            step,
+            turbo,
+        } => {
+            let program = fs::read(path)?;
             let mut mon = Monitor::default();
-            let data = fs::read(path)?;
-            mon.sys.mem.load(0x0100, &data)?;
-            mon.sys.cpu.pc = 0x0100;
+            mon.step = step;
+            mon.sys.turbo = turbo;
+            mon.run_program(&program)
+        }
+        Command::Mon {
+            path: None, turbo, ..
+        } => {
+            let mut mon = Monitor::default();
+            mon.sys.turbo = turbo;
+            mon.sys.reset();
             mon.interact()
         }
-        Command::Mon { path: None, .. } => Monitor::default().interact(),
-        Command::Run { path, debug } => {
-            let data = assemble_source_file(&path, debug)?;
+        Command::Run { path, step, turbo } => {
+            let program = assemble_source_file(&path)?;
             let mut mon = Monitor::default();
-            mon.sys.mem.load(0x0100, &data)?;
-            mon.sys.cpu.pc = 0x0100;
-            mon.interact()
+            mon.step = step;
+            mon.sys.turbo = turbo;
+            mon.run_program(&program)
         }
     }
 }

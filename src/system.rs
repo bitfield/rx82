@@ -66,12 +66,14 @@ pub struct System {
     pub cycles: u16,
     /// Enable debug snapshots.
     pub debug: bool,
-    /// Any attached devices, such as the [`Clock`].
+    /// Any attached devices, such as the [`Rom`].
     pub devices: Vec<Box<dyn Device>>,
     /// Stored debug snapshots.
     pub history: Vec<Snapshot>,
     /// The system memory.
     pub mem: Memory,
+    /// Turbo (max clock speed) mode.
+    pub turbo: bool,
 }
 
 impl Default for System {
@@ -81,11 +83,12 @@ impl Default for System {
             bus: Bus::default(),
             clock: Box::new(Clock::default()),
             cpu: Cpu::default(),
+            cycles: 0,
             debug: false,
             devices: Vec::new(),
             history: Vec::new(),
             mem: Memory::default(),
-            cycles: 0,
+            turbo: false,
         };
         let data = Vec::from(ROM_DATA);
         let rom = Rom {
@@ -227,7 +230,9 @@ impl System {
                 bus: self.bus.clone(),
             });
         }
-        self.clock.tick(&mut self.bus);
+        if !self.turbo {
+            self.clock.tick(&mut self.bus);
+        }
         self.cycles = self.cycles.wrapping_add(1);
     }
 

@@ -17,6 +17,8 @@
     and a, 0x0F  ; lower nibble
     call NIBBLE_TO_ASCII
     trap 0x20    ; print
+    ld a, 0x0A   ; '\n'
+    trap 0x20    ; print
     halt
 
 NIBBLE_TO_ASCII:

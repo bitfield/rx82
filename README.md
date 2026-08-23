@@ -44,12 +44,6 @@ rx82 asm my_prog.asm
 
 If the program assembles correctly, this will produce a `my_prog.bin` file you can run with the monitor.
 
-To assemble with verbose debugging (probably only of interest to RX82 developers), use the `--debug` switch:
-
-```sh
-rx82 asm --debug my_prog.asm
-```
-
 ## Starting the monitor
 
 To start the monitor in debug (single-step) mode:
@@ -67,6 +61,12 @@ You can also optionally load and run a binary file (such as one produced by the 
 
 ```sh
 rx82 mon my_prog.bin
+```
+
+To run the binary in single-step mode, use the `--step` switch:
+
+```sh
+rx82 mon --step my_prog.bin
 ```
 
 ## Using the monitor
