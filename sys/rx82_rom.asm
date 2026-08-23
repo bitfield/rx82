@@ -66,6 +66,8 @@ INVOKE_MONITOR:
     halt
 
 ; subroutines
+
+; print length-prefixed string at (cd)
 PRINT_STRING:
     ; cd: pointer to length-prefixed string
     ld b, (cd)
@@ -78,14 +80,18 @@ NEXT_CHAR:
     ret
 
 ; trap handlers
+
+; illegal instruction
 ILLEGAL_INSTRUCTION:
     ld cd, ILLEGAL_INSTRUCTION_MSG
     call PRINT_STRING
     halt
 
+; default unhandled trap handler
 UNHANDLED_TRAP:
     halt
 
+; print char in a (faked by emulator for now)
 PUTCHAR:
     rti
 

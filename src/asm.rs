@@ -20,8 +20,8 @@ pub const BASE: u16 = 0x0100;
 
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
-    "add", "and", "bcc", "bcs", "beq", "bne", "bra", "call", "cmp", "data", "dec", "halt", "inc",
-    "ld", "lsr", "nop", "org", "pop", "push", "ret", "rti", "trap",
+    "add", "and", "bcc", "bcs", "beq", "bne", "bra", "call", "clc", "cmp", "data", "dec", "halt",
+    "inc", "ld", "lsr", "nop", "org", "pop", "push", "ret", "rti", "sec", "trap",
 ];
 
 /// Assembles a given source program.
@@ -95,6 +95,7 @@ impl Assembler<'_> {
             "bne" => self.gen_branch(BranchNe),
             "bra" => self.gen_branch(BranchAlways),
             "call" => self.gen_call(),
+            "clc" => self.emit_byte(u8::from(Clc)),
             "cmp" => self.gen_cmp(),
             "data" => self.data(),
             "dec" => self.gen_dec(),
@@ -108,6 +109,7 @@ impl Assembler<'_> {
             "push" => self.gen_push(),
             "ret" => self.emit_byte(u8::from(Ret)),
             "rti" => self.emit_byte(u8::from(Rti)),
+            "sec" => self.emit_byte(u8::from(Sec)),
             "trap" => self.gen_trap(),
             _ => unreachable!("unknown keyword '{kw}'"),
         }
@@ -766,6 +768,7 @@ impl Iterator for Disassembler<'_> {
                 BranchEq => format!("beq {}", self.format_byte()),
                 BranchNe => format!("bne {}", self.format_byte()),
                 Call => format!("call {}", self.format_word()),
+                Clc => "clc".into(),
                 Cmp(reg) => format!("cmp {reg}, {}", self.format_op_for_reg(reg)),
                 Dec(reg) => format!("dec {reg}"),
                 DecIndirect => self.format_dec_indirect(),
@@ -783,6 +786,7 @@ impl Iterator for Disassembler<'_> {
                 Push(reg) => format!("push {reg}"),
                 Ret => "ret".into(),
                 Rti => "rti".into(),
+                Sec => "sec".into(),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
                 StoreRegIndirect => self.format_store_reg_indirect(),
                 Trap => format!("trap {}", self.format_byte()),
@@ -1278,6 +1282,7 @@ mod tests {
             ("bne 0x01", &[u8::from(BranchNe), 0x01]),
             ("bra 0x99", &[u8::from(BranchAlways), 0x99]),
             ("call 0xBEEE", &[u8::from(Call), 0xEE, 0xBE]),
+            ("clc", &[u8::from(Clc)]),
             ("cmp d, 0x01", &[u8::from(Cmp(D)), 0x01]),
             ("cmp gh, 0xDEAD", &[u8::from(Cmp(GH)), 0xAD, 0xDE]),
             ("dec (0xBABE)", &[u8::from(DecMem), 0xBE, 0xBA]),
@@ -1303,6 +1308,7 @@ mod tests {
             ("push c", &[u8::from(Push(C))]),
             ("ret", &[u8::from(Ret)]),
             ("rti", &[u8::from(Rti)]),
+            ("sec", &[u8::from(Sec)]),
             ("trap 0x01", &[u8::from(Trap), 0x01]),
         ];
         for &(source, object) in cases {
@@ -1337,6 +1343,7 @@ mod tests {
             "call 0x01",
             "call gh",
             "call",
+            "clc 0x00",
             "cmp a, b, d",
             "data (",
             "data \"©\"",
@@ -1382,6 +1389,7 @@ mod tests {
             "push",
             "ret cd",
             "rti 0x0100",
+            "sec ab",
             "trap 0x40",
             "trap 0xFF",
             "trap a",

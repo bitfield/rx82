@@ -2,7 +2,7 @@
 ;
 ; In:
 ;   A = byte
-    ld a, 0x0A
+    ld a, 0xFF
     push a
     ld a, 0x30   ; '0'
     trap 0x20    ; print
@@ -17,13 +17,14 @@
     and a, 0x0F  ; lower nibble
     call NIBBLE_TO_ASCII
     trap 0x20    ; print
-    ret
+    halt
 
 NIBBLE_TO_ASCII:
+    clc
     add a, 0x30  ; ASCII '0'
     cmp a, 0x3A  ; digit less than 10?
     bcc NUMERAL
-    add a, 0x11  ; ASCII 'A'
+    add a, 0x06  ; ASCII 'A'
 
 NUMERAL:
     ret

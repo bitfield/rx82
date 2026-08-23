@@ -179,7 +179,7 @@ The processor status register `ps` contains the following flags:
 
 | HI/LO | -0 | -1 | -2 | -3 | -4 | -5 | -6 | -7 | -8 | -9 | -A | -B | -C | -D | -E | -F |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| 0- | halt | nop | | | | | | | ret | rti | | | | | | |
+| 0- | halt | nop | | sec | clc | | | | ret | rti | | | | | | |
 | 1- | ld a, N | ld b, N | ld c, N | ld d, N | ld e, N | ld f, N | ld g, N | ld h, N | ld ab, NN | ld cd, NN | ld ef, NN | ld gh, NN | ld sp, NN | | | |
 | 2- | ld NN, a | ld NN, b | ld NN, c | ld NN, d | ld NN, e | ld NN, f | ld NN, g | ld NN, h | | | | | | ld R, (RR) | ld (RR), R | ld R, R |
 | 3- | inc a | inc b | inc c | inc d | inc e | inc f | inc g | inc h | inc ab | inc cd | inc ef | inc gh | inc sp | inc (RR) | inc (NN) | |
@@ -194,7 +194,7 @@ The processor status register `ps` contains the following flags:
 | C- | | | | | | | | | | | | | | | | |
 | D- | push a | push b | push c | push d | push e | push f | push g | push h | push ab | push cd | push ef | push gh | | | | |
 | E- | pop a | pop b | pop c | pop d | pop e | pop f | pop g | pop h | pop ab | pop cd | pop ef | pop gh | | | | |
-| F- | bra D | beq D | bne D | | | | | | call NN | trap T | | | | | | |
+| F- | bra D | beq D | bne D | bcs D | bcc D | | | | call NN | trap T | | | | | | |
 
 Key:
 

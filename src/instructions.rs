@@ -23,6 +23,8 @@ pub enum InstructionKind {
     BranchNe,
     /// Call a subroutine.
     Call,
+    /// Clear carry flag.
+    Clc,
     /// Compare a register with an immediate operand.
     Cmp(Reg),
     /// Decrement a register.
@@ -57,6 +59,8 @@ pub enum InstructionKind {
     Ret,
     /// Return from a trap.
     Rti,
+    /// Set carry flag.
+    Sec,
     /// Store a register value at an immediate address.
     StoreRegDirect(Reg),
     /// Store a register value at an indirect address in another register.
@@ -81,6 +85,7 @@ impl Display for InstructionKind {
                 BranchEq => "beq D".to_owned(),
                 BranchNe => "bne D".to_owned(),
                 Call => "call NN".to_owned(),
+                Clc => "clc".to_owned(),
                 Cmp(reg) => format!("cmp {reg}, N"),
                 Dec(reg) => format!("dec {reg}"),
                 DecIndirect => "dec (RR)".to_owned(),
@@ -98,6 +103,7 @@ impl Display for InstructionKind {
                 Push(reg) => format!("push {reg}"),
                 Ret => "ret".to_owned(),
                 Rti => "rti".to_owned(),
+                Sec => "sec".to_owned(),
                 StoreRegDirect(reg) => format!("ld NN, {reg}"),
                 StoreRegIndirect => "ld (RR), R".to_owned(),
                 Trap => "trap T".to_owned(),
@@ -117,6 +123,8 @@ impl TryFrom<u8> for InstructionKind {
         Ok(match opcode {
             0x00 => Halt,
             0x01 => Nop,
+            0x03 => Sec,
+            0x04 => Clc,
             0x08 => Ret,
             0x09 => Rti,
             0x10..=0x1C => LdRegImm(reg?),
@@ -159,6 +167,7 @@ impl From<InstructionKind> for u8 {
             BranchEq => 0xF1,
             BranchNe => 0xF2,
             Call => 0xF8,
+            Clc => 0x04,
             Cmp(reg) => 0x70 | u8::from(reg),
             Dec(reg) => 0x40 | u8::from(reg),
             DecIndirect => 0x4D,
@@ -176,6 +185,7 @@ impl From<InstructionKind> for u8 {
             Push(reg) => 0xD0 | u8::from(reg),
             Ret => 0x08,
             Rti => 0x09,
+            Sec => 0x03,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
             StoreRegIndirect => 0x2E,
             Trap => 0xF9,
@@ -195,6 +205,7 @@ impl InstructionKind {
             BranchEq if cpu.flags.zero => cpu.branch(cpu.op_lo),
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
             Call => cpu.call(cpu.op(), bus),
+            Clc => cpu.flags.carry = false,
             Cmp(reg) => cpu.cmp(reg, cpu.op()),
             Dec(reg) => cpu.decrement(reg),
             DecIndirect => cpu.dec_indirect(bus),
@@ -211,6 +222,7 @@ impl InstructionKind {
             Push(reg) => cpu.push(reg, bus),
             Ret => cpu.ret(bus),
             Rti => cpu.rti(bus),
+            Sec => cpu.flags.carry = true,
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
             StoreRegIndirect => cpu.store_reg_indirect(bus),
             Trap => cpu.trap(cpu.op_lo, bus),
@@ -223,7 +235,7 @@ impl InstructionKind {
     pub fn operands(&self) -> Operands {
         use Operands::*;
         match *self {
-            Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti => Zero,
+            Clc | Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti | Sec => Zero,
             Add(_) | And(_) | BranchAlways | BranchCc | BranchCs | BranchEq | BranchNe
             | DecIndirect | IncIndirect | LdRegIndirect | LdRegReg | Lsr(_) | StoreRegIndirect
             | Trap => One,
@@ -492,6 +504,17 @@ mod tests {
         assert_hex!(sys.peek_mem(0x01FF), 0x01, "wrong high byte on stack");
         assert_hex!(sys.peek_mem(0x0200), 0x03, "wrong low byte on stack");
         assert_hex!(sys.cpu.regs.get(SP), 0x01FE, "wrong SP");
+    }
+
+    #[test]
+    fn clc() {
+        let mut sys = System::default();
+        sys.cpu.flags.carry = true;
+        sys.test_asm(
+            "
+            clc",
+        );
+        assert_eq!(sys.cpu.flags.carry, false, "carry not cleared");
     }
 
     #[test]
@@ -908,6 +931,17 @@ mod tests {
         assert_hex!(sys.cpu.pc, 0x0104, "wrong PC");
         assert_hex!(sys.cpu.regs.get(A), 0x02, "wrong A");
         assert_hex!(sys.cpu.regs.get(SP), 0x0200, "wrong SP");
+    }
+
+    #[test]
+    fn sec() {
+        let mut sys = System::default();
+        sys.cpu.flags.carry = false;
+        sys.test_asm(
+            "
+            sec",
+        );
+        assert_eq!(sys.cpu.flags.carry, true, "carry not set");
     }
 
     #[test]
