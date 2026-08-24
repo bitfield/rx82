@@ -143,9 +143,9 @@ impl Monitor {
     }
 
     /// Runs a given program.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// * Any errors returned by [`interact`](Self::interact).
     pub fn run_program(&mut self, program: &[u8]) -> Result<()> {
         self.sys.reset();
@@ -157,9 +157,8 @@ impl Monitor {
             self.run(None);
             Ok(())
         }
-
     }
-    
+
     /// Steps the system by one instruction.
     pub fn step(&mut self, addr: Option<u16>) {
         self.step = true;

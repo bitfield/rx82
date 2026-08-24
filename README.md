@@ -160,7 +160,7 @@ The following general-purpose traps are defined:
 
 # R8 technical manual
 
-The R8 is a little-endian CPU with an 8-bit data bus, a 16-bit address bus, and a 16-bit ALU.
+The R8 is a little-endian CPU with an 8-bit data bus and ALU (with some 16-bit extensions), and a 16-bit address bus.
 
 ## Registers
 
@@ -291,6 +291,16 @@ DONE:
 ```
 
 Whitespace is ignored, and only `0x`-prefixed hexadecimal numbers are recognised as literals.
+
+# About the emulator
+
+This is a **cycle-stepped** emulator (sometimes called a “low-level” emulator) that models the whole computer system, including the CPU, devices, bus, and so forth. Unlike a “high-level”, or **instruction-stepped** emulator, where the CPU “owns” all the resources, such as memory, and can manipulate them directly, in a low-level emulator the CPU must read and write signals to the bus like any other device.
+
+This makes it more complicated, since the emulator must model the CPU's internal state (fetch, decode, execute, and so on), the bus signalling, and all the devices, but it's also more realistic and interesting.
+
+If you're interested in writing an emulator, though, it's much easier to get started with a high-level one. You can read a tutorial series on writing a high-level R8 emulator here:
+
+* [Welcome to the machine: emulating a CPU](https://bitfieldconsulting.com/posts/welcome-to-machine)
 
 # Changelog
 
