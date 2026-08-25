@@ -17,7 +17,7 @@ An emulator for the RX82 fantasy retro computer system, including the R8 8-bit C
 # Installation
 
 ```sh
-cargo install rx82
+cargo install --locked rx82
 ```
 
 # About
