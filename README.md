@@ -54,7 +54,8 @@ rx82 mon
 
 ```txt
 (C) 1982 RX Computers Ltd.
-Ready.
+
+0xBF00 bytes free. Ready.
 ```
 
 You can also optionally load and run a binary file (such as one produced by the assembler, for example):
@@ -185,7 +186,7 @@ The processor status register `ps` contains the following flags:
 | 3- | inc a | inc b | inc c | inc d | inc e | inc f | inc g | inc h | inc ab | inc cd | inc ef | inc gh | inc sp | inc (RR) | inc (NN) | |
 | 4- | dec a | dec b | dec c | dec d | dec e | dec f | dec g | dec h | dec ab | dec cd | dec ef | dec gh | dec sp | dec (RR) | dec (NN) | |
 | 5- | add a, N | add b, N | add c, N | add d, N | add e, N | add f, N | add g, N | add h, N | | | | | | | | |
-| 6- | | | | | | | | | | | | | | | | |
+| 6- | sub a, N | sub b, N | sub c, N | sub d, N | sub e, N | sub f, N | sub g, N | sub h, N | | | | | | | | |
 | 7- | cmp a, N | cmp b, N | cmp c, N | cmp d, N | cmp e, N | cmp f, N | cmp g, N | cmp h, N | cmp ab, N | cmp cd, N | cmp ef, N | cmp gh, N | | | | |
 | 8- | and a, N | and b, N | and c, N | and d, N | and e, N | and f, N | and g, N | and h, N | | | | | | | | |
 | 9- | | | | | | | | | | | | | | | | |

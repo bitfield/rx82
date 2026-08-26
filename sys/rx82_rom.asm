@@ -62,6 +62,17 @@ PRINT_COPYRIGHT:
     ld cd, COPYRIGHT_MSG
     call PRINT_STRING
 
+PRINT_BYTES_FREE:
+    ld ab, sp     ; highest usable RAM address
+    clc
+    add b, 0x01   ; bytes free is one more than that
+    add a, 0x00   ; propagate carry
+    sec
+    sub a, 0x01   ; minus 256 bytes for trap table / data area
+    call PRINT_HEX
+    ld cd, READY_MSG
+    call PRINT_STRING
+
 INVOKE_MONITOR:
     halt
 
@@ -77,6 +88,43 @@ NEXT_CHAR:
     trap 0x20
     dec b
     bne NEXT_CHAR
+    ret
+
+; print word in ab as hex
+PRINT_HEX:
+    push a
+    ld a, 0x30   ; '0'
+    trap 0x20    ; print
+    ld a, 0x78   ; 'x'
+    trap 0x20    ; print
+    pop a
+    push a
+    ; high byte
+    lsr a, 0x04  ; take upper nibble first
+    call NIBBLE_TO_ASCII
+    trap 0x20    ; print
+    pop a
+    and a, 0x0F  ; lower nibble
+    call NIBBLE_TO_ASCII
+    trap 0x20    ; print
+    ; low byte
+    ld a, b
+    push a
+    lsr a, 0x04  ; take upper nibble first
+    call NIBBLE_TO_ASCII
+    trap 0x20    ; print
+    pop a
+    and a, 0x0F  ; lower nibble
+    call NIBBLE_TO_ASCII
+    trap 0x20    ; print
+    ret
+NIBBLE_TO_ASCII:
+    clc
+    add a, 0x30  ; ASCII '0'
+    cmp a, 0x3A  ; digit less than 10?
+    bcc NUMERAL
+    add a, 0x06  ; ASCII 'A'
+NUMERAL:
     ret
 
 ; trap handlers
@@ -97,7 +145,10 @@ PUTCHAR:
 
 ; data
 COPYRIGHT_MSG:
-    data 0x23, "(C) 1982 RX Computers Ltd.", 0x0A, "Ready.", 0x0A, 0x0A
+    data 0x1C, "(C) 1982 RX Computers Ltd.", 0x0A, 0x0A
+
+READY_MSG:
+    data 0x15, " bytes free. Ready.", 0x0A, 0x0A
 
 ILLEGAL_INSTRUCTION_MSG:
     data 0x14, "illegal instruction", 0x0A
