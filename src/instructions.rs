@@ -206,15 +206,19 @@ impl InstructionKind {
             BranchNe if !cpu.flags.zero => cpu.branch(cpu.op_lo),
             Call => cpu.call(cpu.op(), bus),
             Clc => cpu.flags.carry = false,
-            Cmp(reg) => cpu.cmp(reg, cpu.op()),
-            Dec(reg) => cpu.decrement(reg),
+            Cmp(reg) if reg.is16() => cpu.cmp16(reg, cpu.op()),
+            Cmp(reg) => cpu.cmp(reg, cpu.op_lo),
+            Dec(reg) if reg.is16() => cpu.dec16(reg),
+            Dec(reg) => cpu.dec(reg),
             DecIndirect => cpu.dec_indirect(bus),
             DecMem => cpu.dec_mem(cpu.op(), bus),
             Halt => cpu.halt(),
-            Inc(reg) => cpu.increment(reg),
+            Inc(reg) if reg.is16() => cpu.inc16(reg),
+            Inc(reg) => cpu.inc(reg),
             IncIndirect => cpu.inc_indirect(bus),
             IncMem => cpu.inc_mem(cpu.op(), bus),
-            LdRegImm(reg) => _ = cpu.regs.set(reg, cpu.op()),
+            LdRegImm(reg) if reg.is16() => cpu.regs.set16(reg, cpu.op()),
+            LdRegImm(reg) => cpu.regs.set(reg, cpu.op_lo),
             LdRegIndirect => cpu.ld_reg_indirect(bus),
             LdRegReg => cpu.ld_reg_reg(bus),
             Lsr(reg) => cpu.lsr(reg, cpu.op_lo),
@@ -299,13 +303,9 @@ mod tests {
         for &(name, start_a, start_carry, addend, want_a, want_carry, want_zero) in cases {
             sys.cpu.flags.carry = start_carry;
             sys.cpu.flags.zero = true;
-            sys.cpu.regs.set(A, u16::from(start_a));
+            sys.cpu.regs.set(A, start_a);
             sys.test_prog(&[u8::from(Add(A)), addend]);
-            assert_hex!(
-                sys.cpu.regs.get(A),
-                u16::from(want_a),
-                format!("{name}: wrong A")
-            );
+            assert_hex!(sys.cpu.regs.get(A), want_a, format!("{name}: wrong A"));
             assert_eq!(
                 sys.cpu.flags.carry,
                 want_carry,
@@ -490,7 +490,7 @@ mod tests {
     #[test]
     fn call() {
         let mut sys = System::default();
-        sys.cpu.regs.set(SP, 0x0200);
+        sys.cpu.regs.set16(SP, 0x0200);
         sys.test_asm(
             "
             call SUBR
@@ -503,7 +503,7 @@ mod tests {
         assert_hex!(sys.cpu.regs.get(A), 0xFF, "wrong A");
         assert_hex!(sys.peek_mem(0x01FF), 0x01, "wrong high byte on stack");
         assert_hex!(sys.peek_mem(0x0200), 0x03, "wrong low byte on stack");
-        assert_hex!(sys.cpu.regs.get(SP), 0x01FE, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(SP), 0x01FE, "wrong SP");
     }
 
     #[test]
@@ -591,7 +591,7 @@ mod tests {
             dec a
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(A), 0x00FF, "wrong A");
+        assert_hex!(sys.cpu.regs.get(A), 0xFF, "wrong A");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
         sys.test_asm(
             "
@@ -599,7 +599,7 @@ mod tests {
             dec sp
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(SP), 0xFF00, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(SP), 0xFF00, "wrong SP");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: dec to non-zero");
         sys.test_asm(
             "
@@ -607,7 +607,7 @@ mod tests {
             dec a
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(A), 0x0000, "wrong A");
+        assert_hex!(sys.cpu.regs.get(A), 0x00, "wrong A");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: dec to zero");
         sys.test_asm(
             "
@@ -677,7 +677,7 @@ mod tests {
             inc d
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(D), 0x0001, "wrong D");
+        assert_hex!(sys.cpu.regs.get(D), 0x01, "wrong D");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
         sys.test_asm(
             "
@@ -685,7 +685,7 @@ mod tests {
             halt",
         );
         sys.debug_print();
-        assert_hex!(sys.cpu.regs.get(AB), 0x0001, "wrong AB");
+        assert_hex!(sys.cpu.regs.get16(AB), 0x0001, "wrong AB");
         assert_eq!(sys.cpu.flags.zero, false, "zero set: inc to non-zero");
         sys.test_asm(
             "
@@ -693,7 +693,7 @@ mod tests {
             inc a
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(A), 0x0000, "wrong A");
+        assert_hex!(sys.cpu.regs.get(A), 0x00, "wrong A");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
         sys.test_asm(
             "
@@ -701,7 +701,7 @@ mod tests {
             inc ab
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(AB), 0x0000, "wrong AB");
+        assert_hex!(sys.cpu.regs.get16(AB), 0x0000, "wrong AB");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
         sys.test_asm(
             "
@@ -709,7 +709,7 @@ mod tests {
             inc sp
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(SP), 0x0000, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(SP), 0x0000, "wrong SP");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
     }
 
@@ -764,7 +764,7 @@ mod tests {
             ld a, 0xFF
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(A), 0x00FF, "wrong A");
+        assert_hex!(sys.cpu.regs.get(A), 0xFF, "wrong A");
         assert_hex!(sys.cpu.pc, 0x0103, "wrong PC");
     }
 
@@ -777,8 +777,8 @@ mod tests {
             ld sp, 0xBEEF
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(AB), 0x00C0, "wrong AB");
-        assert_hex!(sys.cpu.regs.get(SP), 0xBEEF, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(AB), 0x00C0, "wrong AB");
+        assert_hex!(sys.cpu.regs.get16(SP), 0xBEEF, "wrong SP");
         assert_hex!(sys.cpu.pc, 0x0107, "wrong PC");
     }
 
@@ -813,7 +813,7 @@ mod tests {
         );
         sys.debug_print();
         assert_hex!(sys.cpu.regs.get(B), 0xFF, "wrong B");
-        assert_hex!(sys.cpu.regs.get(CD), 0xFFFF, "wrong CD");
+        assert_hex!(sys.cpu.regs.get16(CD), 0xFFFF, "wrong CD");
         assert_hex!(sys.cpu.regs.get(E), 0xFF, "wrong E");
     }
 
@@ -832,13 +832,9 @@ mod tests {
         ];
         for &(name, start_a, start_carry, shift, want_a, want_carry) in cases {
             sys.cpu.flags.carry = start_carry;
-            sys.cpu.regs.set(A, u16::from(start_a));
+            sys.cpu.regs.set(A, start_a);
             sys.test_prog(&[u8::from(Lsr(A)), shift]);
-            assert_hex!(
-                sys.cpu.regs.get(A),
-                u16::from(want_a),
-                format!("{name}: wrong A")
-            );
+            assert_hex!(sys.cpu.regs.get(A), want_a, format!("{name}: wrong A"));
             assert_eq!(
                 sys.cpu.flags.carry,
                 want_carry,
@@ -870,8 +866,8 @@ mod tests {
             pop b
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(SP), 0xBFFF, "wrong SP");
-        assert_hex!(sys.cpu.regs.get(GH), 0x0102, "wrong GH");
+        assert_hex!(sys.cpu.regs.get16(SP), 0xBFFF, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(GH), 0x0102, "wrong GH");
         assert_hex!(sys.cpu.regs.get(B), 0x03, "wrong B");
     }
 
@@ -887,7 +883,7 @@ mod tests {
             push cd
             halt",
         );
-        assert_hex!(sys.cpu.regs.get(SP), 0xBFFC, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(SP), 0xBFFC, "wrong SP");
         assert_hex!(sys.mem.get(0xBFFF), 0xFF, "wrong stack value for A");
         assert_hex!(sys.mem.get(0xBFFE), 0xFE, "wrong stack value for D");
         assert_hex!(sys.mem.get(0xBFFD), 0xCA, "wrong stack value for C");
@@ -896,7 +892,7 @@ mod tests {
     #[test]
     fn ret() {
         let mut sys = System::default();
-        sys.cpu.regs.set(SP, 0x0200);
+        sys.cpu.regs.set16(SP, 0x0200);
         sys.test_asm(
             "
             call SUBR
@@ -908,13 +904,13 @@ mod tests {
         );
         assert_hex!(sys.cpu.pc, 0x0105, "wrong PC");
         assert_hex!(sys.cpu.regs.get(A), 0x02, "wrong A");
-        assert_hex!(sys.cpu.regs.get(SP), 0x0200, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(SP), 0x0200, "wrong SP");
     }
 
     #[test]
     fn rti() {
         let mut sys = System::default();
-        sys.cpu.regs.set(SP, 0x0200);
+        sys.cpu.regs.set16(SP, 0x0200);
         // trap vector 0x01 points to TRAP_1
         sys.mem.load(0x0000, &[0x00, 0x00, 0x10, 0x01]).unwrap();
         sys.test_asm(
@@ -930,7 +926,7 @@ mod tests {
         );
         assert_hex!(sys.cpu.pc, 0x0104, "wrong PC");
         assert_hex!(sys.cpu.regs.get(A), 0x02, "wrong A");
-        assert_hex!(sys.cpu.regs.get(SP), 0x0200, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(SP), 0x0200, "wrong SP");
     }
 
     #[test]
@@ -974,7 +970,7 @@ mod tests {
     #[test]
     fn trap() {
         let mut sys = System::default();
-        sys.cpu.regs.set(SP, 0x0200);
+        sys.cpu.regs.set16(SP, 0x0200);
         // trap vector 0x01 points to TRAP_1
         sys.mem.load(0x0000, &[0x00, 0x00, 0x10, 0x01]).unwrap();
         sys.test_asm(
@@ -991,7 +987,7 @@ mod tests {
         assert_hex!(sys.cpu.regs.get(A), 0x01, "wrong trap code");
         assert_hex!(sys.peek_mem(0x01FF), 0x01, "wrong high byte on stack");
         assert_hex!(sys.peek_mem(0x0200), 0x02, "wrong low byte on stack");
-        assert_hex!(sys.cpu.regs.get(SP), 0x01FD, "wrong SP");
+        assert_hex!(sys.cpu.regs.get16(SP), 0x01FD, "wrong SP");
     }
 
     #[test]

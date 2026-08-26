@@ -139,52 +139,64 @@ pub struct Regs {
 
 impl Regs {
     /// Returns the value in register `reg`.
-    ///
-    /// For 8-bit registers, the high byte will always be 0.
     #[must_use]
-    pub fn get(&self, reg: Reg) -> u16 {
+    pub fn get(&self, reg: Reg) -> u8 {
         use Reg::*;
         match reg {
-            A => u16::from(self.ra),
-            B => u16::from(self.rb),
-            C => u16::from(self.rc),
-            D => u16::from(self.rd),
-            E => u16::from(self.re),
-            F => u16::from(self.rf),
-            G => u16::from(self.rg),
-            H => u16::from(self.rh),
-            Reg::AB => u16::from_be_bytes([self.ra, self.rb]),
-            Reg::CD => u16::from_be_bytes([self.rc, self.rd]),
-            Reg::EF => u16::from_be_bytes([self.re, self.rf]),
-            Reg::GH => u16::from_be_bytes([self.rg, self.rh]),
-            Reg::SP => self.sp,
+            A => self.ra,
+            B => self.rb,
+            C => self.rc,
+            D => self.rd,
+            E => self.re,
+            F => self.rf,
+            G => self.rg,
+            H => self.rh,
+            other => unreachable!("get() called with 16-bit register pair '{other}'"),
+        }
+    }
+
+    /// Returns the value in register pair `reg`.
+    #[must_use]
+    pub fn get16(&self, reg: Reg) -> u16 {
+        use Reg::*;
+        match reg {
+            AB => u16::from_be_bytes([self.ra, self.rb]),
+            CD => u16::from_be_bytes([self.rc, self.rd]),
+            EF => u16::from_be_bytes([self.re, self.rf]),
+            GH => u16::from_be_bytes([self.rg, self.rh]),
+            SP => self.sp,
+            other => unreachable!("get16() called with 8-bit register '{other}'"),
         }
     }
 
     /// Sets register `reg` to the value `val`.
-    ///
-    /// For 8-bit registers, the high byte is ignored.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
-    pub fn set(&mut self, reg: Reg, val: u16) -> u16 {
+    pub fn set(&mut self, reg: Reg, val: u8) {
         use Reg::*;
-        let byte = val as u8;
+        match reg {
+            A => self.ra = val,
+            B => self.rb = val,
+            C => self.rc = val,
+            D => self.rd = val,
+            E => self.re = val,
+            F => self.rf = val,
+            G => self.rg = val,
+            H => self.rh = val,
+            other => unreachable!("set() called with 16-bit register pair '{other}'"),
+        }
+    }
+
+    /// Sets register pair `reg` to the value `val`.
+    pub fn set16(&mut self, reg: Reg, val: u16) {
+        use Reg::*;
         let [hi, lo] = val.to_be_bytes();
         match reg {
-            A => self.ra = byte,
-            B => self.rb = byte,
-            C => self.rc = byte,
-            D => self.rd = byte,
-            E => self.re = byte,
-            F => self.rf = byte,
-            G => self.rg = byte,
-            H => self.rh = byte,
             AB => [self.ra, self.rb] = [hi, lo],
             CD => [self.rc, self.rd] = [hi, lo],
             EF => [self.re, self.rf] = [hi, lo],
             GH => [self.rg, self.rh] = [hi, lo],
             SP => self.sp = val,
+            other => unreachable!("set16() called with 8-bit register '{other}'"),
         }
-        self.get(reg)
     }
 }
 
@@ -234,9 +246,9 @@ mod tests {
     fn addressing_individual_regs_works() {
         let mut regs = Regs::default();
         regs.set(A, 0x00FF);
-        assert_eq!(regs.get(A), 0x00FF, "wrong A");
+        assert_eq!(regs.get(A), 0xFF, "wrong A");
         regs.set(F, 0x00FF);
-        assert_eq!(regs.get(F), 0x00FF, "wrong F");
+        assert_eq!(regs.get(F), 0xFF, "wrong F");
     }
 
     #[test]
@@ -244,22 +256,22 @@ mod tests {
         let mut regs = Regs::default();
         regs.set(A, 0x00DE);
         regs.set(B, 0x00AD);
-        assert_eq!(regs.get(AB), 0xDEAD, "wrong AB");
-        regs.set(AB, 0xBEEF);
-        assert_eq!(regs.get(AB), 0xBEEF, "wrong AB");
+        assert_eq!(regs.get16(AB), 0xDEAD, "wrong AB");
+        regs.set16(AB, 0xBEEF);
+        assert_eq!(regs.get16(AB), 0xBEEF, "wrong AB");
         assert_eq!(regs.get(A), 0xBE, "wrong A");
         assert_eq!(regs.get(B), 0xEF, "wrong B");
-        regs.set(GH, 0xCAFE);
-        assert_eq!(regs.get(GH), 0xCAFE, "wrong GH");
+        regs.set16(GH, 0xCAFE);
+        assert_eq!(regs.get16(GH), 0xCAFE, "wrong GH");
     }
 
     #[test]
     fn addressing_sp_works() {
         let mut regs = Regs::default();
         let sp = Reg::SP;
-        regs.set(sp, 0xFFFF);
+        regs.set16(sp, 0xFFFF);
         assert!(sp.is16(), "SP should be 16-bit");
-        assert_eq!(regs.get(sp), 0xFFFF, "wrong SP");
+        assert_eq!(regs.get16(sp), 0xFFFF, "wrong SP");
     }
 
     #[test]

@@ -103,22 +103,21 @@ impl Default for System {
 
 impl System {
     /// Prints the current CPU state and the next instruction in memory.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     pub fn debug_print(&mut self) {
         let next = self.disassemble_next();
         println!("  PC   SP  A  B  C  D  E  F  G  H ZC | NEXT");
         println!(
             "{:04X} {:04X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:1b}{:1b} | {}",
             self.cpu.pc,
-            self.cpu.regs.get(SP),
-            self.cpu.regs.get(A) as u8,
-            self.cpu.regs.get(B) as u8,
-            self.cpu.regs.get(C) as u8,
-            self.cpu.regs.get(D) as u8,
-            self.cpu.regs.get(E) as u8,
-            self.cpu.regs.get(F) as u8,
-            self.cpu.regs.get(G) as u8,
-            self.cpu.regs.get(H) as u8,
+            self.cpu.regs.get16(SP),
+            self.cpu.regs.get(A),
+            self.cpu.regs.get(B),
+            self.cpu.regs.get(C),
+            self.cpu.regs.get(D),
+            self.cpu.regs.get(E),
+            self.cpu.regs.get(F),
+            self.cpu.regs.get(G),
+            self.cpu.regs.get(H),
             u8::from(self.cpu.flags.zero),
             u8::from(self.cpu.flags.carry),
             next,

@@ -110,7 +110,11 @@ impl Device for Cpu {
             }
             ReadLoad(reg) => {
                 self.op_lo = bus.data;
-                self.regs.set(reg, self.op());
+                if reg.is16() {
+                    self.regs.set16(reg, self.op());
+                } else {
+                    self.regs.set(reg, self.op_lo);
+                }
                 FetchOpcode
             }
             ReadOp => {
@@ -201,16 +205,20 @@ impl Cpu {
     /// Add with carry.
     pub fn add(&mut self, reg: Reg, addend: u8) {
         let value = self.regs.get(reg);
-        let carry = u16::from(self.flags.carry);
-        let result = value.wrapping_add(u16::from(addend)).wrapping_add(carry);
-        self.flags.carry = result > 0xFF;
-        self.flags.zero = self.regs.set(reg, result & 0xFF) == 0;
+        let (result1, carry1) = value.overflowing_add(addend);
+        let carry_in = u8::from(self.flags.carry);
+        let (result2, carry2) = result1.overflowing_add(carry_in);
+        self.flags.carry = carry1 || carry2;
+        self.regs.set(reg, result2);
+        self.flags.zero = result2 == 0;
     }
 
     /// Bitwise AND.
     pub fn and(&mut self, reg: Reg, mask: u8) {
         let value = self.regs.get(reg);
-        self.flags.zero = self.regs.set(reg, value & u16::from(mask)) == 0;
+        let result = value & mask;
+        self.regs.set(reg, result);
+        self.flags.zero = result == 0;
     }
 
     /// Branches to PC+`dis`.
@@ -229,10 +237,31 @@ impl Cpu {
     }
 
     /// Compares the value in register `reg` with the operand, updating flags.
-    pub fn cmp(&mut self, reg: Reg, rhs: u16) {
+    pub fn cmp(&mut self, reg: Reg, rhs: u8) {
         let lhs = self.regs.get(reg);
         self.flags.zero = lhs == rhs;
         self.flags.carry = lhs >= rhs;
+    }
+
+    /// Compares the value in register pair `reg` with the operand, updating flags.
+    pub fn cmp16(&mut self, reg: Reg, rhs: u16) {
+        let lhs = self.regs.get16(reg);
+        self.flags.zero = lhs == rhs;
+        self.flags.carry = lhs >= rhs;
+    }
+
+    /// Decrements the value in register `reg`, updating flags.
+    pub fn dec(&mut self, reg: Reg) {
+        let result = self.regs.get(reg).wrapping_sub(1);
+        self.regs.set(reg, result);
+        self.flags.zero = result == 0;
+    }
+
+    /// Decrements the value in register pair `reg`, updating flags.
+    pub fn dec16(&mut self, reg: Reg) {
+        let result = self.regs.get16(reg).wrapping_sub(1);
+        self.regs.set16(reg, result);
+        self.flags.zero = result == 0;
     }
 
     /// Decrements the value at the address in `reg`, updating flags.
@@ -240,7 +269,7 @@ impl Cpu {
         if let Some(source) = source_from(self.op_lo)
             && source.is16()
         {
-            let addr = self.regs.get(source);
+            let addr = self.regs.get16(source);
             self.dec_mem(addr, bus);
         } else {
             self.trap(TRAP_ILLEGAL, bus);
@@ -251,12 +280,6 @@ impl Cpu {
     pub fn dec_mem(&mut self, addr: u16, bus: &mut Bus) {
         bus.read_mem(addr);
         self.state = WaitDec(addr);
-    }
-
-    /// Decrements the value in register `reg`, updating flags.
-    pub fn decrement(&mut self, reg: Reg) {
-        let value = self.regs.get(reg).wrapping_sub(1);
-        self.flags.zero = self.regs.set(reg, value) == 0;
     }
 
     /// Issues a memory fetch and advances PC.
@@ -270,12 +293,26 @@ impl Cpu {
         self.halt = true;
     }
 
+    /// Increments the value in register `reg`, updating flags.
+    pub fn inc(&mut self, reg: Reg) {
+        let result = self.regs.get(reg).wrapping_add(1);
+        self.regs.set(reg, result);
+        self.flags.zero = result == 0;
+    }
+
+    /// Increments the value in register pair `reg`, updating flags.
+    pub fn inc16(&mut self, reg: Reg) {
+        let result = self.regs.get16(reg).wrapping_add(1);
+        self.regs.set16(reg, result);
+        self.flags.zero = result == 0;
+    }
+
     /// Increments the value at the address in `reg`, updating flags.
     pub fn inc_indirect(&mut self, bus: &mut Bus) {
         if let Some(source) = source_from(self.op_lo)
             && source.is16()
         {
-            let addr = self.regs.get(source);
+            let addr = self.regs.get16(source);
             self.inc_mem(addr, bus);
         } else {
             self.trap(TRAP_ILLEGAL, bus);
@@ -288,16 +325,10 @@ impl Cpu {
         self.state = WaitInc(addr);
     }
 
-    /// Increments the value in register `reg`, updating flags.
-    pub fn increment(&mut self, reg: Reg) {
-        let value = self.regs.get(reg).wrapping_add(1);
-        self.flags.zero = self.regs.set(reg, value) == 0;
-    }
-
     /// Executes a load register indirect instruction.
     pub fn ld_reg_indirect(&mut self, bus: &mut Bus) {
         if let Some((source, target)) = source_and_target_from(self.op_lo) {
-            bus.read_mem(self.regs.get(source));
+            bus.read_mem(self.regs.get16(source));
             self.state = WaitLoad(target);
         } else {
             self.trap(TRAP_ILLEGAL, bus);
@@ -306,12 +337,14 @@ impl Cpu {
 
     /// Executes a load register register instruction.
     pub fn ld_reg_reg(&mut self, bus: &mut Bus) {
-        if let Some((source, target)) = source_and_target_from(self.op_lo)
-            && source.is16() == target.is16()
-        {
-            self.regs.set(target, self.regs.get(source));
-        } else {
-            self.trap(TRAP_ILLEGAL, bus);
+        match source_and_target_from(self.op_lo) {
+            Some((source, target)) if source.is16() && target.is16() => {
+                self.regs.set16(target, self.regs.get16(source));
+            }
+            Some((source, target)) if !source.is16() && !target.is16() => {
+                self.regs.set(target, self.regs.get(source));
+            }
+            _ => self.trap(TRAP_ILLEGAL, bus),
         }
     }
 
@@ -346,15 +379,15 @@ impl Cpu {
     }
 
     /// Executes a `push` instruction with `reg`.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     pub fn push(&mut self, reg: Reg, bus: &mut Bus) {
-        let val = self.regs.get(reg);
         if reg.is16() {
+            let val = self.regs.get16(reg);
             let [hi, lo] = val.to_be_bytes();
             self.stack_push(lo, bus);
             self.state = WaitPush(hi);
         } else {
-            self.stack_push(val as u8, bus);
+            let val = self.regs.get(reg);
+            self.stack_push(val, bus);
         }
     }
 
@@ -377,42 +410,41 @@ impl Cpu {
 
     /// Returns from a trap to a return address on the stack.
     pub fn rti(&mut self, bus: &mut Bus) {
-        let mut addr = self.regs.get(Reg::SP);
+        let mut addr = self.regs.get16(Reg::SP);
         addr = addr.wrapping_add(2); // skip trap code
         bus.read_mem(addr);
-        self.regs.set(Reg::SP, addr);
+        self.regs.set16(Reg::SP, addr);
         self.state = WaitRetHi;
     }
 
     /// Reads the current top-of-stack value, adjusting SP.
     pub fn stack_pop(&mut self, bus: &mut Bus) {
-        let mut addr = self.regs.get(Reg::SP);
+        let mut addr = self.regs.get16(Reg::SP);
         addr = addr.wrapping_add(1);
         bus.read_mem(addr);
-        self.regs.set(Reg::SP, addr);
+        self.regs.set16(Reg::SP, addr);
     }
 
     /// Writes `val` to the stack, adjusting SP.
     pub fn stack_push(&mut self, val: u8, bus: &mut Bus) {
-        let mut addr = self.regs.get(Reg::SP);
+        let mut addr = self.regs.get16(Reg::SP);
         bus.write_mem(addr, val);
         addr = addr.wrapping_sub(1);
-        self.regs.set(Reg::SP, addr);
+        self.regs.set16(Reg::SP, addr);
     }
 
     /// Executes a store register direct instruction.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     pub fn store_reg_direct(&mut self, reg: Reg, bus: &mut Bus) {
-        bus.write_mem(self.op(), self.regs.get(reg) as u8);
+        bus.write_mem(self.op(), self.regs.get(reg));
     }
 
     /// Executes a store register indirect instruction.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     pub fn store_reg_indirect(&mut self, bus: &mut Bus) {
-        if let Some((source, target)) = source_and_target_from(self.op_lo) {
-            bus.write_mem(self.regs.get(target), self.regs.get(source) as u8);
-        } else {
-            self.trap(TRAP_ILLEGAL, bus);
+        match source_and_target_from(self.op_lo) {
+            Some((source, target)) if !source.is16() && target.is16() => {
+                bus.write_mem(self.regs.get16(target), self.regs.get(source));
+            }
+            _ => self.trap(TRAP_ILLEGAL, bus),
         }
     }
 
@@ -420,10 +452,9 @@ impl Cpu {
     ///
     /// The `trap_code` is used to select a vector from the trap table, and the CPU jumps
     /// to that address after pushing the return address and the trap code to the stack.
-    #[expect(clippy::cast_possible_truncation, reason = "truncation is correct")]
     pub fn trap(&mut self, mut trap_code: u8, bus: &mut Bus) {
         if trap_code == 0x20 {
-            print!("{}", self.regs.get(Reg::A) as u8 as char);
+            print!("{}", self.regs.get(Reg::A) as char);
         }
         if trap_code >= 0x40 {
             trap_code = TRAP_ILLEGAL;
@@ -623,7 +654,7 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
-        assert_eq!(sys.cpu.regs.get(A), 0x00FF);
+        assert_eq!(sys.cpu.regs.get(A), 0xFF);
         assert_eq!(sys.cpu.pc, 0x0102);
     }
 
@@ -656,7 +687,7 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, Execute);
         sys.tick();
-        assert_eq!(sys.cpu.regs.get(AB), 0xBEEF);
+        assert_eq!(sys.cpu.regs.get16(AB), 0xBEEF);
         assert_eq!(sys.cpu.pc, 0x0103);
     }
 
@@ -667,7 +698,7 @@ mod tests {
         ld b, (cd)
         halt";
         sys.mem.set(0x0110, 0xFF);
-        sys.cpu.regs.set(Reg::CD, 0x0110);
+        sys.cpu.regs.set16(Reg::CD, 0x0110);
         sys.mem
             .load(0x0100, &assemble_with_debug(source).unwrap())
             .unwrap();
@@ -690,7 +721,7 @@ mod tests {
         sys.tick();
         assert_eq!(sys.cpu.state, ReadLoad(B));
         sys.tick();
-        assert_eq!(sys.cpu.regs.get(B), 0x00FF);
+        assert_eq!(sys.cpu.regs.get(B), 0xFF);
         assert_eq!(sys.cpu.pc, 0x0102);
         assert_eq!(sys.cpu.state, FetchOpcode);
     }
@@ -737,7 +768,7 @@ mod tests {
         pop cd
         halt";
         sys.mem.load(0xBFFE, &[0xBA, 0xBE]).unwrap();
-        sys.cpu.regs.set(SP, 0xBFFD);
+        sys.cpu.regs.set16(SP, 0xBFFD);
         sys.mem
             .load(0x0100, &assemble_with_debug(source).unwrap())
             .unwrap();
@@ -767,8 +798,8 @@ mod tests {
         let source = "
         push ab
         halt";
-        sys.cpu.regs.set(SP, 0xBFFF);
-        sys.cpu.regs.set(AB, 0xCAFE);
+        sys.cpu.regs.set16(SP, 0xBFFF);
+        sys.cpu.regs.set16(AB, 0xCAFE);
         sys.mem
             .load(0x0100, &assemble_with_debug(source).unwrap())
             .unwrap();
@@ -802,7 +833,7 @@ mod tests {
         ];
         for prog in cases {
             // initialise stack
-            sys.cpu.regs.set(SP, 0xBFFF);
+            sys.cpu.regs.set16(SP, 0xBFFF);
             // junk to be overwritten by trap stack frame
             sys.mem.load(0xBFFD, &[0xFF, 0xFF, 0xFF]).unwrap();
             sys.test_prog(prog);
@@ -832,8 +863,8 @@ mod tests {
     #[test]
     fn reset_resets_cpu() {
         let mut sys = System::default();
-        sys.cpu.regs.set(AB, 0xBEEF);
-        sys.cpu.regs.set(SP, 0xFFFD);
+        sys.cpu.regs.set16(AB, 0xBEEF);
+        sys.cpu.regs.set16(SP, 0xFFFD);
         sys.cpu.pc = 0x0000;
         sys.cpu.flags.carry = true;
         sys.cpu.flags.zero = true;
@@ -847,8 +878,8 @@ mod tests {
         assert_eq!(sys.cpu.state, ReadAddrHi);
         sys.tick();
         assert_eq!(sys.cpu.state, FetchOpcode);
-        assert_eq!(sys.cpu.regs.get(AB), 0x0000, "AB not reset");
-        assert_eq!(sys.cpu.regs.get(SP), 0x0000, "SP not reset");
+        assert_eq!(sys.cpu.regs.get16(AB), 0x0000, "AB not reset");
+        assert_eq!(sys.cpu.regs.get16(SP), 0x0000, "SP not reset");
         assert_eq!(sys.cpu.pc, 0xC000, "PC not initialized from reset vector");
         assert_eq!(sys.cpu.flags.carry, false, "carry not reset");
         assert_eq!(sys.cpu.flags.zero, false, "zero not reset");
