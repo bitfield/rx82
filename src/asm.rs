@@ -21,7 +21,7 @@ pub const BASE: u16 = 0x0100;
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
     "add", "and", "bcc", "bcs", "beq", "bne", "bra", "call", "clc", "cmp", "data", "dec", "halt",
-    "inc", "ld", "lsr", "nop", "org", "pop", "push", "ret", "rti", "sec", "trap",
+    "inc", "ld", "lsr", "nop", "org", "pop", "push", "ret", "rti", "sec", "sub", "trap",
 ];
 
 /// Assembles a given source program.
@@ -110,6 +110,7 @@ impl Assembler<'_> {
             "ret" => self.emit_byte(u8::from(Ret)),
             "rti" => self.emit_byte(u8::from(Rti)),
             "sec" => self.emit_byte(u8::from(Sec)),
+            "sub" => self.gen_sub(),
             "trap" => self.gen_trap(),
             _ => unreachable!("unknown keyword '{kw}'"),
         }
@@ -577,6 +578,24 @@ impl Assembler<'_> {
         Ok(())
     }
 
+    /// Generates a subtract with carry instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing register name.
+    /// * Missing comma.
+    /// * Missing or mis-sized operand.
+    pub fn gen_sub(&mut self) -> Result<()> {
+        let reg = self.expect_reg8()?;
+        self.expect(&Comma)?;
+        self.emit_byte(u8::from(Sub(reg)))?;
+        let op = self.expect_op_for_reg(reg)?;
+        for byte in op {
+            self.emit_byte(byte)?;
+        }
+        Ok(())
+    }
+
     /// Generates a trap instruction.
     ///
     /// # Errors
@@ -789,6 +808,7 @@ impl Iterator for Disassembler<'_> {
                 Sec => "sec".into(),
                 StoreRegDirect(reg) => format!("ld {}, {reg}", self.format_word()),
                 StoreRegIndirect => self.format_store_reg_indirect(),
+                Sub(reg) => format!("sub {reg}, {}", self.format_byte()),
                 Trap => format!("trap {}", self.format_byte()),
             }
         } else {
@@ -1308,6 +1328,7 @@ mod tests {
             ("ret", &[u8::from(Ret)]),
             ("rti", &[u8::from(Rti)]),
             ("sec", &[u8::from(Sec)]),
+            ("sub a, 0x01", &[u8::from(Sub(A)), 0x01]),
             ("trap 0x01", &[u8::from(Trap), 0x01]),
         ];
         for &(source, object) in cases {
@@ -1389,6 +1410,10 @@ mod tests {
             "ret cd",
             "rti 0x0100",
             "sec ab",
+            "sub",
+            "sub a",
+            "sub a, cd",
+            "sub ab, 0xFFFF",
             "trap 0x40",
             "trap 0xFF",
             "trap a",

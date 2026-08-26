@@ -65,6 +65,8 @@ pub enum InstructionKind {
     StoreRegDirect(Reg),
     /// Store a register value at an indirect address in another register.
     StoreRegIndirect,
+    /// Subtract with carry.
+    Sub(Reg),
     /// Trap with a specified code.
     Trap,
 }
@@ -106,6 +108,7 @@ impl Display for InstructionKind {
                 Sec => "sec".to_owned(),
                 StoreRegDirect(reg) => format!("ld NN, {reg}"),
                 StoreRegIndirect => "ld (RR), R".to_owned(),
+                Sub(reg) => format!("sub {reg}, N"),
                 Trap => "trap T".to_owned(),
             }
         )
@@ -139,6 +142,7 @@ impl TryFrom<u8> for InstructionKind {
             0x4D => DecIndirect,
             0x4E => DecMem,
             0x50..=0x57 => Add(reg?),
+            0x60..=0x67 => Sub(reg?),
             0x70..=0x7B => Cmp(reg?),
             0x80..=0x87 => And(reg?),
             0xA8..=0xAF => Lsr(reg2?),
@@ -188,6 +192,7 @@ impl From<InstructionKind> for u8 {
             Sec => 0x03,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
             StoreRegIndirect => 0x2E,
+            Sub(reg) => 0x60 | u8::from(reg),
             Trap => 0xF9,
         }
     }
@@ -229,6 +234,7 @@ impl InstructionKind {
             Sec => cpu.flags.carry = true,
             StoreRegDirect(reg) => cpu.store_reg_direct(reg, bus),
             StoreRegIndirect => cpu.store_reg_indirect(bus),
+            Sub(reg) => cpu.sub(reg, cpu.op_lo),
             Trap => cpu.trap(cpu.op_lo, bus),
             Nop | BranchCc | BranchCs | BranchEq | BranchNe => {}
         }
@@ -242,7 +248,7 @@ impl InstructionKind {
             Clc | Dec(_) | Halt | Inc(_) | Nop | Push(_) | Pop(_) | Ret | Rti | Sec => Zero,
             Add(_) | And(_) | BranchAlways | BranchCc | BranchCs | BranchEq | BranchNe
             | DecIndirect | IncIndirect | LdRegIndirect | LdRegReg | Lsr(_) | StoreRegIndirect
-            | Trap => One,
+            | Sub(_) | Trap => One,
             Cmp(reg) | LdRegImm(reg) => {
                 if reg.is16() {
                     Two
@@ -965,6 +971,42 @@ mod tests {
         );
         let val = sys.mem.get(0xBABE);
         assert_hex!(val, 0xFF, "wrong mem value");
+    }
+
+    #[test]
+    fn sub() {
+        use InstructionKind::Sub;
+        let mut sys = System::default();
+        let cases: &[(&str, u8, bool, u8, u8, bool, bool)] = &[
+            ("!borrow in, zero out", 0x02, false, 0x01, 0x00, true, true),
+            ("borrow in, zero out", 0xFF, true, 0xFF, 0x00, true, true),
+            ("carry clears", 0x01, true, 0x02, 0xFF, false, false),
+            ("carry affects result", 0x7F, false, 0x00, 0x7E, true, false),
+            ("high bit, no borrow", 0x81, true, 0x01, 0x80, true, false),
+            ("two high bits", 0x80, true, 0x80, 0x00, true, true),
+            ("ordinary subtract", 0x46, true, 0x12, 0x34, true, false),
+            ("zero sets zero", 0xFF, true, 0xFF, 0x00, true, true),
+            ("nonzero clears zero", 0x03, false, 0x01, 0x01, true, false),
+        ];
+        for &(name, start_a, start_carry, subtrahend, want_a, want_carry, want_zero) in cases {
+            sys.cpu.flags.carry = start_carry;
+            sys.cpu.flags.zero = true;
+            sys.cpu.regs.set(A, start_a);
+            sys.test_prog(&[u8::from(Sub(A)), subtrahend]);
+            assert_hex!(sys.cpu.regs.get(A), want_a, format!("{name}: wrong A"));
+            assert_eq!(
+                sys.cpu.flags.carry,
+                want_carry,
+                "{name}: carry not {}",
+                if want_carry { "set" } else { "cleared" }
+            );
+            assert_eq!(
+                sys.cpu.flags.zero,
+                want_zero,
+                "{name}: zero not {}",
+                if want_zero { "set" } else { "cleared" }
+            );
+        }
     }
 
     #[test]

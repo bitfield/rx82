@@ -448,6 +448,17 @@ impl Cpu {
         }
     }
 
+    /// Subtract with carry.
+    pub fn sub(&mut self, reg: Reg, subtrahend: u8) {
+        let value = self.regs.get(reg);
+        let (result1, borrow1) = value.overflowing_sub(subtrahend);
+        let borrow_in = u8::from(!self.flags.carry);
+        let (result2, borrow2) = result1.overflowing_sub(borrow_in);
+        self.flags.carry = !(borrow1 || borrow2);
+        self.regs.set(reg, result2);
+        self.flags.zero = result2 == 0;
+    }
+
     /// Executes a trap.
     ///
     /// The `trap_code` is used to select a vector from the trap table, and the CPU jumps
