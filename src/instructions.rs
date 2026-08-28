@@ -134,7 +134,7 @@ impl TryFrom<u8> for InstructionKind {
             0x1D => LdRegIndirect,
             0x1F => LdRegReg,
             0x20..=0x27 => StoreRegDirect(reg?),
-            0x2E => StoreRegIndirect,
+            0x28 => StoreRegIndirect,
             0x30..=0x3C => Inc(reg?),
             0x3D => IncIndirect,
             0x3E => IncMem,
@@ -191,7 +191,7 @@ impl From<InstructionKind> for u8 {
             Rti => 0x09,
             Sec => 0x03,
             StoreRegDirect(reg) => 0x20 | u8::from(reg),
-            StoreRegIndirect => 0x2E,
+            StoreRegIndirect => 0x28,
             Sub(reg) => 0x60 | u8::from(reg),
             Trap => 0xF9,
         }

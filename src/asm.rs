@@ -1273,7 +1273,7 @@ mod tests {
     fn disassembler_copes_with_invalid_code() {
         assert_disasm!([0x10], "ld a, ??? (no operand)");
         assert_disasm!([0x1D], "??? (no operand)");
-        assert_disasm!([0x2E], "??? (no operand)");
+        assert_disasm!([0x28], "??? (no operand)");
         assert_disasm!([0x1F], "??? (no operand)");
         assert_disasm!([0x3D], "??? (no operand)");
         assert_disasm!([0x3E], "inc (??? (no operand))");

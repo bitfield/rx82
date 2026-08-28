@@ -836,7 +836,7 @@ mod tests {
         let cases: &[&[u8]] = &[
             &[0x01, 0xFF], // reserved opcode
             &[0x1D, 0xFF], // `ld R, (RR)` with invalid regs
-            &[0x2E, 0xFF], // `ld (RR), R` with invalid regs
+            &[0x28, 0xFF], // `ld (RR), R` with invalid regs
             &[0x1F, 0x08], // `ld R, R` with mixed 8/16 regs
             &[0x3D, 0xFF], // `inc (RR)` with invalid regs
             &[0x4D, 0xFF], // `dec (RR)` with invalid regs
