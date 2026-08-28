@@ -835,7 +835,7 @@ mod tests {
         sys.mem.load(0x0000, &[0x02, 0x00, u8::from(Halt)]).unwrap();
         let cases: &[&[u8]] = &[
             &[0x01, 0xFF], // reserved opcode
-            &[0x2D, 0xFF], // `ld R, (RR)` with invalid regs
+            &[0x1D, 0xFF], // `ld R, (RR)` with invalid regs
             &[0x2E, 0xFF], // `ld (RR), R` with invalid regs
             &[0x1F, 0x08], // `ld R, R` with mixed 8/16 regs
             &[0x3D, 0xFF], // `inc (RR)` with invalid regs
