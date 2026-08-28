@@ -21,7 +21,7 @@ pub const BASE: u16 = 0x0100;
 /// Keywords recognised by the assembler.
 pub const KEYWORDS: &[&str] = &[
     "add", "and", "bcc", "bcs", "beq", "bne", "bra", "call", "clc", "cmp", "data", "dec", "halt",
-    "inc", "ld", "lsr", "nop", "org", "pop", "push", "ret", "rti", "sec", "sub", "trap",
+    "inc", "jmp", "ld", "lsr", "nop", "org", "pop", "push", "ret", "rti", "sec", "sub", "trap",
 ];
 
 /// Assembles a given source program.
@@ -101,6 +101,7 @@ impl Assembler<'_> {
             "dec" => self.gen_dec(),
             "halt" => self.emit_byte(u8::from(Halt)),
             "inc" => self.gen_inc(),
+            "jmp" => self.gen_jmp(),
             "ld" => self.gen_ld(),
             "lsr" => self.gen_lsr(),
             "nop" => self.emit_byte(u8::from(Nop)),
@@ -407,6 +408,22 @@ impl Assembler<'_> {
             Register(reg) => self.emit_byte(u8::from(Inc(reg)))?,
             other => bail!("expected register or indirect address, got {other}"),
         }
+        Ok(())
+    }
+
+    /// Generates a jump instruction.
+    ///
+    /// # Errors
+    ///
+    /// * Missing or invalid label or address.
+    pub fn gen_jmp(&mut self) -> Result<()> {
+        let addr = match self.next_token()? {
+            Identifier(label) => self.resolve_label(&label)?,
+            WordLiteral(addr) => addr,
+            other => bail!("expected label or address, got {other}"),
+        };
+        self.emit_byte(u8::from(Jmp))?;
+        self.emit_word(addr)?;
         Ok(())
     }
 
@@ -796,6 +813,7 @@ impl Iterator for Disassembler<'_> {
                 Inc(reg) => format!("inc {reg}"),
                 IncIndirect => self.format_inc_indirect(),
                 IncMem => format!("inc ({})", self.format_word()),
+                Jmp => format!("jmp {}", self.format_word()),
                 LdRegImm(reg) => format!("ld {reg}, {}", self.format_op_for_reg(reg)),
                 LdRegIndirect => self.format_ld_reg_indirect(),
                 LdRegReg => self.format_ld_reg_reg(),
@@ -1313,6 +1331,7 @@ mod tests {
             ("inc (cd)", &[u8::from(IncIndirect), 0x90]),
             ("inc a", &[u8::from(Inc(A))]),
             ("inc ef", &[u8::from(Inc(EF))]),
+            ("jmp 0x1234", &[u8::from(Jmp), 0x34, 0x12]),
             ("ld (ef), a", &[u8::from(StoreRegIndirect), 0x0A]),
             ("ld 0x00AF, h", &[u8::from(StoreRegDirect(H)), 0xAF, 0x00]),
             ("ld a, b", &[u8::from(LdRegReg), 0x10]),
@@ -1379,6 +1398,9 @@ mod tests {
             "inc 0x0000",
             "inc ax",
             "inc",
+            "jmp",
+            "jmp ab",
+            "jmp 0x01",
             "ld (0x0), b",
             "ld 0x0000",
             "ld 0x0000, ",

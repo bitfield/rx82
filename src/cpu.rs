@@ -325,6 +325,11 @@ impl Cpu {
         self.state = WaitInc(addr);
     }
 
+    /// Jumps to address `addr`.
+    pub fn jmp(&mut self, addr: u16) {
+        self.pc = addr;
+    }
+
     /// Executes a load register indirect instruction.
     pub fn ld_reg_indirect(&mut self, bus: &mut Bus) {
         if let Some((source, target)) = source_and_target_from(self.op_lo) {

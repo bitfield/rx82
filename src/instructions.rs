@@ -41,6 +41,8 @@ pub enum InstructionKind {
     IncIndirect,
     /// Increment a memory location.
     IncMem,
+    /// Far jump.
+    Jmp,
     /// Load a register with an immediate operand.
     LdRegImm(Reg),
     /// Load a register from an indirect address in another register.
@@ -96,6 +98,7 @@ impl Display for InstructionKind {
                 Inc(reg) => format!("inc {reg}"),
                 IncIndirect => "inc (RR)".to_owned(),
                 IncMem => "inc (NN)".to_owned(),
+                Jmp => "jmp".to_owned(),
                 LdRegImm(reg) => format!("ld {reg}, {}", if reg.is16() { "NN" } else { "N" }),
                 LdRegIndirect => "ld R, (RR)".to_owned(),
                 LdRegReg => "ld R, R".to_owned(),
@@ -153,6 +156,7 @@ impl TryFrom<u8> for InstructionKind {
             0xF2 => BranchNe,
             0xF3 => BranchCs,
             0xF4 => BranchCc,
+            0xF7 => Jmp,
             0xF8 => Call,
             0xF9 => Trap,
             _ => bail!("invalid opcode {opcode}"),
@@ -177,6 +181,7 @@ impl From<InstructionKind> for u8 {
             DecIndirect => 0x4D,
             DecMem => 0x4E,
             Halt => 0x00,
+            Jmp => 0xF7,
             Inc(reg) => 0x30 | u8::from(reg),
             IncIndirect => 0x3D,
             IncMem => 0x3E,
@@ -218,6 +223,7 @@ impl InstructionKind {
             DecIndirect => cpu.dec_indirect(bus),
             DecMem => cpu.dec_mem(cpu.op(), bus),
             Halt => cpu.halt(),
+            Jmp => cpu.jmp(cpu.op()),
             Inc(reg) if reg.is16() => cpu.inc16(reg),
             Inc(reg) => cpu.inc(reg),
             IncIndirect => cpu.inc_indirect(bus),
@@ -256,7 +262,7 @@ impl InstructionKind {
                     One
                 }
             }
-            Call | DecMem | IncMem | StoreRegDirect(_) => Two,
+            Call | DecMem | IncMem | Jmp | StoreRegDirect(_) => Two,
         }
     }
 }
@@ -761,6 +767,21 @@ mod tests {
         assert_hex!(sys.mem.get(0x0010), 0x00, "wrong memory contents");
         assert_eq!(sys.cpu.flags.zero, true, "zero clear: inc to zero");
     }
+
+    #[test]
+    fn jmp() {
+        let mut sys = System::default();
+        sys.cpu.flags.zero = true;
+        sys.test_asm(
+            "
+            jmp LABEL
+            halt
+        LABEL:
+            halt",
+        );
+        assert_hex!(sys.cpu.pc, 0x0105, "jump not taken");
+    }
+
 
     #[test]
     fn ld_reg_imm8() {
