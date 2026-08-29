@@ -37,6 +37,9 @@ enum Command {
     },
     /// Start the interactive monitor.
     Mon {
+        /// Skip running boot ROM.
+        #[clap(long)]
+        skiprom: bool,
         /// Single-step if loading a binary file.
         #[clap(short, long)]
         step: bool,
@@ -48,6 +51,9 @@ enum Command {
     },
     /// Assemble and run a program in the monitor.
     Run {
+        /// Skip running boot ROM.
+        #[clap(long)]
+        skiprom: bool,
         /// Single-step the program.
         #[clap(short, long)]
         step: bool,
@@ -90,26 +96,38 @@ fn main() -> Result<()> {
         }
         Command::Mon {
             path: Some(path),
+            skiprom,
             step,
             turbo,
         } => {
             let program = fs::read(path)?;
             let mut mon = Monitor::default();
+            mon.skiprom = skiprom;
             mon.step = step;
             mon.sys.turbo = turbo;
             mon.run_program(&program)
         }
         Command::Mon {
-            path: None, turbo, ..
+            path: None,
+            skiprom,
+            turbo,
+            ..
         } => {
             let mut mon = Monitor::default();
+            mon.skiprom = skiprom;
+            mon.step = true;
             mon.sys.turbo = turbo;
-            mon.sys.reset();
             mon.interact()
         }
-        Command::Run { path, step, turbo } => {
+        Command::Run {
+            path,
+            skiprom,
+            step,
+            turbo,
+        } => {
             let program = assemble_source_file(&path)?;
             let mut mon = Monitor::default();
+            mon.skiprom = skiprom;
             mon.step = step;
             mon.sys.turbo = turbo;
             mon.run_program(&program)

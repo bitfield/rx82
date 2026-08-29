@@ -98,7 +98,7 @@ impl Display for InstructionKind {
                 Inc(reg) => format!("inc {reg}"),
                 IncIndirect => "inc (RR)".to_owned(),
                 IncMem => "inc (NN)".to_owned(),
-                Jmp => "jmp".to_owned(),
+                Jmp => "jmp NN".to_owned(),
                 LdRegImm(reg) => format!("ld {reg}, {}", if reg.is16() { "NN" } else { "N" }),
                 LdRegIndirect => "ld R, (RR)".to_owned(),
                 LdRegReg => "ld R, R".to_owned(),
@@ -781,7 +781,6 @@ mod tests {
         );
         assert_hex!(sys.cpu.pc, 0x0105, "jump not taken");
     }
-
 
     #[test]
     fn ld_reg_imm8() {

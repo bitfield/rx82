@@ -1,5 +1,6 @@
 /target
 tmp*.*
 *.bin
+!functional_tests/*.bin
 !rx82_rom.bin
 .DS_Store

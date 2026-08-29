@@ -38,6 +38,8 @@ pub struct Monitor {
     pub last_addr: Option<u16>,
     /// Last command entered.
     pub last_cmd: Option<Command>,
+    /// Skips running boot ROM at start.
+    pub skiprom: bool,
     /// Enables single-step mode.
     pub step: bool,
     /// The running system.
@@ -84,11 +86,14 @@ impl Monitor {
     ///
     /// If reading the user's command input fails.
     pub fn interact(&mut self) -> Result<()> {
-        println!("{BANNER}");
         self.step = true;
         self.last_cmd = Some(Step);
-        self.sys.debug_print();
+        if !self.skiprom {
+            self.sys.reset();
+        }
+        println!("{BANNER}");
         loop {
+            self.sys.debug_print();
             match self.get_command()? {
                 (Go, addr) => self.go(addr),
                 (Help, _) => self.help(),
@@ -128,18 +133,11 @@ impl Monitor {
         }
         loop {
             self.sys.tick();
-            if self.sys.cpu.state == FetchOpcode {
-                if self.sys.cpu.halt {
-                    println!("halted");
-                    break;
-                }
-                if self.step {
-                    break;
-                }
+            if self.sys.cpu.state == FetchOpcode && (self.sys.cpu.halt || self.step) {
+                break;
             }
         }
         self.last_addr = Some(self.sys.cpu.pc);
-        self.sys.debug_print();
     }
 
     /// Runs a given program.
@@ -148,7 +146,9 @@ impl Monitor {
     ///
     /// * Any errors returned by [`interact`](Self::interact).
     pub fn run_program(&mut self, program: &[u8]) -> Result<()> {
-        self.sys.reset();
+        if !self.skiprom {
+            self.sys.reset();
+        }
         self.sys.mem.load(0x0100, program)?;
         self.sys.cpu.pc = 0x0100;
         if self.step {
@@ -163,6 +163,9 @@ impl Monitor {
     pub fn step(&mut self, addr: Option<u16>) {
         self.step = true;
         self.run(addr);
+        if self.sys.cpu.halt {
+            println!("halted");
+        }
     }
 }
 
