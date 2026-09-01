@@ -605,7 +605,9 @@ impl Assembler {
         Ok(())
     }
 
-    fn new(tokens: Vec<Token>) -> Self {
+    /// Initialise the assembler.
+    #[must_use]
+    pub fn new(tokens: Vec<Token>) -> Self {
         Self {
             code: Vec::new(),
             cursor: 0,
@@ -854,6 +856,8 @@ pub enum Token {
     Identifier(String),
     /// Illegal token.
     Illegal(String),
+    /// Include directive.
+    Include(String),
     /// Assembler keyword.
     Keyword(String),
     /// Label definition.
@@ -897,6 +901,17 @@ impl<'src> Tokenizer<'src> {
         }
     }
 
+    /// Processes an include directive.
+    ///
+    /// # Errors
+    ///
+    /// * Any errors returned by [`fs::read_to_string`] for the file.
+    pub fn include(&mut self, path: &str) -> Result<Vec<Token>> {
+        let included = fs::read_to_string(path)?;
+        let tokens = Tokenizer::new(&included).tokenize()?;
+        Ok(tokens)
+    }
+
     #[must_use]
     pub fn new(source: &'src str) -> Self {
         Self {
@@ -915,11 +930,7 @@ impl<'src> Tokenizer<'src> {
     /// Reads a comment token.
     pub fn read_comment(&mut self) -> Token {
         self.chars.next(); // skip ';' prefix
-        self.skip_whitespace();
-        let comment: String =
-            iter::from_fn(|| self.chars.next_if(|&ch| ch != '\r' && ch != '\n')).collect();
-        self.chars.next_if(|&ch| ch == '\n'); // extra trailing newline on Windows
-        Comment(comment)
+        Comment(self.read_rest_of_line())
     }
 
     /// Reads a hex literal token.
@@ -951,6 +962,7 @@ impl<'src> Tokenizer<'src> {
         self.debug_print(format!("ident: {ident}"));
         match ident.as_str() {
             _ if let Ok(reg) = Reg::from_str(&ident) => Register(reg),
+            "include" => Include(self.read_rest_of_line()),
             kw if KEYWORDS.contains(&kw) => Keyword(ident),
             label if let Some(&':') = self.chars.peek() => {
                 self.chars.next();
@@ -958,6 +970,12 @@ impl<'src> Tokenizer<'src> {
             }
             _ => Identifier(ident),
         }
+    }
+
+    /// Reads the remainder of the current line.
+    pub fn read_rest_of_line(&mut self) -> String {
+        self.skip_whitespace();
+        iter::from_fn(|| self.chars.next_if(|&ch| ch != '\r' && ch != '\n')).collect()
     }
 
     /// Reads a string literal token.
@@ -984,7 +1002,11 @@ impl<'src> Tokenizer<'src> {
     }
 
     /// Scans tokens from the source code.
-    pub fn tokenize(&mut self) -> Vec<Token> {
+    ///
+    /// # Errors
+    ///
+    /// * If processing an `include` directive fails.
+    pub fn tokenize(&mut self) -> Result<Vec<Token>> {
         let mut tokens = Vec::new();
         self.skip_whitespace();
         while let Some(next_char) = self.chars.peek() {
@@ -1001,10 +1023,14 @@ impl<'src> Tokenizer<'src> {
                 ch => self.read_token(Illegal(ch.to_string())),
             };
             self.debug_print(format!("token: {token}"));
-            tokens.push(token);
+            if let Include(path) = token {
+                tokens.extend(self.include(&path)?);
+            } else {
+                tokens.push(token);
+            }
             self.skip_whitespace();
         }
-        tokens
+        Ok(tokens)
     }
 }
 
@@ -1024,7 +1050,7 @@ pub fn as_hex(data: &[u8]) -> String {
 ///
 /// * Syntax errors.
 pub fn assemble(source: &str) -> Result<Vec<u8>> {
-    let tokens = Tokenizer::new(source).tokenize();
+    let tokens = Tokenizer::new(source).tokenize()?;
     Assembler::new(tokens).assemble()
 }
 
@@ -1034,7 +1060,7 @@ pub fn assemble(source: &str) -> Result<Vec<u8>> {
 ///
 /// * Syntax errors.
 pub fn assemble_with_debug(source: &str) -> Result<Vec<u8>> {
-    let tokens = Tokenizer::new_with_debug(source).tokenize();
+    let tokens = Tokenizer::new_with_debug(source).tokenize()?;
     let mut asm = Assembler::new(tokens);
     asm.debug = true;
     asm.assemble()
@@ -1048,7 +1074,7 @@ pub fn assemble_with_debug(source: &str) -> Result<Vec<u8>> {
 /// * Syntax errors
 pub fn assemble_source_file(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     let source = fs::read_to_string(&path)?;
-    let tokens = Tokenizer::new(&source).tokenize();
+    let tokens = Tokenizer::new(&source).tokenize()?;
     let mut asm = Assembler::new(tokens);
     asm.path = path.as_ref().display().to_string();
     asm.assemble()
@@ -1064,14 +1090,20 @@ pub fn disassemble(code: &[u8]) -> String {
 }
 
 /// Tokenize `input`.
-#[must_use]
-pub fn tokenize(input: &str) -> Vec<Token> {
+///
+/// # Errors
+///
+/// * As for [`Tokenizer::tokenize`].
+pub fn tokenize(input: &str) -> Result<Vec<Token>> {
     Tokenizer::new(input).tokenize()
 }
 
 /// Tokenize `input` with verbose debugging.
-#[must_use]
-pub fn tokenize_with_debug(input: &str) -> Vec<Token> {
+///
+/// # Errors
+///
+/// * As for [`Tokenizer::tokenize`].
+pub fn tokenize_with_debug(input: &str) -> Result<Vec<Token>> {
     Tokenizer::new_with_debug(input).tokenize()
 }
 
@@ -1133,7 +1165,7 @@ mod tests {
     #[test]
     fn assembler_counts_lines_correctly() {
         let source = "ld a, 0xFF\ninc a\nhalt";
-        let mut asm = Assembler::new(tokenize(source));
+        let mut asm = Assembler::new(tokenize(source).unwrap());
         asm.debug = true;
         asm.assemble().unwrap();
         assert_eq!(asm.line, 3, "wrong line count");
@@ -1147,7 +1179,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let mut asm = Assembler::new(tokenize(source));
+        let mut asm = Assembler::new(tokenize(source).unwrap());
         asm.debug = true;
         asm.assemble().unwrap();
         assert_hex!(asm.resolve_label("AHEAD").unwrap(), 0x0104, "wrong address");
@@ -1158,6 +1190,14 @@ mod tests {
         let source = "ld a, 0xFF ; loop count";
         let generated = assemble_with_debug(source).unwrap();
         let object = &[u8::from(LdRegImm(Reg::A)), 0xFF];
+        assert_asm!(source, generated, object);
+    }
+
+    #[test]
+    fn assembler_includes_specified_file() {
+        let source = "include testdata/include.asm\ninc a";
+        let generated = assemble_with_debug(source).unwrap();
+        let object = &[u8::from(LdRegImm(Reg::A)), 0x01, u8::from(Inc(Reg::A))];
         assert_asm!(source, generated, object);
     }
 
