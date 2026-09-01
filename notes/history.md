@@ -39,6 +39,13 @@ For boot ROM we needed:
 [X] `data` for strings
 [X] ROM: show startup message
 
+For `to_hex` we needed:
+[X] `and R, N`
+[X] `lsr R, N`
+[X] `call` / `ret`
+[X] `add R, N`
+[X] `bcc D`
+
 Other:
 [X] Monitor: memory dump should show ROM contents
 [X] CPU: trap on illegal instruction

@@ -1,18 +1,8 @@
 For boot ROM we need:
-[ ] Assembler: `--zip` flag to generate zipped binaries
-[ ] System: include zipped ROM binary
 [ ] ROM: print decimal routine
-[ ] Asm/CPU: `sub`
-[ ] ROM: show bytes free message
+[X] Asm/CPU: `sub`
+[X] ROM: show bytes free message
 [ ] CPU: invoke monitor from trap
-[ ] Monitor: load zipped binary as ROM or user program
-
-For `to_hex` we need:
-[X] `and R, N`
-[X] `lsr R, N`
-[X] `call` / `ret`
-[X] `add R, N`
-[X] `bcc D`
 
 Use case programs to write:
 [ ] 16-bit multiply routine
@@ -24,7 +14,7 @@ Other:
 [ ] Monitor: assembly
 [ ] Monitor: modify memory
 [ ] Monitor: command history/editing (`rustyline`)
-[ ] System: “turbo mode”
+[X] System: “turbo mode”
 [ ] Assembler: define symbols (`=`)
 [ ] Assembler: format source file
 [ ] Asm: report program size
