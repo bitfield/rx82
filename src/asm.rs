@@ -1,4 +1,4 @@
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 
 use core::{
     fmt::{Debug, Display, Formatter},
@@ -25,11 +25,11 @@ pub const KEYWORDS: &[&str] = &[
 ];
 
 /// Assembles a given source program.
-pub struct Assembler<'src> {
-    /// Stores the source code being assembled.
-    pub chars: Peekable<Chars<'src>>,
+pub struct Assembler {
     /// Generated object code.
     pub code: Vec<u8>,
+    /// Next token to assemble.
+    pub cursor: usize,
     /// Enables verbose debugging.
     pub debug: bool,
     /// Label table.
@@ -42,27 +42,11 @@ pub struct Assembler<'src> {
     pub pass2: bool,
     /// Path to source file.
     pub path: String,
-    /// Source code being assembled.
-    pub source: &'src str,
+    /// Tokens to assemble.
+    pub tokens: Vec<Token>,
 }
 
-impl<'src> From<&'src str> for Assembler<'src> {
-    fn from(source: &'src str) -> Self {
-        Self {
-            chars: source.chars().peekable(),
-            code: Vec::new(),
-            debug: false,
-            labels: HashMap::new(),
-            line: 1,
-            loc: BASE,
-            pass2: false,
-            path: "input".to_owned(),
-            source,
-        }
-    }
-}
-
-impl Assembler<'_> {
+impl Assembler {
     /// Assembles the source code.
     ///
     /// # Errors
@@ -72,8 +56,8 @@ impl Assembler<'_> {
         self.pass()
             .context(format!("syntax error in {}:{}", self.path, self.line))?;
         self.code.clear();
-        self.chars = self.source.chars().peekable();
         self.pass2 = true;
+        self.cursor = 0;
         self.line = 1;
         self.loc = BASE;
         self.pass()?;
@@ -97,7 +81,7 @@ impl Assembler<'_> {
             "call" => self.gen_call(),
             "clc" => self.emit_byte(u8::from(Clc)),
             "cmp" => self.gen_cmp(),
-            "data" => self.data(),
+            "data" => self.gen_data(),
             "dec" => self.gen_dec(),
             "halt" => self.emit_byte(u8::from(Halt)),
             "inc" => self.gen_inc(),
@@ -114,40 +98,6 @@ impl Assembler<'_> {
             "sub" => self.gen_sub(),
             "trap" => self.gen_trap(),
             _ => unreachable!("unknown keyword '{kw}'"),
-        }
-    }
-
-    /// Emits literal data.
-    ///
-    /// # Errors
-    ///
-    /// * Non-ASCII character in string.
-    /// * Unexpected token.
-    pub fn data(&mut self) -> Result<()> {
-        loop {
-            match self.next_token()? {
-                ByteLiteral(byte) => self.emit_byte(byte)?,
-                Comma => {}
-                DoubleQuote => {
-                    while let Some(ch) = self.chars.next() {
-                        match ch {
-                            '"' => break,
-                            ascii if ch.is_ascii() => self.emit_byte(ascii as u8)?,
-                            other => bail!("non-ASCII character {:#04X} in string", other as u8),
-                        }
-                    }
-                }
-                Newline => break,
-                other => bail!("expected immediate byte, got {other}"),
-            }
-        }
-        Ok(())
-    }
-
-    /// Prints `msg` if in debug mode, but only in pass 1.
-    pub fn debug_print(&self, msg: impl AsRef<str>) {
-        if self.debug && !self.pass2 {
-            println!("{}", msg.as_ref());
         }
     }
 
@@ -357,6 +307,33 @@ impl Assembler<'_> {
         Ok(())
     }
 
+    /// Generates literal data.
+    ///
+    /// # Errors
+    ///
+    /// * Non-ASCII character in string.
+    /// * Unexpected token.
+    pub fn gen_data(&mut self) -> Result<()> {
+        loop {
+            match self.next_token()? {
+                ByteLiteral(byte) => self.emit_byte(byte)?,
+                Comma => {}
+                StringLiteral(string) => {
+                    for ch in string.chars() {
+                        if ch.is_ascii() {
+                            self.emit_byte(ch as u8)?;
+                        } else {
+                            bail!("non-ASCII character {:#04X} in string", ch as u8);
+                        }
+                    }
+                }
+                Newline => break,
+                other => bail!("expected immediate byte, got {other}"),
+            }
+        }
+        Ok(())
+    }
+
     /// Generates a decrement instruction.
     ///
     /// # Errors
@@ -448,7 +425,6 @@ impl Assembler<'_> {
     /// * Syntax errors.
     pub fn gen_ld_reg(&mut self, target: Reg) -> Result<()> {
         self.expect(&Comma)?;
-        self.skip_whitespace();
         match self.next_token()? {
             ByteLiteral(byte) => self.gen_ld_reg_imm8(target, byte),
             Identifier(label) => self.gen_ld_reg_imm_label(target, &label),
@@ -629,31 +605,32 @@ impl Assembler<'_> {
         Ok(())
     }
 
+    fn new(tokens: Vec<Token>) -> Self {
+        Self {
+            code: Vec::new(),
+            cursor: 0,
+            debug: false,
+            labels: HashMap::new(),
+            line: 1,
+            loc: BASE,
+            pass2: false,
+            path: "input".to_owned(),
+            tokens,
+        }
+    }
+
     /// Scans and returns the next token from the source code.
     ///
     /// # Errors
     ///
     /// * Unexpected end of input.
     pub fn next_token(&mut self) -> Result<Token> {
-        self.skip_whitespace();
-        if let Some(next_char) = self.chars.peek() {
-            let next = *next_char;
-            let token = match next {
-                '"' => self.read_token(DoubleQuote),
-                '(' => self.read_token(ParenOpen),
-                ')' => self.read_token(ParenClose),
-                ',' => self.read_token(Comma),
-                '0' => self.read_hex_literal(),
-                ';' => self.read_comment(),
-                '\n' => self.read_token(Newline),
-                ch if ch.is_alphabetic() => self.read_identifier(),
-                ch => self.read_token(Illegal(ch.to_string())),
-            };
-            self.debug_print(format!("token: {token}"));
-            Ok(token)
-        } else {
-            bail!("unexpected end of input")
-        }
+        let token = self
+            .tokens
+            .get(self.cursor)
+            .ok_or(anyhow!("unexpected end of input"))?;
+        self.cursor = self.cursor.strict_add(1);
+        Ok(token.clone())
     }
 
     /// Processes an org directive.
@@ -699,60 +676,6 @@ impl Assembler<'_> {
         Ok(())
     }
 
-    /// Reads a comment token.
-    pub fn read_comment(&mut self) -> Token {
-        self.chars.next(); // skip ';' prefix
-        self.skip_whitespace();
-        let comment: String =
-            iter::from_fn(|| self.chars.next_if(|&ch| ch != '\r' && ch != '\n')).collect();
-        self.chars.next_if(|&ch| ch == '\n'); // extra trailing newline on Windows
-        Comment(comment)
-    }
-
-    /// Reads a hex literal token.
-    pub fn read_hex_literal(&mut self) -> Token {
-        self.chars.next();
-        self.chars.next(); // skip "0x" prefix
-        let literal: String =
-            iter::from_fn(|| self.chars.next_if(char::is_ascii_hexdigit)).collect();
-        match literal.len() {
-            2 => match u8::from_str_radix(&literal, 16) {
-                Ok(val) => ByteLiteral(val),
-                Err(_) => Illegal(literal),
-            },
-            4 => match u16::from_str_radix(&literal, 16) {
-                Ok(val) => WordLiteral(val),
-                Err(_) => Illegal(literal),
-            },
-            _ => Illegal(literal),
-        }
-    }
-
-    /// Reads an identifier, register name, or keyword.
-    pub fn read_identifier(&mut self) -> Token {
-        let ident: String = iter::from_fn(|| {
-            self.chars
-                .next_if(|&ch| ch.is_ascii_alphanumeric() || ch == '_')
-        })
-        .collect();
-        self.debug_print(format!("ident: {ident}"));
-        match ident.as_str() {
-            _ if let Ok(reg) = Reg::from_str(&ident) => Register(reg),
-            kw if KEYWORDS.contains(&kw) => Keyword(ident),
-            label if let Some(&':') = self.chars.peek() => {
-                self.chars.next();
-                LabelDef(label.to_owned())
-            }
-            _ => Identifier(ident),
-        }
-    }
-
-    /// Reads a given token.
-    pub fn read_token(&mut self, token: Token) -> Token {
-        self.chars.next();
-        token
-    }
-
     /// Returns the value associated with `label`.
     ///
     /// # Errors
@@ -764,15 +687,6 @@ impl Assembler<'_> {
             None if self.pass2 => bail!("undefined label {label}"),
             None => 0,
         })
-    }
-
-    /// Advances to the next non-whitespace, non-newline character.
-    pub fn skip_whitespace(&mut self) {
-        while self
-            .chars
-            .next_if(|&ch| ch.is_whitespace() && ch != '\n')
-            .is_some()
-        {}
     }
 }
 
@@ -928,7 +842,7 @@ impl<'code> Disassembler<'code> {
 }
 
 /// A source code token.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     /// Hexadecimal byte literal (`0x00`).
     ByteLiteral(u8),
@@ -936,8 +850,6 @@ pub enum Token {
     Comma,
     /// Comment.
     Comment(String),
-    /// Double quote character (`"`).
-    DoubleQuote,
     /// Identifier.
     Identifier(String),
     /// Illegal token.
@@ -954,6 +866,8 @@ pub enum Token {
     ParenOpen,
     /// Register name.
     Register(Reg),
+    /// String literal.
+    StringLiteral(String),
     /// Hexadecimal word literal (`0x0000`).
     WordLiteral(u16),
 }
@@ -965,6 +879,132 @@ impl Display for Token {
             WordLiteral(word) => write!(f, "WordLiteral({word:#06X})"),
             _ => Debug::fmt(self, f),
         }
+    }
+}
+
+pub struct Tokenizer<'src> {
+    /// Stores the source code being assembled.
+    pub chars: Peekable<Chars<'src>>,
+    /// Debug mode.
+    pub debug: bool,
+}
+
+impl<'src> Tokenizer<'src> {
+    /// Prints `msg` if in debug mode.
+    pub fn debug_print(&self, msg: impl AsRef<str>) {
+        if self.debug {
+            println!("{}", msg.as_ref());
+        }
+    }
+
+    #[must_use]
+    pub fn new(source: &'src str) -> Self {
+        Self {
+            debug: false,
+            chars: source.chars().peekable(),
+        }
+    }
+
+    #[must_use]
+    pub fn new_with_debug(source: &'src str) -> Self {
+        let mut tokenizer = Self::new(source);
+        tokenizer.debug = true;
+        tokenizer
+    }
+
+    /// Reads a comment token.
+    pub fn read_comment(&mut self) -> Token {
+        self.chars.next(); // skip ';' prefix
+        self.skip_whitespace();
+        let comment: String =
+            iter::from_fn(|| self.chars.next_if(|&ch| ch != '\r' && ch != '\n')).collect();
+        self.chars.next_if(|&ch| ch == '\n'); // extra trailing newline on Windows
+        Comment(comment)
+    }
+
+    /// Reads a hex literal token.
+    pub fn read_hex_literal(&mut self) -> Token {
+        self.chars.next();
+        self.chars.next(); // skip "0x" prefix
+        let literal: String =
+            iter::from_fn(|| self.chars.next_if(char::is_ascii_hexdigit)).collect();
+        match literal.len() {
+            2 => match u8::from_str_radix(&literal, 16) {
+                Ok(val) => ByteLiteral(val),
+                Err(_) => Illegal(literal),
+            },
+            4 => match u16::from_str_radix(&literal, 16) {
+                Ok(val) => WordLiteral(val),
+                Err(_) => Illegal(literal),
+            },
+            _ => Illegal(literal),
+        }
+    }
+
+    /// Reads an identifier, register name, or keyword.
+    pub fn read_identifier(&mut self) -> Token {
+        let ident: String = iter::from_fn(|| {
+            self.chars
+                .next_if(|&ch| ch.is_ascii_alphanumeric() || ch == '_')
+        })
+        .collect();
+        self.debug_print(format!("ident: {ident}"));
+        match ident.as_str() {
+            _ if let Ok(reg) = Reg::from_str(&ident) => Register(reg),
+            kw if KEYWORDS.contains(&kw) => Keyword(ident),
+            label if let Some(&':') = self.chars.peek() => {
+                self.chars.next();
+                LabelDef(label.to_owned())
+            }
+            _ => Identifier(ident),
+        }
+    }
+
+    /// Reads a string literal token.
+    pub fn read_string(&mut self) -> Token {
+        self.chars.next(); // skip opening " delimiter
+        let string: String = iter::from_fn(|| self.chars.next_if(|&ch| ch != '"')).collect();
+        self.chars.next(); // skip closing " delimiter
+        StringLiteral(string)
+    }
+
+    /// Reads a given token.
+    pub fn read_token(&mut self, token: Token) -> Token {
+        self.chars.next();
+        token
+    }
+
+    /// Advances to the next non-whitespace, non-newline character.
+    pub fn skip_whitespace(&mut self) {
+        while self
+            .chars
+            .next_if(|&ch| ch.is_whitespace() && ch != '\n')
+            .is_some()
+        {}
+    }
+
+    /// Scans tokens from the source code.
+    pub fn tokenize(&mut self) -> Vec<Token> {
+        let mut tokens = Vec::new();
+        self.skip_whitespace();
+        while let Some(next_char) = self.chars.peek() {
+            let next = *next_char;
+            let token = match next {
+                '"' => self.read_string(),
+                '(' => self.read_token(ParenOpen),
+                ')' => self.read_token(ParenClose),
+                ',' => self.read_token(Comma),
+                '0' => self.read_hex_literal(),
+                ';' => self.read_comment(),
+                '\n' => self.read_token(Newline),
+                ch if ch.is_alphabetic() => self.read_identifier(),
+                ch => self.read_token(Illegal(ch.to_string())),
+            };
+            self.debug_print(format!("token: {token}"));
+            tokens.push(token);
+            self.skip_whitespace();
+        }
+        tokens
     }
 }
 
@@ -984,7 +1024,8 @@ pub fn as_hex(data: &[u8]) -> String {
 ///
 /// * Syntax errors.
 pub fn assemble(source: &str) -> Result<Vec<u8>> {
-    Assembler::from(source).assemble()
+    let tokens = Tokenizer::new(source).tokenize();
+    Assembler::new(tokens).assemble()
 }
 
 /// Assembles `source` with debug output.
@@ -993,7 +1034,8 @@ pub fn assemble(source: &str) -> Result<Vec<u8>> {
 ///
 /// * Syntax errors.
 pub fn assemble_with_debug(source: &str) -> Result<Vec<u8>> {
-    let mut asm = Assembler::from(source);
+    let tokens = Tokenizer::new_with_debug(source).tokenize();
+    let mut asm = Assembler::new(tokens);
     asm.debug = true;
     asm.assemble()
 }
@@ -1006,7 +1048,8 @@ pub fn assemble_with_debug(source: &str) -> Result<Vec<u8>> {
 /// * Syntax errors
 pub fn assemble_source_file(path: impl AsRef<Path>) -> Result<Vec<u8>> {
     let source = fs::read_to_string(&path)?;
-    let mut asm = Assembler::from(source.as_str());
+    let tokens = Tokenizer::new(&source).tokenize();
+    let mut asm = Assembler::new(tokens);
     asm.path = path.as_ref().display().to_string();
     asm.assemble()
 }
@@ -1018,6 +1061,18 @@ pub fn assemble_source_file(path: impl AsRef<Path>) -> Result<Vec<u8>> {
 pub fn disassemble(code: &[u8]) -> String {
     let mut dis = Disassembler::from(code);
     dis.next().unwrap_or_default()
+}
+
+/// Tokenize `input`.
+#[must_use]
+pub fn tokenize(input: &str) -> Vec<Token> {
+    Tokenizer::new(input).tokenize()
+}
+
+/// Tokenize `input` with verbose debugging.
+#[must_use]
+pub fn tokenize_with_debug(input: &str) -> Vec<Token> {
+    Tokenizer::new_with_debug(input).tokenize()
 }
 
 #[cfg(test)]
@@ -1078,7 +1133,7 @@ mod tests {
     #[test]
     fn assembler_counts_lines_correctly() {
         let source = "ld a, 0xFF\ninc a\nhalt";
-        let mut asm = Assembler::from(source);
+        let mut asm = Assembler::new(tokenize(source));
         asm.debug = true;
         asm.assemble().unwrap();
         assert_eq!(asm.line, 3, "wrong line count");
@@ -1092,7 +1147,7 @@ mod tests {
     AHEAD:
         halt
 ";
-        let mut asm = Assembler::from(source);
+        let mut asm = Assembler::new(tokenize(source));
         asm.debug = true;
         asm.assemble().unwrap();
         assert_hex!(asm.resolve_label("AHEAD").unwrap(), 0x0104, "wrong address");
