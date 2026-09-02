@@ -204,8 +204,8 @@ impl Device for Cpu {
 impl Cpu {
     /// Add with carry.
     pub fn add(&mut self, reg: Reg, addend: u8) {
-        let value = self.regs.get(reg);
-        let (result1, carry1) = value.overflowing_add(addend);
+        let augend = self.regs.get(reg);
+        let (result1, carry1) = augend.overflowing_add(addend);
         let carry_in = u8::from(self.flags.carry);
         let (result2, carry2) = result1.overflowing_add(carry_in);
         self.flags.carry = carry1 || carry2;
@@ -455,8 +455,8 @@ impl Cpu {
 
     /// Subtract with carry.
     pub fn sub(&mut self, reg: Reg, subtrahend: u8) {
-        let value = self.regs.get(reg);
-        let (result1, borrow1) = value.overflowing_sub(subtrahend);
+        let minuend = self.regs.get(reg);
+        let (result1, borrow1) = minuend.overflowing_sub(subtrahend);
         let borrow_in = u8::from(!self.flags.carry);
         let (result2, borrow2) = result1.overflowing_sub(borrow_in);
         self.flags.carry = !(borrow1 || borrow2);
