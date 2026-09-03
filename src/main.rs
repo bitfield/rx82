@@ -22,13 +22,13 @@ struct Cli {
 enum Command {
     /// Assemble a source file.
     Asm {
-        /// Path to the source file.
-        path: PathBuf,
+        /// Paths to the source files.
+        paths: Vec<PathBuf>,
     },
     /// Disassemble a binary file.
     Dis {
-        /// Path to the binary file.
-        path: PathBuf,
+        /// Paths to the binary files.
+        paths: Vec<PathBuf>,
     },
     /// Generate documentation.
     Doc {
@@ -43,8 +43,8 @@ enum Command {
         /// Single-step if loading a binary file.
         #[clap(short, long)]
         step: bool,
-        /// Path to a binary file to load.
-        path: Option<PathBuf>,
+        /// Paths to binary files to run.
+        paths: Option<Vec<PathBuf>>,
         /// Full host-native speed.
         #[clap(short, long)]
         turbo: bool,
@@ -57,8 +57,8 @@ enum Command {
         /// Single-step the program.
         #[clap(short, long)]
         step: bool,
-        /// Path to the source file.
-        path: PathBuf,
+        /// Paths to the source files.
+        paths: Vec<PathBuf>,
         /// Full host-native speed.
         #[clap(short, long)]
         turbo: bool,
@@ -74,17 +74,21 @@ enum DocCommand {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Asm { path } => {
-            let data = assemble_source_file(&path)?;
-            let mut bin_path = path.clone();
-            bin_path.set_extension("bin");
-            fs::write(bin_path, data)?;
+        Command::Asm { paths } => {
+            for path in paths {
+                let data = assemble_source_file(&path)?;
+                let mut bin_path = path.clone();
+                bin_path.set_extension("bin");
+                fs::write(bin_path, data)?;
+            }
             Ok(())
         }
-        Command::Dis { path } => {
-            let code = fs::read(&path)?;
-            for source in Disassembler::from(code.as_slice()) {
-                println!("    {source}");
+        Command::Dis { paths } => {
+            for path in paths {
+                let code = fs::read(&path)?;
+                for source in Disassembler::from(code.as_slice()) {
+                    println!("    {source}");
+                }
             }
             Ok(())
         }
@@ -95,20 +99,23 @@ fn main() -> Result<()> {
             Ok(())
         }
         Command::Mon {
-            path: Some(path),
+            paths: Some(paths),
             skiprom,
             step,
             turbo,
         } => {
-            let program = fs::read(path)?;
-            let mut mon = Monitor::default();
-            mon.skiprom = skiprom;
-            mon.step = step;
-            mon.sys.turbo = turbo;
-            mon.run_program(&program)
+            for path in paths {
+                let program = fs::read(path)?;
+                let mut mon = Monitor::default();
+                mon.skiprom = skiprom;
+                mon.step = step;
+                mon.sys.turbo = turbo;
+                mon.run_program(&program)?;
+            }
+            Ok(())
         }
         Command::Mon {
-            path: None,
+            paths: None,
             skiprom,
             turbo,
             ..
@@ -120,17 +127,20 @@ fn main() -> Result<()> {
             mon.interact()
         }
         Command::Run {
-            path,
+            paths,
             skiprom,
             step,
             turbo,
         } => {
-            let program = assemble_source_file(&path)?;
-            let mut mon = Monitor::default();
-            mon.skiprom = skiprom;
-            mon.step = step;
-            mon.sys.turbo = turbo;
-            mon.run_program(&program)
+            for path in paths {
+                let program = assemble_source_file(&path)?;
+                let mut mon = Monitor::default();
+                mon.skiprom = skiprom;
+                mon.step = step;
+                mon.sys.turbo = turbo;
+                mon.run_program(&program)?;
+            }
+            Ok(())
         }
     }
 }
