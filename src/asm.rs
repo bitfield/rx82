@@ -6,7 +6,11 @@ use core::{
     slice::Iter,
     str::{Chars, FromStr as _},
 };
-use std::{collections::HashMap, fs, path::Path};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     instructions::InstructionKind::{self, *},
@@ -891,6 +895,8 @@ pub struct Tokenizer<'src> {
     pub chars: Peekable<Chars<'src>>,
     /// Debug mode.
     pub debug: bool,
+    /// Working directory (used to find included files).
+    pub dir: Option<PathBuf>,
 }
 
 impl<'src> Tokenizer<'src> {
@@ -905,11 +911,15 @@ impl<'src> Tokenizer<'src> {
     ///
     /// # Errors
     ///
-    /// * Any errors returned by [`fs::read_to_string`] for the file.
-    pub fn include(&mut self, path: &str) -> Result<Vec<Token>> {
-        let included = fs::read_to_string(path)?;
-        let tokens = Tokenizer::new(&included).tokenize()?;
-        Ok(tokens)
+    /// * Any errors returned by [`tokenize_source_file`].
+    pub fn include(&mut self, raw_path: &str) -> Result<Vec<Token>> {
+        let mut path = PathBuf::from(raw_path);
+        if path.is_relative()
+            && let Some(parent) = self.dir.clone()
+        {
+            path = parent.join(path);
+        }
+        tokenize_source_file(&path)
     }
 
     #[must_use]
@@ -917,6 +927,7 @@ impl<'src> Tokenizer<'src> {
         Self {
             debug: false,
             chars: source.chars().peekable(),
+            dir: None,
         }
     }
 
@@ -1073,8 +1084,7 @@ pub fn assemble_with_debug(source: &str) -> Result<Vec<u8>> {
 /// * File read errors
 /// * Syntax errors
 pub fn assemble_source_file(path: impl AsRef<Path>) -> Result<Vec<u8>> {
-    let source = fs::read_to_string(&path)?;
-    let tokens = Tokenizer::new(&source).tokenize()?;
+    let tokens = tokenize_source_file(&path)?;
     let mut asm = Assembler::new(tokens);
     asm.path = path.as_ref().display().to_string();
     asm.assemble()
@@ -1096,6 +1106,21 @@ pub fn disassemble(code: &[u8]) -> String {
 /// * As for [`Tokenizer::tokenize`].
 pub fn tokenize(input: &str) -> Result<Vec<Token>> {
     Tokenizer::new(input).tokenize()
+}
+
+/// Tokenize source file at `path`.
+///
+/// # Errors
+///
+/// * Any errors returned by [`fs::read_to_string`].
+pub fn tokenize_source_file(path: impl AsRef<Path>) -> Result<Vec<Token>> {
+    let path = path.as_ref();
+    let source = fs::read_to_string(path).context(format!("{}", path.display()))?;
+    let mut tokenizer = Tokenizer::new(&source);
+    if let Some(parent) = path.parent() {
+        tokenizer.dir = Some(PathBuf::from(parent));
+    }
+    tokenizer.tokenize()
 }
 
 /// Tokenize `input` with verbose debugging.
@@ -1195,9 +1220,16 @@ mod tests {
 
     #[test]
     fn assembler_includes_specified_file() {
+        use Reg::A;
         let source = "include testdata/include.asm\ninc a";
         let generated = assemble_with_debug(source).unwrap();
-        let object = &[u8::from(LdRegImm(Reg::A)), 0x01, u8::from(Inc(Reg::A))];
+        let object = &[
+            u8::from(LdRegImm(A)),
+            0x01,
+            u8::from(Dec(A)),
+            u8::from(Nop),
+            u8::from(Inc(A)),
+        ];
         assert_asm!(source, generated, object);
     }
 
