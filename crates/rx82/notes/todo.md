@@ -8,6 +8,9 @@ Use case programs to write:
 [ ] 16-bit multiply routine
 [ ] Print status flags
 
+For complete emulator we need:
+[ ] CPU: push / pop `ps` on `trap` / `rti`
+
 Other:
 [ ] Monitor: bus tracing
 [ ] Monitor: disassembly

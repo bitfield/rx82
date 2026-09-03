@@ -1,0 +1,24 @@
+[package]
+name = "r8cpu"
+version = "0.1.0"
+edition = "2024"
+authors = ["John Arundel <john@bitfieldconsulting.com>"]
+description = """Support for the R8 fantasy retro CPU architecture."""
+keywords = ["emulator", "emulation", "R8", "RX82", "retrocomputing"]
+categories = ["emulators"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/r8cpu"
+homepage = "https://github.com/bitfield/r8/crates/r8cpu"
+repository = "https://github.com/bitfield/r8"
+exclude = ["/.github/"]
+
+[badges]
+github = { repository = "bitfield/r8", workflow = "CI" }
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+anyhow = { workspace = true }
+
+[lints]
+workspace = true

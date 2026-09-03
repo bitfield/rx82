@@ -2,13 +2,14 @@ use anyhow::Result;
 
 use core::fmt::Write as _;
 
+use r8asm::{assemble, disassemble};
+use r8cpu::regs::Reg::*;
+
 use crate::{
-    asm::{assemble, disassemble},
     bus::Bus,
     clock::Clock,
     cpu::{Cpu, State},
     memory::Memory,
-    regs::Reg::*,
     rom::Rom,
 };
 
@@ -296,7 +297,7 @@ impl System {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instructions::InstructionKind::*;
+    use r8cpu::instructions::InstructionKind::*;
 
     #[test]
     fn trace_formatting_copes_with_long_lines() {

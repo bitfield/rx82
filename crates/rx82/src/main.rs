@@ -3,11 +3,8 @@ use clap::{Parser, Subcommand};
 
 use std::{fs, path::PathBuf};
 
-use rx82::{
-    asm::{Disassembler, assemble_source_file},
-    doc::opcodes,
-    monitor::Monitor,
-};
+use r8asm::{Disassembler, assemble_source_file};
+use rx82::{doc::opcodes, monitor::Monitor};
 
 use crate::DocCommand::Opcodes;
 

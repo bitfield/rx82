@@ -43,7 +43,8 @@ impl Rom {
 
 #[cfg(test)]
 mod tests {
-    use crate::{regs::Reg::A, system::System};
+    use crate::system::System;
+    use r8cpu::regs::Reg::A;
 
     use super::*;
 

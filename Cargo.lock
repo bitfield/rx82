@@ -141,11 +141,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "r8asm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "r8cpu",
+]
+
+[[package]]
+name = "r8cpu"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "rx82"
 version = "0.5.0"
 dependencies = [
  "anyhow",
  "clap",
+ "r8asm",
+ "r8cpu",
 ]
 
 [[package]]

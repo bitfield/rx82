@@ -1,0 +1,26 @@
+[package]
+name = "r8asm"
+version = "0.1.0"
+edition = "2024"
+authors = ["John Arundel <john@bitfieldconsulting.com>"]
+description = """An assembler for the R8 fantasy retro CPU."""
+keywords = ["assembler", "disassembler", "R8", "RX82", "retrocomputing"]
+categories = ["encoding", "hardware support"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/r8asm"
+homepage = "https://github.com/bitfield/r8/crates/r8asm"
+repository = "https://github.com/bitfield/r8"
+exclude = ["/.github/"]
+
+[badges]
+github = { repository = "bitfield/r8", workflow = "CI" }
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+r8cpu = { path = "../r8cpu" }
+
+[lints]
+workspace = true

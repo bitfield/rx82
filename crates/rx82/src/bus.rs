@@ -75,9 +75,9 @@ impl Bus {
 
 #[cfg(test)]
 mod tests {
+    use crate::system::System;
     use anyhow::{Result, ensure};
-
-    use crate::{asm::assemble_with_debug, system::System};
+    use r8asm::assemble_with_debug;
 
     use super::*;
 

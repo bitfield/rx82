@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{
+use r8cpu::{
     instructions::InstructionKind::{self, *},
     regs::{self, Reg, source_and_target_from, source_from, u8_from},
 };
