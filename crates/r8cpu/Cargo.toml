@@ -1,6 +1,6 @@
 [package]
 name = "r8cpu"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["John Arundel <john@bitfieldconsulting.com>"]
 description = """Support for the R8 fantasy retro CPU architecture."""
@@ -9,8 +9,8 @@ categories = ["emulators"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://docs.rs/r8cpu"
-homepage = "https://github.com/bitfield/r8/crates/r8cpu"
-repository = "https://github.com/bitfield/r8"
+homepage = "https://github.com/bitfield/r8/tree/main/crates/r8cpu"
+repository = "https://github.com/bitfield/r8/tree/main/crates/r8cpu"
 exclude = ["/.github/"]
 
 [badges]

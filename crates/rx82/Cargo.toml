@@ -1,6 +1,6 @@
 [package]
 name = "rx82"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 authors = ["John Arundel <john@bitfieldconsulting.com>"]
 description = """An emulator for the RX82 fantasy retro computer system."""
@@ -9,8 +9,8 @@ categories = ["emulators"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://docs.rs/rx82"
-homepage = "https://github.com/bitfield/r8/crates/rx82"
-repository = "https://github.com/bitfield/r8"
+homepage = "https://github.com/bitfield/r8/tree/main/crates/rx82"
+repository = "https://github.com/bitfield/r8/tree/main/crates/rx82"
 exclude = ["/.github/"]
 
 [badges]
@@ -20,8 +20,8 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true }
-r8cpu = { path = "../r8cpu" }
-r8asm = { path = "../r8asm" }
+r8cpu = { path = "../r8cpu", version = "0.1.1" }
+r8asm = { path = "../r8asm", version = "0.1.0" }
 
 [lints]
 workspace = true

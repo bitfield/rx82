@@ -151,14 +151,14 @@ dependencies = [
 
 [[package]]
 name = "r8cpu"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
 ]
 
 [[package]]
 name = "rx82"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "clap",
